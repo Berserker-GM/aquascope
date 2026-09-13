@@ -434,6 +434,7 @@ Thanks to these wonderful people who make AquaScope possible ([emoji key](CONTRI
     <tr>
       <td align="center" valign="top" width="20%"><a href="https://github.com/mohanasrujana"><img src="https://avatars.githubusercontent.com/u/59142214?v=4?s=100" width="100px;" alt="Satya Srujana Pilli"/><br /><sub><b>Satya Srujana Pilli</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/itsnevu"><img src="https://avatars.githubusercontent.com/u/129736887?v=4?s=100" width="100px;" alt="0x"/><br /><sub><b>0x</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=itsnevu" title="Code">💻</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://travelsafepilot.com"><img src="https://avatars.githubusercontent.com/u/241781992?v=4?s=100" width="100px;" alt="bazinga0027-gif"/><br /><sub><b>bazinga0027-gif</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Tests">⚠️</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
