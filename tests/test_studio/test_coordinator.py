@@ -34,15 +34,15 @@ def test_keyless_end_to_end_say_plan_approve_report_export(studio_factory, tmp_p
     assert any(e["event"] == "deliverables_unavailable" for e in events)
     paths = s.export(tmp_path / "out")
     assert set(paths) == {"report.md", "study.yaml", "report.json", "workspace.json"}
-    md = (tmp_path / "out" / "report.md").read_text()
+    md = (tmp_path / "out" / "report.md").read_text(encoding="utf-8")
     assert "## Methodology" in md and "520 m3/s" in md and "Model calls: 0" in md
     # the study replays with no model and lands on the same results
-    back = loads((tmp_path / "out" / "study.yaml").read_text())
+    back = loads((tmp_path / "out" / "study.yaml").read_text(encoding="utf-8"))
     assert back.version == 3 and back.plan["objective"] == PROBLEM
     with patched():
         rerun = run_study(back)
     assert rerun.ok and [r["sha256"] for r in rerun.results] == [r["sha256"] for r in ws.run["results"]]
-    saved = json.loads((tmp_path / "out" / "workspace.json").read_text())
+    saved = json.loads((tmp_path / "out" / "workspace.json").read_text(encoding="utf-8"))
     assert saved["status"] == "done" and saved["study"]["version"] == 3
 
 

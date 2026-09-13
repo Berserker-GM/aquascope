@@ -83,7 +83,7 @@ def test_the_tree_scores_every_task_on_its_own_keys(suite, tmp_path):
     assert events[0].startswith("[1/9] flood_risk-") and "correct" in events[1]
     md = gb.leaderboard(results, out=tmp_path / "board.md", title="smoke")
     assert md.startswith("## smoke") and "| tree | none | 9 (6 + 3) | 100 % |" in md and "100 %" in md
-    assert "at_site" in md and gb.PRICES_NOTE in md and (tmp_path / "board.md").read_text().startswith("## smoke")
+    assert "at_site" in md and gb.PRICES_NOTE in md and (tmp_path / "board.md").read_text(encoding="utf-8").startswith("## smoke")
 
 
 def test_a_scripted_team_run_is_scored_and_its_tokens_counted(suite):
@@ -170,7 +170,7 @@ def test_a_caveat_is_not_a_refusal_but_stopping_at_the_reconnaissance_is(suite, 
     assert not c.answer_present and c.detail["out_of_steps"] and not c.correct and c.answer == ""
     # a tasks file next to the result files is skipped by the loader
     path = tmp_path / "r.jsonl"
-    path.write_text(json.dumps(a.to_dict()) + "\n" + json.dumps(well.to_dict()) + "\n")
+    path.write_text(json.dumps(a.to_dict()) + "\n" + json.dumps(well.to_dict()) + "\n", encoding="utf-8")
     assert [r.task_id for r in gb.load_results([path])] == [a.task_id]
 
 
@@ -286,10 +286,10 @@ def test_a_resumed_run_skips_finished_rows_replays_errors_and_the_latest_row_win
     assert [r.task_id for r in more] == calls == [t.id for t in suite[3:5]], "the three finished rows are skipped"
     assert events[0] == f"resuming: 3 of 5 tasks already have a row in {out}"
     # an error row is played again on resume, and the loader keeps the newer row
-    rows = [json.loads(line) for line in out.read_text().splitlines()]
+    rows = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
     rows[0]["error"] = "TimeoutError: no result within 1 s"
     rows[0]["correct"] = False
-    out.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    out.write_text("\n".join(json.dumps(r) for r in rows) + "\n", encoding="utf-8")
     calls.clear()
     again = gb.run_bench(suite[:5], "tree", out=out, resume=True)
     assert calls == [suite[0].id] and len(again) == 1 and again[0].correct

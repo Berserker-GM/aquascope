@@ -196,9 +196,9 @@ def test_write_outputs_adds_the_study_file_for_a_plan(tmp_path):
         run = run_study(study)
     paths = write_outputs(run, tmp_path / "out")
     assert set(paths) == {"report.md", "manifest.json", "results.json", "study.yaml"}
-    manifest = json.loads((tmp_path / "out" / "manifest.json").read_text())
+    manifest = json.loads((tmp_path / "out" / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["steps"][0]["gates"][0]["check"] == "min_years" and manifest["stop_reason"] is None
-    assert loads((tmp_path / "out" / "study.yaml").read_text()).results["s1"]["ok"]
+    assert loads((tmp_path / "out" / "study.yaml").read_text(encoding="utf-8")).results["s1"]["ok"]
 
 
 def test_the_subset_parser_reads_block_scalars_flow_collections_and_comments():
