@@ -328,7 +328,7 @@ def cmd_recommend(args: argparse.Namespace) -> None:
     if args.from_file:
         path = Path(args.from_file)
         if path.exists():
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list) and data:
                 params_from_data = {r.get("parameter", "") for r in data if r.get("parameter")}
                 profile.parameters = list(params_from_data | set(profile.parameters))
@@ -468,7 +468,7 @@ def cmd_run_pipeline(args: argparse.Namespace) -> None:
                 },
                 indent=2,
                 default=str,
-            )
+            ), encoding="utf-8"
         )
         print(f"\n  ✓ Full results saved → {out_path}")
 
@@ -574,10 +574,10 @@ def cmd_stations(args: argparse.Namespace) -> None:
                 {"type": "Feature", "geometry": {"type": "Point", "coordinates": [lon, lat]}, "properties": props}
             )
         out_path.write_text(
-            json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False, indent=2)
+            json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False, indent=2), encoding="utf-8"
         )
     elif fmt == "json":
-        out_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2))
+        out_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
     else:
         import csv
 
@@ -1799,7 +1799,7 @@ def cmd_alerts(args: argparse.Namespace) -> None:
                 for a in report.alerts
             ],
         }
-        out_path.write_text(json.dumps(out_data, indent=2, default=str))
+        out_path.write_text(json.dumps(out_data, indent=2, default=str), encoding="utf-8")
         print(f"  ✓ Report saved → {out_path}\n")
 
 
@@ -2134,7 +2134,7 @@ def cmd_agri_benchmark(args: argparse.Namespace) -> None:
 
     if args.output:
         out_path = Path(args.output)
-        out_path.write_text(json.dumps(result.to_dict(), indent=2, default=str))
+        out_path.write_text(json.dumps(result.to_dict(), indent=2, default=str), encoding="utf-8")
         print(f"\n  ✓ Benchmark results saved → {out_path}")
 
 
@@ -2186,7 +2186,7 @@ def cmd_agri_productivity(args: argparse.Namespace) -> None:
 
     if args.output:
         out_path = Path(args.output)
-        out_path.write_text(json.dumps(result.to_dict(), indent=2, default=str))
+        out_path.write_text(json.dumps(result.to_dict(), indent=2, default=str), encoding="utf-8")
         print(f"\n  ✓ Productivity results saved → {out_path}")
 
 

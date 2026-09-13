@@ -55,7 +55,7 @@ def test_harvest_writes_files_manifest_and_report(tmp_path):
     assert (h.attempted, h.harvested, h.empty, h.failed) == (3, 2, 1, 0)
     f = tmp_path / "obs" / "discharge" / "hubeau_hydrometrie" / "A1.csv.gz"
     assert f.exists() and obs.read_csv_gz(f.read_bytes()).shape[0] == 800
-    manifest = json.loads((tmp_path / "obs" / "manifest.json").read_text())
+    manifest = json.loads((tmp_path / "obs" / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["version"] == 2
     entry = manifest["sources"]["hubeau_hydrometrie/discharge"]
     assert entry["variable"] == "discharge" and entry["license"] == "etalab-2.0" and entry["n_stations"] == 2
@@ -100,7 +100,7 @@ def test_manifest_v1_is_migrated_in_place(tmp_path):
     v1 = {"version": 1, "sources": {"usgs": {"variable": "discharge", "license": "US-PD",
                                              "stations": {"USGS-1": station}}}}
     (tmp_path / "obs").mkdir()
-    (tmp_path / "obs" / "manifest.json").write_text(json.dumps(v1))
+    (tmp_path / "obs" / "manifest.json").write_text(json.dumps(v1), encoding="utf-8")
     m = obs.load_manifest(tmp_path)
     assert m["version"] == 2 and "usgs" not in m["sources"]
     assert m["sources"]["usgs/discharge"]["stations"]["USGS-1"]["n"] == 10
