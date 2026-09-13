@@ -272,6 +272,15 @@
         "code",
         "test"
       ]
+    },
+    {
+      "login": "itsnevu",
+      "name": "0x",
+      "avatar_url": "https://avatars.githubusercontent.com/u/129736887?v=4",
+      "profile": "https://github.com/itsnevu",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "commitType": "docs"

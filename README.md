@@ -433,6 +433,7 @@ Thanks to these wonderful people who make AquaScope possible ([emoji key](CONTRI
     </tr>
     <tr>
       <td align="center" valign="top" width="20%"><a href="https://github.com/mohanasrujana"><img src="https://avatars.githubusercontent.com/u/59142214?v=4?s=100" width="100px;" alt="Satya Srujana Pilli"/><br /><sub><b>Satya Srujana Pilli</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/itsnevu"><img src="https://avatars.githubusercontent.com/u/129736887?v=4?s=100" width="100px;" alt="0x"/><br /><sub><b>0x</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=itsnevu" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
