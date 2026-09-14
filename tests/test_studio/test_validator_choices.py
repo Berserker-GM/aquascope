@@ -2,14 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from aquascope.studio import catalogue
 from aquascope.studio.workspace import Workspace
-
-KINGSTON = Path(__file__).resolve().parents[2] / "explorer" / "showcase" / "studies" / "kingston-flood" / "study.yaml"
 
 
 def test_an_invalid_choice_is_rejected_and_the_choices_are_named():
@@ -64,13 +58,13 @@ def test_a_step_whose_only_fault_is_its_fallback_keeps_its_place_without_the_fal
     assert any("fallback dropped" in n and "regionalization" in n for n in notes)
 
 
-@pytest.mark.skipif(not KINGSTON.exists(), reason="the recorded studies are not checked out")
-def test_the_recorded_kingston_plan_no_longer_carries_the_bad_fallback_into_a_run():
-    from aquascope.study import load
-
-    study = load(KINGSTON)
-    s4 = next(s for s in study.steps if s.id == "s4")
-    fb = (s4.fallback or {}).get("step") or {}
-    errors = catalogue.validate_step({"id": "s4", "tool": s4.tool, "arguments": dict(s4.arguments),
-                                      "fallback": {"step": dict(fb)}})
+def test_the_recorded_kingston_fallback_of_2026_09_07_is_now_refused():
+    """The Kingston study recorded on 2026-09-07 carried this fallback into a run and died on the tool's own
+    ValueError; the same step is refused by the validator now (the recording has since been redone)."""
+    s4 = {"id": "s4", "tool": "anywhere", "arguments": {"lat": 51.415, "lon": -0.308, "years": 100},
+          "fallback": {"step": {"tool": "regionalize_signatures",
+                                "arguments": {"lat": 51.415, "lon": -0.308, "k": 10, "method": "regionalization"},
+                                "rationale": "a regionalized cross-check",
+                                "expects": [{"check": "not_empty", "path": "estimates"}]}}}
+    errors = catalogue.validate_step(s4)
     assert any(e.startswith("fallback of step s4") and "is not one of" in e for e in errors)
