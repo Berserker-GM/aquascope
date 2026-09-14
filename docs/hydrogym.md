@@ -498,6 +498,16 @@ obtained; Cambridge correctly answers an "is it declining" question with "no, it
 years, Sen's slope +0.1659 mAOD/yr) and flags its assumed-daily resolution. The 6.957 USD is what recording the
 twelve studies cost in 2026-09-07 (`meta.json`'s own ledger); scoring them again costs nothing, no model.
 
+The 2026-09-15 row (`aquascope/gym/results/2026-09-15/`) is the same twelve briefs recorded again on the crew of
+#411 (a failed gate fails its step, the reviewer's-eye gates, the Interpreter's findings and grades, the data
+requests), 10.19 USD for the twelve. Mean 1.00 on the document checks, and the three references, rewritten for
+the new recordings, pass: Kingston's GloFAS cross-check now runs and its ratio gate fails for a mismatched cell,
+which the report says; Cambridge answers "rising, and the ten-year comparison is not established" because the
+window it was asked about holds 9.7 years; Toulouse states the significant decreasing trend the longer record
+carries. Both defects of the first row are gone, one by the plumbing (a failed check is now a fix) and one by
+the data (the trend is significant on the 116 years the new run fetched). `reports.md` in that folder reads the
+row per case, including the three studies whose data fell short and say so in their decision.
+
 What this run does not establish: one hydrologist's three references on one model's twelve studies; the
 `not_established_completeness` and `no_filled_holes` dimensions match a failed step's id, tool or a quoted field
 from its gate detail (or, failing that, the numbers in the gate's own message) against the report's prose, which

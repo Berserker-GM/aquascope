@@ -22,24 +22,24 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T21:28:15+00:00",
- "seconds": 546.7,
+ "recorded": "2026-09-14T23:04:55+00:00",
+ "seconds": 606.3,
  "tokens": {
-  "prompt": 49650,
-  "completion": 14966,
-  "calls": 4,
+  "prompt": 94651,
+  "completion": 44680,
+  "calls": 7,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3440,
-    "completion_tokens": 934,
-    "cost_usd": 0.01622
+    "completion_tokens": 1007,
+    "cost_usd": 0.01695
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 12122,
-    "completion_tokens": 2927,
-    "cost_usd": 0.053514
+    "prompt_tokens": 12174,
+    "completion_tokens": 3565,
+    "cost_usd": 0.059998
    },
    "interpreter": {
     "calls": 0,
@@ -48,21 +48,21 @@
     "cost_usd": 0.0
    },
    "author": {
-    "calls": 2,
-    "prompt_tokens": 34088,
-    "completion_tokens": 11105,
-    "cost_usd": 0.179226
+    "calls": 3,
+    "prompt_tokens": 52222,
+    "completion_tokens": 20107,
+    "cost_usd": 0.305514
    },
    "critic": {
-    "calls": 0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "cost_usd": 0.0
+    "calls": 2,
+    "prompt_tokens": 26815,
+    "completion_tokens": 20001,
+    "cost_usd": 0.25364
    }
   },
-  "total": 64616
+  "total": 139331
  },
- "usd": 0.3734,
+ "usd": 0.9542,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -72,19 +72,17 @@
  "plan_author": "methodologist",
  "steps": 4,
  "gates": {
-  "passed": 7,
-  "total": 7
+  "passed": 11,
+  "total": 11
  },
  "checks": {
   "passed": 9,
-  "total": 10
+  "total": 9
  },
  "replans": 0,
  "stop_reason": null,
- "headline": "Notice: this report did not pass the Critic's checks (decision_in_answer); read its numbers with the list of what this study does not establish.",
- "not_established": [
-  "The answer does not quote the decision's value (82.53, established)."
- ],
+ "headline": "Notice: the Critic's fix requests on findings, results-s2 were not all resolved; read the report with the list of what this study does not establish.",
+ "not_established": [],
  "figures": [
   {
    "name": "s1_site_map.png",

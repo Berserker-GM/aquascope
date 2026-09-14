@@ -1,16 +1,16 @@
-# Estimate the 100-year annual exceedance probability flood flow (Q100) for the Mu (-35.1, 147.37)
+# Design Flood Assessment for the Wagga Wagga Levee Upgrade, Murrumbidgee River
 
 **Author:** AquaScope Studio  
 **Date:** 2026-09-14  
-**Description:** size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga  
+**Description:** set the design flood capacity for the Wagga Wagga levee upgrade using a defensible estimate of the 100-year flow, and state how much confidence that estimate can carry  
 **Data Sources:** BasinATLAS (HydroATLAS v1.0), ERA5 via Open-Meteo, bom, similar_basins  
 **Version:** 1.0  
 
 **Site:** 35.1000 S, 147.3700 E
 
-**Answer.** Notice: this report did not pass the Critic's checks (numbers_come_from_tools); read its numbers with the list of what this study does not establish.
+**Answer.** Notice: the Critic's fix requests on decision, limitations, summary were not all resolved; read the report with the list of what this study does not establish.
 
-size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga: mean daily flow 1.083 mm/d (screening). Signatures transferred from 1155 donors (similarity): mean daily flow 1.083 mm/d (band 0.8211 to 1.429); low flow: exceeded 95 % of days 0.2469 mm/d (band 0.1444 to 0.422); high flow: exceeded 5 % of days 3.125 mm/d (band 2.391 to 4.084); mean annual daily maximum 7.424 mm/d (band 5.315 to 10.37); mean flow / BasinATLAS precipitation 0.5018 - (band 0.4017 to 0.602), leave-one-out NSE -0.027; baseflow / total flow 0.7692 - (band 0.7317 to 0.8067), leave-one-out NSE 0.33.
+No number in the results answers the design decision at an established grade; the finding is not_established. Two lines of evidence were produced. First, a donor-regionalised mean annual daily flood peak (specific discharge) of 7.424 mm/d, band 5.315 to 10.369 mm/d, transferred from 10 similarity-matched gauges against BasinATLAS HydroATLAS v1.0 attributes, leave-one-out median absolute percent error 0.37 for this signature. This is a mean annual maximum, not a 100-year quantile, and cannot be converted to a 100-year flow without a distributional assumption that the donor data do not support. Second, two curve fits to the GloFAS v4 grid-cell discharge series at the site cell (2007 to 2025, 19 annual maxima): GEV by L-moments gives a 100-year return level of 0.8165 m3/s and Log-Pearson III gives 0.8885 m3/s, a ratio of 1.09 between the two fits. Neither line of evidence is defensible for setting levee design capacity. Until an at-site or a truly climatically and physically comparable donor gauge record is obtained, the 100-year flow at Wagga Wagga on the Murrumbidgee is not established from this evidence base, and no confidence band can be carried into design from the figures produced here.
 
 *Key numbers*
 
@@ -43,85 +43,31 @@ size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee 
 
 ## Summary
 
-Estimate the 100-year annual exceedance probability flood flow (Q100) for the Murrumbidgee at Wagga Wagga to inform levee upgrade sizing, using regional transfer from similar gauged catchments and an independent GloFAS cross-check, given no usable discharge record within 50 km.. 4 step(s) ran (methodologist plan, playbook flood_risk); 7 of 7 gates passed. Signatures transferred from 1155 donors (similarity): mean daily flow 1.083 mm/d (band 0.8211 to 1.429); low flow: exceeded 95 % of days 0.2469 mm/d (band 0.1444 to 0.422); high flow: exceeded 5 % of days 3.125 mm/d (band 2.391 to 4.084); mean annual daily maximum 7.424 mm/d (band 5.315 to 10.37); mean flow / BasinATLAS precipitation 0.5018 - (band 0.4017 to 0.602), leave-one-out NSE -0.027; baseflow / total flow 0.7692 - (band 0.7317 to 0.8067), leave-one-out NSE 0.33.
+The brief asks for a defensible 100-year peak flow at Wagga Wagga on the Murrumbidgee to size a levee upgrade, and for a statement of how far that estimate can be trusted. The site has no streamflow gauge; the BOM stations found nearby (for example GW273167.1.1 HAMPDEN 1 WAGGA, GW273168.1.1 WILKS 1 WAGGA, and water-quality station 410001 M/BIDGEE R at WAGGA) are groundwater or water-quality records, not streamflow gauges, so at-site flood-frequency analysis is not possible. The plan instead described the catchment from BasinATLAS, searched a 34,786-gauge pool for 10 similarity donors, transferred flow signatures with a spread band and leave-one-out skill, and cross-checked against a GloFAS grid-cell discharge series. The outcome is that neither the donor-regionalised signature nor the GloFAS-based curve fits reach a defensible design-grade 100-year flow: the donor pools returned are climatically mismatched (tropical Pacific islands and wet European headwater streams against a semi-arid, heavily regulated 27,041 km2 Australian basin), and the GloFAS cell's mean discharge is inconsistent by three orders of magnitude with the basin's own modelled mean annual discharge.
 
 ## The decision
 
-size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga: mean daily flow 1.083 mm/d (screening). It holds under these conditions: Design-flood guidance under climate change is immature (Wasko et al.; Rare quantiles move with the distribution and the estimator..
+Decide with: none of the current figures at design grade; the study returns a not_established finding for the 100-year flow at Wagga Wagga. No band can be carried into the levee design from this evidence. This holds under the following conditions: the Wagga Wagga site is treated as fully ungauged, with the two local BOM record types being groundwater (for example GW030475.1.1 Wagga Wagga) and water-quality (410001 M/BIDGEE R at WAGGA) stations rather than streamflow gauges; the only donors available for regionalisation are the stations returned by the similarity search, none of which match the target's semi-arid, large-area, temperate, heavily regulated setting; the GloFAS grid-cell series is accepted as the only source of an explicit 100-year return-period calculation despite its mean discharge being inconsistent with the basin's known scale; and no CMIP6 or downscaled climate adjustment is applied, so any estimate reflects historical and current climate and regulation conditions only. What would change this: an observed annual-maximum streamflow record at or near Wagga Wagga to run an at-site GEV or LP3 fit directly; a re-run of the donor search restricted to gauged, climatically and physically comparable semi-arid, large-area, temperate Australian catchments; and confirmation, or correction, of the GloFAS grid-cell location against the true Murrumbidgee channel, since its 0.0313 m3/s mean is not credible for a 27,041 km2 basin with a documented mean annual discharge near 115 m3/s.
 
 ## Findings
 
-- [screening] Upstream area: 27040 km2 (from s1.attributes.upstream_area_km2)
-- [screening] Donor gauges: 10 (from s2.stations.0.score)
-- [screening] mean daily flow: 1.083 mm/d (from s3.estimates.q_mean_mm.value)
-- [screening] mean daily flow band, low: 0.8211 mm/d (from s3.estimates.q_mean_mm.low)
-- [screening] mean daily flow band, high: 1.429 mm/d (from s3.estimates.q_mean_mm.high)
-- [screening] low flow: exceeded 95 % of days: 0.2469 mm/d (from s3.estimates.q95_mm.value)
-- [screening] low flow: exceeded 95 % of days band, low: 0.1444 mm/d (from s3.estimates.q95_mm.low)
-- [screening] low flow: exceeded 95 % of days band, high: 0.422 mm/d (from s3.estimates.q95_mm.high)
-- [screening] high flow: exceeded 5 % of days: 3.125 mm/d (from s3.estimates.q05_mm.value)
-- [screening] high flow: exceeded 5 % of days band, low: 2.391 mm/d (from s3.estimates.q05_mm.low)
-- [screening] high flow: exceeded 5 % of days band, high: 4.084 mm/d (from s3.estimates.q05_mm.high)
-- [screening] mean annual daily maximum: 7.424 mm/d (from s3.estimates.q_annual_max_mm.value)
-- [screening] mean annual daily maximum band, low: 5.315 mm/d (from s3.estimates.q_annual_max_mm.low)
-- [screening] mean annual daily maximum band, high: 10.37 mm/d (from s3.estimates.q_annual_max_mm.high)
-- [screening] mean flow / BasinATLAS precipitation: 0.5018 - (from s3.estimates.q95_mm.donor_max)
-- [screening] mean flow / BasinATLAS precipitation band, low: 0.4017 - (from s3.estimates.runoff_ratio.low)
-- [screening] mean flow / BasinATLAS precipitation band, high: 0.602 - (from s3.estimates.runoff_ratio.high)
-- [screening] baseflow / total flow: 0.7692 - (from s3.estimates.baseflow_index.value)
-- [screening] baseflow / total flow band, low: 0.7317 - (from s3.estimates.baseflow_index.low)
-- [screening] baseflow / total flow band, high: 0.8067 - (from s3.estimates.baseflow_index.high)
-- [screening] ERA5 precipitation: 588 mm per year (from s4.climate.precipitation_mm_per_year)
-- [screening] ERA5 reference evapotranspiration: 1428 mm per year (from s4.climate.et0_mm_per_year)
-- [screening] Aridity index: 0.4117 (from s4.climate.aridity_index)
-- [screening] GloFAS mean discharge (cell): 0.0313 m3/s (from s4.glofas.stats.mean)
+Four findings anchor this assessment. First, HydroATLAS's own modelled mean annual natural discharge for this basin outlet is 114.97 m3/s, the only basin-scale flow reference available, and it is itself a modelled rather than observed quantity (screening grade). Second, the regionalised mean annual daily maximum specific discharge for the site is 7.424 mm/d, band 5.315 to 10.369 mm/d, but this is a mean annual maximum signature, not a 100-year return-period estimate (screening grade). Third, GloFAS reanalysis discharge for the grid cell gives a GEV by L-moments 100-year return level of 0.8165 m3/s (not_established grade). Fourth, the same GloFAS series gives a Log-Pearson III 100-year return level of 0.8885 m3/s, close to the GEV value, but built on the same mis-scaled series (not_established grade). Two consistency checks matter. The GloFAS GEV and LP3 100-year return levels agree closely, ratio 1.09, but agreement between two fits to the same flawed series does not make either usable for design. A further mismatch: several of the 10 donor catchments have precipitation up to about 4 times the target's, being tropical Pacific-island or wet European headwater streams, so transferred flow signatures reflect a different hydrological regime than the semi-arid target basin.
 
 ## Problem and decision
 
-Design flood for a levee upgrade on the Murrumbidgee at Wagga Wagga: the 100-year flow, and how far the evidence can be trusted. Decision: size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga. Quantities wanted: 100-year annual exceedance probability flood flow (Q100) in cubic metres per second; uncertainty range or confidence bound on Q100; cross-check flow from GloFAS reanalysis for the same site. Constraints: no gauge with a usable discharge record within 50 km of the site, so at-site flood frequency analysis is not defensible; estimate must be built via regionalisation (similar_basins, regionalize_signatures) using 10 donor gauges drawn from a pool of 34,786 gauged catchments, cross-checked against GloFAS discharge; trend/Mann-Kendall analysis is not defensible for this site (no local record); upstream catchment area at site is about 27041 km2 (HydroBASINS unit 5120597860, BasinATLAS area 27983.8 km2). Intake: return_period = 100, decision = design flow. Assumed: site coordinates (-35.1, 147.37) represent the Wagga Wagga levee location on the Murrumbidgee; the nearby BOM stations listed (groundwater bores, water quality gauge 410001) do not provide a usable discharge record for at-site flood frequency analysis; regionalisation via similar_basins and regionalize_signatures on the 10 donor gauges is the primary evidence path; GloFAS discharge cross-check is reachable for this site (Open-Meteo/ERA5-based) though not independently verified here; HydroATLAS catchment attributes (area, precipitation, aridity, dam density) are used to support donor basin similarity weighting.
+The decision is to set the design flood capacity for the Wagga Wagga levee upgrade using a defensible estimate of the Murrumbidgee's 100-year peak flow (m3/s) and to state how much confidence that estimate can carry. The requested quantities are the 100-year return-period peak flow at the Wagga Wagga site and an uncertainty range or confidence bound on it. Assumptions carried through this assessment: site discharge is treated as ungauged, since the nearby BOM stations found are groundwater and water-quality sites rather than streamflow gauges and so cannot support at-site flood frequency; regionalisation uses the 10 donor catchments identified plus GloFAS reanalysis discharge as a cross-check, per the sufficiency assessment; catchment descriptors (area, precipitation, aridity, dam index) are taken from BasinATLAS HydroATLAS v1.0 for the matched basin; no CMIP6 or downscaled climate adjustment is applied, so the estimate reflects historical and current climate and regulation conditions only; and GloFAS discharge is a roughly 5 km grid-cell model output, not a gauge reading, so its return levels are indicative rather than confirmatory.
 
 ## Site and data
 
-Site: -35.1, 147.37. The datasets within reach or attached:
-
-| Id | Kind | Variable | Source | Name | Years | Resolution | km | Period | Quality |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| catchment | catchment |  | BasinATLAS (HydroATLAS v1.0) | the catchment of the point |  |  |  |  |  |
-| donors | donors |  | similar_basins | 10 donor gauges by catchment similarity |  |  |  |  |  |
-| era5 | reanalysis | climate | ERA5 via Open-Meteo | ERA5 cell | 86.7 | daily |  | 1940-01-01 to 2026-09-14 |  |
-
-and 25 more short record(s) within reach, under a year of record each, not listed.
-
-- 10 donor gauges from a pool of 34,786 gauged catchments.
-- ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.
-- CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted.
-- No gauge with a usable record within 50 km: at-site methods are not defensible; what remains is the regionalisation path (similar_basins, regionalize_signatures) and the GloFAS cross-check.
+The Wagga Wagga sub-basin (HydroBASINS hybas_id 5120597860, pfaf_id 564270701000, next_down 5120597910) has an upstream drainage area of 27,041.2 km2 (total delineated catchment 27,983.8 km2 across 203 level-12 sub-basins). BasinATLAS upstream attributes: mean elevation 715 m, mean slope 6.7 degrees, mean annual precipitation 868 mm/yr, potential evapotranspiration 1223 mm/yr, actual evapotranspiration 681 mm/yr, aridity index (P/PET) 0.74, mean annual air temperature 12.3 degrees C, snow cover 1 percent of the year, area-weighted annual runoff 140.95 mm/yr, and a HydroATLAS-modelled mean annual natural discharge at the outlet of 114.97 m3/s. Land cover is 40 percent forest, 25 percent pasture, 5 percent cropland, 1 percent urban, 0 percent irrigated, 1 percent wetland, 0.3 percent lake, 9 percent karst. Soils are 26 percent clay, 17 percent silt, 57 percent sand, with 29 t/ha soil organic carbon and 61 percent annual soil water content; groundwater table depth is 464.14 cm. Population is 523,789 people at a density of 19.51 people/km2, human footprint (2009) is 8.6, and the degree of regulation by reservoirs is 114.9 percent with 4164 million m3 of upstream reservoir volume, marking this as an already-regulated river. Source: HydroATLAS v1.0 (BasinATLAS), CC BY 4.0, Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019), Scientific Data 6:283.
 
 ## Methodology
 
-Objective: Estimate the 100-year annual exceedance probability flood flow (Q100) for the Murrumbidgee at Wagga Wagga to inform levee upgrade sizing, using regional transfer from similar gauged catchments and an independent GloFAS cross-check, given no usable discharge record within 50 km..
-
-1. Characterise the ungauged catchment at the levee site (area, climate, land cover, dams) from BasinATLAS/HydroATLAS to anchor the similarity search.
-2. Identify 10 donor gauges whose catchments most resemble this one in attribute space, drawn from the pool of 34,786 gauged catchments.
-3. Transfer flow signatures (including annual maximum) from the donor gauges to the ungauged site, quoting the leave-one-out skill and the spread across donors as the uncertainty band on Q100.
-4. Obtain GloFAS reanalysis-based modelled discharge for the site cell as an independent cross-check on the regionalised flood estimate.
-5. Report the Q100 estimate with its uncertainty band and the GloFAS ratio, flagging any spread or disagreement above 25 percent as unresolved rather than averaged away.
-
-Step s1: `describe_catchment(lat=-35.1, lon=147.37, upstream=True)`; gates: not_empty on sub_basin; max_area_km2 27983.8 on sub_basin.up_area.
-
-Step s2: `similar_basins(lat=-35.1, lon=147.37, k=10)`, method similar_basins; gates: min_donors 10 on k; not_empty on stations.
-
-Step s3: `regionalize_signatures(lat=-35.1, lon=147.37, k=10)`, method regionalize_signatures; gates: not_empty on estimates; not_empty on skill.
-
-Step s4: `anywhere(lat=-35.1, lon=147.37, years=20)`, method glofas_cross_check; gates: not_empty on climate.
-
-Assumptions: site coordinates (-35.1, 147.37) represent the Wagga Wagga levee location on the Murrumbidgee; the nearby BOM stations listed (groundwater bores, water quality gauge 410001) do not provide a usable discharge record for at-site flood frequency analysis; regionalisation via similar_basins and regionalize_signatures on the 10 donor gauges is the primary evidence path; GloFAS discharge cross-check is reachable for this site (Open-Meteo/ERA5-based) though not independently verified here; HydroATLAS catchment attributes (area, precipitation, aridity, dam density) are used to support donor basin similarity weighting.
-
-Alternatives considered: at_site_flood_frequency: no gauge with a usable discharge record exists within 50 km of the site, so the sufficiency table marks this not_defensible; trend_mann_kendall: there is no local discharge record at this site to run a trend test on.
+The catchment was first described from BasinATLAS to fix the area, climate and regulation context needed to match donors. A pool of 34,786 gauges was searched for the 10 catchments most similar to this one in standardised BasinATLAS attribute space (log area, elevation, slope, precipitation, aridity, temperature, snow, forest, cropland, urban, clay, sand, population density, regulation). Flow signatures, including the mean annual daily maximum, were then transferred from a donor pool (1155 donors available for the signature transfer step) with a spread band and leave-one-out skill quoted for each signature. GloFAS modelled discharge for the site grid cell was pulled as an independent, model-based cross-check, with annual maxima fitted by GEV (L-moments) and Log-Pearson III. No CMIP6 or downscaled climate adjustment was applied. Both the at-site flood-frequency and trend approaches were ruled out from the start because the site is ungauged.
 
 ## Results: step s1
 
-The catchment (BasinATLAS): upstream area 2.704e+04 km2, mean elevation 715 m, aridity index (P/PET) 0.74 P/PET, degree of regulation by reservoirs 114.9 %. Gates: not_empty passed ('sub_basin' is present); max_area_km2 passed (catchment of 27,041 km2 against a ceiling of 27,984 km2).
+describe_catchment (source: HydroATLAS v1.0 BasinATLAS) returned the sub-basin above, passing the not_empty and max_area_km2 gates (27,983.8 km2 against a ceiling of 27,984 km2). Key figures: upstream area 27,041.2 km2, mean elevation 715 m, mean slope 6.7 degrees, precipitation 868 mm/yr, aridity index 0.74, temperature 12.3 degrees C, degree of regulation 114.9 percent, HydroATLAS mean annual natural discharge 114.97 m3/s. This is the only basin-scale flow reference available and is itself modelled, not observed.
 
 ![The site, in longitude and latitude (no basemap); no catalogue station was listed with it.](figures/s1_site_map.png)
 *The site, in longitude and latitude (no basemap); no catalogue station was listed with it.*
@@ -167,7 +113,7 @@ The catchment (BasinATLAS): upstream area 2.704e+04 km2, mean elevation 715 m, a
 
 ## Results: step s2
 
-10 donor gauges by combined: Tumunu Stream, Dublon, Chuuk IS, FSM (usgs USGS-16897200), Edeng River, Babelthuap, Palau (usgs USGS-16891300), Kmekumel River, Babelthuap, Palau (usgs USGS-16891310), Tabecheding River, Babelthuap, Palau (usgs USGS-16890900), Ngerimel River, Babelthuap, Palau (usgs USGS-16891200). Gates: min_donors passed (10 donors, 10 needed); not_empty passed ('stations' is present).
+similar_basins searched 34,786 candidate gauges and returned the 10 nearest by combined physical-similarity and proximity distance, meeting the min_donors and not_empty gates. The returned donors are all in the tropical Pacific: USGS-16897200 Tumunu Stream (Chuuk, FSM), USGS-16891300 Edeng River, USGS-16891310 Kmekumel River, USGS-16890900 Tabecheding River, USGS-16891200 Ngerimel River, USGS-16891400 SF Ngerdorch River, USGS-16891420 NF Ngerdorch River nr Melekeok, and USGS-16890600 Diongradid River (all Babelthuap, Palau), an unnamed USGS-16893300 station near 9.54 N 138.19 E, and USGS-16835000 Inarajan River (Guam). Their precipitation ranges from about 2353 to 3527 mm/yr against the target's 868 mm/yr, aridity from 1.79 to 2.64 against 0.74, temperature around 27 degrees C against 12.3 degrees C, and regulation 0 percent against the target's 114.9 percent. Distances from the site range from about 4747 to 5387 km. These donors are climatically and physically distant from the semi-arid, heavily regulated target basin.
 
 ![The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.](figures/s2_donors_map.png)
 *The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.*
@@ -189,7 +135,7 @@ The catchment (BasinATLAS): upstream area 2.704e+04 km2, mean elevation 715 m, a
 
 ## Results: step s3
 
-Signatures transferred from 1155 donors (similarity): mean daily flow 1.083 mm/d (band 0.8211 to 1.429); low flow: exceeded 95 % of days 0.2469 mm/d (band 0.1444 to 0.422); high flow: exceeded 5 % of days 3.125 mm/d (band 2.391 to 4.084); mean annual daily maximum 7.424 mm/d (band 5.315 to 10.37); mean flow / BasinATLAS precipitation 0.5018 - (band 0.4017 to 0.602), leave-one-out NSE -0.027; baseflow / total flow 0.7692 - (band 0.7317 to 0.8067), leave-one-out NSE 0.33. Gates: not_empty passed ('estimates' is present); not_empty passed ('skill' is present).
+regionalize_signatures drew on a donor pool of 1155 gauges (broader than the 10-station search in s2) and returned, with not_empty gates satisfied for estimates and skill: mean daily flow 1.0834 mm/d (band 0.8211 to 1.4294 mm/d), median daily flow 0.6895 mm/d, low flow (q95) 0.2469 mm/d, high flow (q05) 3.1251 mm/d, mean annual daily maximum (the flood-relevant signature) 7.4238 mm/d with a band of 5.3153 to 10.3687 mm/d across 10 donors, runoff ratio 0.5018, baseflow index 0.7692, flow-duration-curve slope 2.3252, high-flow frequency 43.5213 days/yr, low-flow frequency 4.559 days/yr, zero-flow fraction 0.0, seasonality index 0.2925, and flashiness index 0.1653. Leave-one-out skill for the mean annual daily maximum signature had a median absolute percent error of 0.37 in log space across 1153 donors, worse than mean daily flow (0.251) and better than low flow q95 (0.534). The 10 example donors listed for this transfer step are French Hub'Eau streams (for example A735201001 Le Rupt de Mad a Onville, A623201001 La Plaine a Raon-l'Etape, A615103001 La Meurthe a Raon-l'Etape), wetter and cooler headwater catchments generally smaller than the target's upstream area, with precipitation from about 717 to 884 mm/yr and regulation from 0 to 82.3 percent, again not a close climatic match for a semi-arid, large, heavily regulated Australian basin. This mean annual daily maximum is a flood-relevant signature but is not itself a 100-year quantile.
 
 ![Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.](figures/s3_signatures_band.png)
 *Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.*
@@ -229,7 +175,7 @@ Signatures transferred from 1155 donors (similarity): mean daily flow 1.083 mm/d
 
 ## Results: step s4
 
-ERA5 climate for the cell: precipitation 588 mm per year, reference evapotranspiration 1,428 mm per year, aridity index 0.41 (semi-arid). GloFAS modelled discharge (grid cell, indicative): mean 0.0313 m3/s, 100-year GEV 0.8165 m3/s. Gates: not_empty passed ('climate' is present).
+The anywhere tool returned ERA5 climate context for the grid cell (precipitation 587.9526 mm/yr, reference evapotranspiration 1428.1816 mm/yr, aridity index 0.4117, classed semi-arid) and a GloFAS v4 modelled discharge series for the site cell, 2006-09-07 to 2026-09-07, 7306 daily values. The GloFAS series has a mean of 0.0313 m3/s and a median of 0.02 m3/s. Annual maxima for 19 years (2007-2025) range from 0.12 to 0.69 m3/s, with the record maximum of 0.69 m3/s in 2012 (empirical return period about 20 years by Weibull plotting position). No trend was detected in annual maxima (Mann-Kendall p-value 0.8056, Sen's slope 0.001 per year) or in annual mean discharge (p-value 0.7264). Flood-frequency fits to these annual maxima gave, at the 100-year return period, 0.8165 m3/s (GEV by L-moments) and 0.8885 m3/s (Log-Pearson III), a ratio of 1.09 between the two.
 
 ![Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 35.10 S, 147.37 E, 20 years ending 2026-09-07.](figures/s4_monthly_climate.png)
 *Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 35.10 S, 147.37 E, 20 years ending 2026-09-07.*
@@ -292,23 +238,7 @@ ERA5 climate for the cell: precipitation 588 mm per year, reference evapotranspi
 
 ## Limitations and what this study does not establish
 
-Every gate and check passed.
-
-Caveats, verbatim from the playbook:
-- Design-flood guidance under climate change is immature (Wasko et al. 2024, HESS): the estimate here is stationary, and any climate scenario is an overlay on it, not a nonstationary fit.
-- Rare quantiles move with the distribution and the estimator. Two fits (GEV by L-moments and Log-Pearson III) are quoted with their intervals and the spread between them; a spread above 25 percent is reported as disagreement, not averaged away.
-- The catchment has upstream dams (degree of regulation above zero in BasinATLAS): the annual maxima are those of the operated river, and a frequency fit on them describes it as operated, not the natural flood regime.
-- GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only.
-
-Expected at planning:
-- Design-flood guidance under climate change is immature (Wasko et al. 2024, HESS): the estimate here is stationary, and any climate scenario is an overlay on it, not a nonstationary fit.
-- Rare quantiles move with the distribution and the estimator; the spread between donor-based transfer and GloFAS is reported as disagreement above 25 percent, not averaged away.
-- The catchment has upstream dams (degree of regulation above zero in BasinATLAS): any transferred annual-maximum signature reflects the operated river, not the natural flood regime.
-- GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only.
-
-## What this study does not establish
-
-- These numbers are not in any tool result: 2.704.
+Design-flood guidance under climate change is immature; the estimate here is stationary and any climate scenario would be an overlay on it, not a nonstationary fit, per Wasko et al. (2024, HESS). Rare quantiles move with the distribution and the estimator: the GEV and LP3 fits to the GloFAS series agree within about 9 percent here, but that agreement is on a series that is itself not credible for this basin, so it should not be read as confirmation. The catchment has substantial upstream regulation, degree of regulation 114.9 percent in BasinATLAS, so any annual-maximum signal transferred or fit reflects the operated river, not the natural flood regime. The donor pools used in both the similarity search and the signature transfer are climatically and physically distant from the target catchment: Pacific-island and Guam gauges in one case and wetter, cooler, smaller French headwater streams in the other, none matching the semi-arid, large-area, heavily regulated Murrumbidgee setting at Wagga Wagga.
 
 ## Caveats
 
@@ -319,11 +249,7 @@ Expected at planning:
 
 ## Recommendations
 
-- Adopt this as the answer to the decision: size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga: mean daily flow 1.083 mm/d (screening).
-- Read the numbers with this caveat: Design-flood guidance under climate change is immature (Wasko et al. 2024, HESS): the estimate here is stationary, and any climate scenario is an overlay on it, not a nonstationary fit.
-- Read the numbers with this caveat: Rare quantiles move with the distribution and the estimator.
-- Read the numbers with this caveat: The catchment has upstream dams (degree of regulation above zero in BasinATLAS): the annual maxima are those of the operated river, and a frequency fit on them describes it as operated, not the natural flood regime.
-- Read the numbers with this caveat: GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only.
+Obtain an observed annual-maximum flow series from a Murrumbidgee gauge at or near Wagga Wagga; this is the only route to an established-grade 100-year flow, since nothing in the current evidence is an at-site flood record. Re-run the donor search with selection constrained to gauged, climatically and physically comparable catchments, ideally Australian or otherwise semi-arid and large-drainage-area, since the present donors differ from the target by 3 to 5 times in precipitation and by orders of magnitude in catchment area, which undermines the signature transfer used in the regionalisation step. Until these steps are taken, do not adopt either the donor-regionalised mean annual daily maximum or the GloFAS-based 100-year return levels as the design flow for the levee upgrade.
 
 ## References
 
@@ -348,15 +274,15 @@ Expected at planning:
 
 Re-run the same steps with no model: `aquascope run study.yaml`. Resume the workspace: `aquascope studio --resume workspace.json`.
 
-Model: claude-sonnet-5 via anthropic; ledger: consultant 1 call(s), 4180 tokens, methodologist 1 call(s), 13605 tokens, interpreter 0 call(s), 0 tokens, author 2 call(s), 73440 tokens, critic 1 call(s), 32265 tokens. aquascope 0.16.0.
+Model: claude-sonnet-5 via anthropic; ledger: consultant 1 call(s), 4269 tokens, methodologist 1 call(s), 13769 tokens, interpreter 1 call(s), 36437 tokens, author 1 call(s), 34406 tokens, critic 1 call(s), 34584 tokens. aquascope 0.16.0.
 
 ```yaml
 # An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.
 #   aquascope run study.yaml
 version: 3
-title: "Estimate the 100-year annual exceedance probability flood fl: -35.1, 147.37"
+title: "Establish a defensible 100-year peak flow estimate for the M: -35.1, 147.37"
 question: "Design flood for a levee upgrade on the Murrumbidgee at Wagga Wagga: the 100-year flow, and how far the evidence can be trusted."
-created: "2026-09-14T22:09:32+00:00"
+created: "2026-09-14T23:25:29+00:00"
 aquascope_version: "0.16.0"
 author: "methodologist"
 model: "claude-sonnet-5"
@@ -368,20 +294,20 @@ problem:
 plan:
   author: "methodologist"
   playbook: "flood_risk"
-  objective: "Estimate the 100-year annual exceedance probability flood flow (Q100) for the Murrumbidgee at Wagga Wagga to inform levee upgrade sizing, using regional transfer from similar gauged catchments and an independent GloFAS cross-check, given no usable discharge record within 50 km."
-  decision: "size the levee upgrade to withstand the 100-year flood flow on the Murrumbidgee at Wagga Wagga"
-  methodology: ["Characterise the ungauged catchment at the levee site (area, climate, land cover, dams) from BasinATLAS/HydroATLAS to anchor the similarity search.", "Identify 10 donor gauges whose catchments most resemble this one in attribute space, drawn from the pool of 34,786 gauged catchments.", "Transfer flow signatures (including annual maximum) from the donor gauges to the ungauged site, quoting the leave-one-out skill and the spread across donors as the uncertainty band on Q100.", "Obtain GloFAS reanalysis-based modelled discharge for the site cell as an independent cross-check on the regionalised flood estimate.", "Report the Q100 estimate with its uncertainty band and the GloFAS ratio, flagging any spread or disagreement above 25 percent as unresolved rather than averaged away."]
-  assumptions: ["site coordinates (-35.1, 147.37) represent the Wagga Wagga levee location on the Murrumbidgee", "the nearby BOM stations listed (groundwater bores, water quality gauge 410001) do not provide a usable discharge record for at-site flood frequency analysis", "regionalisation via similar_basins and regionalize_signatures on the 10 donor gauges is the primary evidence path", "GloFAS discharge cross-check is reachable for this site (Open-Meteo/ERA5-based) though not independently verified here", "HydroATLAS catchment attributes (area, precipitation, aridity, dam density) are used to support donor basin similarity weighting"]
-  alternatives: [{"method": "at_site_flood_frequency", "why_not": "no gauge with a usable discharge record exists within 50 km of the site, so the sufficiency table marks this not_defensible"}, {"method": "trend_mann_kendall", "why_not": "there is no local discharge record at this site to run a trend test on"}]
-  limitations_expected: ["Design-flood guidance under climate change is immature (Wasko et al. 2024, HESS): the estimate here is stationary, and any climate scenario is an overlay on it, not a nonstationary fit.", "Rare quantiles move with the distribution and the estimator; the spread between donor-based transfer and GloFAS is reported as disagreement above 25 percent, not averaged away.", "The catchment has upstream dams (degree of regulation above zero in BasinATLAS): any transferred annual-maximum signature reflects the operated river, not the natural flood regime.", "GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only."]
+  objective: "Establish a defensible 100-year peak flow estimate for the Murrumbidgee at Wagga Wagga to size the levee upgrade, and state the confidence that estimate can carry given the site is ungauged."
+  decision: "set the design flood capacity for the Wagga Wagga levee upgrade using a regionalised 100-year flow estimate (donor-basin transfer cross-checked against GloFAS), carrying an explicit uncertainty band and a regulation caveat, rather than an at-site flood-frequency analysis"
+  methodology: ["Describe the catchment at the site from BasinATLAS to fix the area, climate and regulation context that any donor transfer must match.", "Identify a pool of donor gauges whose catchments most resemble this one in BasinATLAS attribute space, drawing the requested 10 donors from the 34,786-gauge pool.", "Transfer flow signatures, including the annual-maximum flow, from those donors with a spread band and leave-one-out skill quoted alongside every number.", "Cross-check the regionalised flood estimate against GloFAS modelled discharge for the site cell as an independent, model-based line of evidence.", "Report the 100-year flow as the donor-regionalised estimate bounded by the donor spread and the GloFAS ratio, flagging that both the at-site flood-frequency and trend methods are not defensible here and that the record reflects an already-regulated river."]
+  assumptions: ["site discharge is treated as ungauged; the nearby BOM stations found are groundwater and water-quality sites, not streamflow gauges, so they cannot support at-site flood frequency", "regionalisation uses the 10 donor catchments identified plus GloFAS reanalysis discharge as a cross-check, per the sufficiency assessment", "catchment descriptors (area, precipitation, aridity, dam index) are taken from BasinATLAS HydroATLAS v1.0 for the matched basin", "no CMIP6 or downscaled climate adjustment is applied; the estimate reflects historical/current climate and regulation conditions only", "Site discharge is treated as ungauged; the nearby BOM stations found are groundwater and water-quality sites, not streamflow gauges, so they cannot support at-site flood frequency.", "Regionalisation uses the 10 donor catchments identified plus GloFAS reanalysis discharge as a cross-check, per the sufficiency assessment.", "Catchment descriptors (area, precipitation, aridity, dam index) are taken from BasinATLAS HydroATLAS v1.0 for the matched basin.", "No CMIP6 or downscaled climate adjustment is applied; the estimate reflects historical/current climate and regulation conditions only.", "GloFAS discharge is a ~5 km grid-cell model output, not a gauge reading, so its return levels are indicative rather than confirmatory."]
+  alternatives: [{"method": "at_site_flood_frequency", "why_not": "no discharge gauge with a usable record within 50 km of the site makes at-site flood frequency analysis not defensible"}, {"method": "trend_mann_kendall", "why_not": "there is no discharge record at this site to test for trend"}]
+  limitations_expected: ["Design-flood guidance under climate change is immature; the estimate here is stationary and any climate scenario would be an overlay on it, not a nonstationary fit.", "Rare quantiles move with the distribution and the estimator; if donor-transferred and GloFAS-derived 100-year flows disagree by more than about 25-30 percent, that disagreement should be reported, not averaged away.", "The catchment has substantial upstream regulation (dam index 114.9 in BasinATLAS); any annual-maximum signal transferred or fit reflects the operated river, not the natural flood regime.", "GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only."]
   citations: ["England, J. F. et al. (2019). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.", "Hosking, J. R. M. (1990). L-moments: analysis and estimation of distributions using linear combinations of order statistics. J. R. Stat. Soc. B 52, 105-124.", "Wasko, C. et al. (2024). A systematic review of climate change science for flood and design guidance. Hydrol. Earth Syst. Sci. 28, 1251-1285. doi:10.5194/hess-28-1251-2024", "Nonstationary flood frequency estimates are parameter-fragile: Stoch. Environ. Res. Risk Assess. (2024), doi:10.1007/s00477-024-02680-9", "Multi-approach cross-checks in infrastructure flood practice: J. Hydrol. (2024), doi:10.1016/j.jhydrol.2024.130698", "Oudin, L. et al. (2008). Spatial proximity, physical similarity, regression and ungaged catchments. Water Resour. Res. 44, W03413.", "Harrigan, S. et al. (2020). GloFAS-ERA5 operational global river discharge reanalysis 1979-present. Earth Syst. Sci. Data 12, 2043-2060.", "Wasko et al. 2024, HESS"]
   caveats: ["Design-flood guidance under climate change is immature (Wasko et al. 2024, HESS): the estimate here is stationary, and any climate scenario is an overlay on it, not a nonstationary fit.", "Rare quantiles move with the distribution and the estimator. Two fits (GEV by L-moments and Log-Pearson III) are quoted with their intervals and the spread between them; a spread above 25 percent is reported as disagreement, not averaged away.", "The catchment has upstream dams (degree of regulation above zero in BasinATLAS): the annual maxima are those of the operated river, and a frequency fit on them describes it as operated, not the natural flood regime.", "GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; return levels from it are indicative only."]
-  rationale: "Estimate the 100-year annual exceedance probability flood flow (Q100) for the Murrumbidgee at Wagga Wagga to inform levee upgrade sizing, using regional transfer from similar gauged catchments and an independent GloFAS cross-check, given no usable discharge record within 50 km."
+  rationale: "Establish a defensible 100-year peak flow estimate for the Murrumbidgee at Wagga Wagga to size the levee upgrade, and state the confidence that estimate can carry given the site is ungauged."
   recon_notes: ["10 donor gauges from a pool of 34,786 gauged catchments.", "ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.", "CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted.", "No gauge with a usable record within 50 km: at-site methods are not defensible; what remains is the regionalisation path (similar_basins, regionalize_signatures) and the GloFAS cross-check."]
 steps:
   - tool: "describe_catchment"
     id: "s1"
-    rationale: "Establish the catchment attributes (area, climate, dams) that anchor donor-basin similarity weighting."
+    rationale: "Establishes the catchment attributes (area, climate, regulation) that anchor the donor-similarity search."
     arguments:
       lat: -35.1
       lon: 147.37
@@ -389,10 +315,10 @@ steps:
     expects:
       - {"check": "not_empty", "path": "sub_basin"}
       - {"check": "max_area_km2", "path": "sub_basin.up_area", "value": 27983.8}
-    outputs: [{"kind": "figure", "id": "s1_site_map", "caption": "site map from describe_catchment"}, {"kind": "table", "id": "s1_catchment_attributes", "caption": "catchment attributes from describe_catchment"}]
+    outputs: [{"kind": "figure", "id": "s1_site_map", "caption": "site map from describe_catchment"}, {"kind": "table", "id": "s1_catchment_attributes", "caption": "catchment attributes (area 27041.2 km2, precipitation 868 mm/yr, aridity 0.74, dam index 114.9) from BasinATLAS"}]
   - tool: "similar_basins"
     id: "s2"
-    rationale: "Select the 10 donor gauges whose catchments most resemble this one, as required by the regionalisation constraint."
+    rationale: "Finds the 10 donor gauges whose catchments most closely match this one, as required by the brief's regionalisation constraint."
     method: "similar_basins"
     arguments:
       lat: -35.1
@@ -402,10 +328,10 @@ steps:
       - {"check": "min_donors", "path": "k", "value": 10}
       - {"check": "not_empty", "path": "stations"}
     depends_on: ["s1"]
-    outputs: [{"kind": "figure", "id": "s2_donors_map", "caption": "donors map from similar_basins"}, {"kind": "table", "id": "s2_donors", "caption": "donors from similar_basins"}]
+    outputs: [{"kind": "figure", "id": "s2_donors_map", "caption": "donors map from similar_basins"}, {"kind": "table", "id": "s2_donors", "caption": "10 donor gauges from similar_basins"}]
   - tool: "regionalize_signatures"
     id: "s3"
-    rationale: "Transfer flow signatures, including the annual-maximum flood signature, from the 10 donors with a band and leave-one-out skill to serve as the Q100 estimate."
+    rationale: "Transfers flow signatures, including the annual-maximum flow that anchors the 100-year estimate, from the 10 donors with a band and leave-one-out skill."
     method: "regionalize_signatures"
     arguments:
       lat: -35.1
@@ -415,10 +341,10 @@ steps:
       - {"check": "not_empty", "path": "estimates"}
       - {"check": "not_empty", "path": "skill"}
     depends_on: ["s2"]
-    outputs: [{"kind": "figure", "id": "s3_signatures_band", "caption": "signatures band from regionalize_signatures"}, {"kind": "table", "id": "s3_signatures", "caption": "signatures from regionalize_signatures"}, {"kind": "table", "id": "s3_donors", "caption": "donors from regionalize_signatures"}]
+    outputs: [{"kind": "figure", "id": "s3_signatures_band", "caption": "signatures band from regionalize_signatures"}, {"kind": "table", "id": "s3_signatures", "caption": "regionalised flow signatures (mean, Q95, Q05, annual max) from regionalize_signatures"}, {"kind": "table", "id": "s3_donors", "caption": "donor weights used in the transfer from regionalize_signatures"}]
   - tool: "anywhere"
     id: "s4"
-    rationale: "Obtain GloFAS modelled discharge and its own indicative frequency fit for the cell as an independent cross-check on the regionalised Q100."
+    rationale: "Provides an independent, model-based GloFAS discharge frequency fit for the cell to cross-check the donor-regionalised 100-year flow."
     method: "glofas_cross_check"
     arguments:
       lat: -35.1
@@ -426,11 +352,12 @@ steps:
       years: 20
     expects:
       - {"check": "not_empty", "path": "climate"}
-    outputs: [{"kind": "figure", "id": "s4_monthly_climate", "caption": "monthly climate from anywhere"}, {"kind": "figure", "id": "s4_glofas_series", "caption": "glofas series from anywhere"}, {"kind": "table", "id": "s4_monthly_climate", "caption": "monthly climate from anywhere"}, {"kind": "table", "id": "s4_glofas_summary", "caption": "glofas summary from anywhere"}]
+    depends_on: ["s3"]
+    outputs: [{"kind": "figure", "id": "s4_glofas_series", "caption": "GloFAS discharge series from anywhere"}, {"kind": "table", "id": "s4_glofas_summary", "caption": "GloFAS indicative return-level summary from anywhere"}]
 results:
   s1: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'sub_basin' is present"}, {"check": "max_area_km2", "passed": true, "detail": "catchment of 27,041 km2 against a ceiling of 27,984 km2"}], "summary": "latitude=-35.1, longitude=147.37, license=CC-BY-4.0, attribution=HydroATLAS v1.0 (BasinATLAS), CC BY 4.0. Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019). Global hydro-environmental sub-bas", "fallback_used": false, "sha256": "1bf59bc4ec7fe83b"}
-  s2: {"ok": true, "gates": [{"check": "min_donors", "passed": true, "detail": "10 donors, 10 needed"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=10, method=combined", "fallback_used": false, "sha256": "2c75cc3db8ebf457"}
-  s3: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'estimates' is present"}, {"check": "not_empty", "passed": true, "detail": "'skill' is present"}], "summary": "method=similarity", "fallback_used": false, "sha256": "c11ef6a0e6d49119"}
+  s2: {"ok": true, "gates": [{"check": "min_donors", "passed": true, "detail": "10 donors, 10 needed"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=10, method=combined", "fallback_used": false, "sha256": "bb99ac5d3f639717"}
+  s3: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'estimates' is present"}, {"check": "not_empty", "passed": true, "detail": "'skill' is present"}], "summary": "method=similarity", "fallback_used": false, "sha256": "1a885cd3846cad0f"}
   s4: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'climate' is present"}], "summary": "years=20, start=2006-09-07, end=2026-09-07", "fallback_used": false, "sha256": "72932c28d6f2dcbc"}
 ```
 
@@ -441,4 +368,4 @@ AquaScope Studio (2026). AquaScope: Open-source water data aggregation toolkit (
 
 ---
 
-*{'model': 'claude-sonnet-5', 'provider': 'anthropic', 'prose': 'template', 'tokens': {'consultant': {'calls': 1, 'prompt_tokens': 3208, 'completion_tokens': 972, 'cost_usd': 0.016136}, 'methodologist': {'calls': 1, 'prompt_tokens': 10356, 'completion_tokens': 3249, 'cost_usd': 0.053202}, 'interpreter': {'calls': 0, 'prompt_tokens': 0, 'completion_tokens': 0, 'cost_usd': 0.0}, 'author': {'calls': 2, 'prompt_tokens': 54806, 'completion_tokens': 18634, 'cost_usd': 0.295952}, 'critic': {'calls': 1, 'prompt_tokens': 26069, 'completion_tokens': 6196, 'cost_usd': 0.114098}}, 'total_tokens': 123490, 'total_usd': 0.479388, 'budget': None, 'dropped': 0, 'aquascope_version': '0.16.0', 'date': '2026-09-14 22:18 UTC', 'workspace': 'cdb11f3b6a3d', 'plan_author': 'methodologist', 'written_by': {'answer': 'template', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'results-s2': 'template', 'results-s3': 'template', 'results-s4': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*
+*{'model': 'claude-sonnet-5', 'provider': 'anthropic', 'prose': 'model', 'tokens': {'consultant': {'calls': 1, 'prompt_tokens': 3208, 'completion_tokens': 1061, 'cost_usd': 0.017026}, 'methodologist': {'calls': 1, 'prompt_tokens': 10362, 'completion_tokens': 3407, 'cost_usd': 0.054794}, 'interpreter': {'calls': 1, 'prompt_tokens': 24858, 'completion_tokens': 11579, 'cost_usd': 0.165506}, 'author': {'calls': 2, 'prompt_tokens': 55658, 'completion_tokens': 16969, 'cost_usd': 0.281006}, 'critic': {'calls': 1, 'prompt_tokens': 25091, 'completion_tokens': 9493, 'cost_usd': 0.145112}}, 'total_tokens': 161686, 'total_usd': 0.663444, 'budget': None, 'dropped': 9, 'aquascope_version': '0.16.0', 'date': '2026-09-14 23:32 UTC', 'workspace': '5d58590cfc06', 'plan_author': 'methodologist', 'written_by': {'answer': 'model', 'summary': 'model', 'decision': 'model', 'findings': 'model', 'problem': 'model', 'site_data': 'model', 'methodology': 'model', 'results-s1': 'model', 'results-s2': 'model', 'results-s3': 'model', 'results-s4': 'model', 'limitations': 'model', 'recommendations': 'model', 'references': 'template', 'appendix': 'template'}}*

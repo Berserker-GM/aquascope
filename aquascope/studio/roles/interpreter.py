@@ -589,8 +589,9 @@ def validate_findings(ws: Workspace, obj: dict[str, Any], *, rules: dict[str, An
             decision["answer"] = raw_d["answer"].strip()
     decision["grade"] = _lower(str(raw_d.get("grade") or rules["decision"]["grade"]), rules["decision"]["grade"])
     if decision["grade"] != str(raw_d.get("grade") or "") and decision.get("answer"):
-        decision["answer"] = re.sub(r"\((established|indicative|screening|not established)\)\.?$",
-                                    f"({decision['grade'].replace('_', ' ')}).", decision["answer"])
+        # the grade word in the answer is the engine's, wherever the sentence carries it
+        decision["answer"] = re.sub(r"\((established|indicative|screening|not established)\)",
+                                    f"({decision['grade'].replace('_', ' ')})", decision["answer"], count=1)
     for k in ("conditions", "what_would_change_it"):
         got = [str(x) for x in (raw_d.get(k) or []) if isinstance(x, str) and x.strip()]
         if got:

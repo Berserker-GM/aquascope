@@ -19,47 +19,47 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T22:19:59+00:00",
- "seconds": 702.5,
+ "recorded": "2026-09-14T23:33:14+00:00",
+ "seconds": 545.5,
  "tokens": {
-  "prompt": 122107,
-  "completion": 37634,
-  "calls": 6,
+  "prompt": 146583,
+  "completion": 47428,
+  "calls": 7,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3208,
-    "completion_tokens": 972,
-    "cost_usd": 0.016136
+    "completion_tokens": 1061,
+    "cost_usd": 0.017026
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 10356,
-    "completion_tokens": 3249,
-    "cost_usd": 0.053202
+    "prompt_tokens": 10362,
+    "completion_tokens": 3407,
+    "cost_usd": 0.054794
    },
    "interpreter": {
-    "calls": 0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "cost_usd": 0.0
+    "calls": 1,
+    "prompt_tokens": 24858,
+    "completion_tokens": 11579,
+    "cost_usd": 0.165506
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 54806,
-    "completion_tokens": 18634,
-    "cost_usd": 0.295952
+    "prompt_tokens": 55658,
+    "completion_tokens": 16969,
+    "cost_usd": 0.281006
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 53737,
-    "completion_tokens": 14779,
-    "cost_usd": 0.255264
+    "prompt_tokens": 52497,
+    "completion_tokens": 14412,
+    "cost_usd": 0.249114
    }
   },
-  "total": 159741
+  "total": 194011
  },
- "usd": 0.9308,
+ "usd": 1.1512,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -74,14 +74,12 @@
  },
  "checks": {
   "passed": 6,
-  "total": 7
+  "total": 6
  },
  "replans": 0,
  "stop_reason": null,
- "headline": "Notice: this report did not pass the Critic's checks (numbers_come_from_tools); read its numbers with the list of what this study does not establish.",
- "not_established": [
-  "These numbers are not in any tool result: 2.704."
- ],
+ "headline": "Notice: the Critic's fix requests on decision, limitations, summary were not all resolved; read the report with the list of what this study does not establish.",
+ "not_established": [],
  "figures": [
   {
    "name": "s1_site_map.png",

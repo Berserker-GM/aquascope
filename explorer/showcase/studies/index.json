@@ -1,5 +1,5 @@
 {
- "generated": "2026-09-14T22:49:44+00:00",
+ "generated": "2026-09-14T23:33:14+00:00",
  "aquascope_version": "0.16.0",
  "note": "Recorded studies: the prose was written once by the model named in each entry, on the date given. The plan re-runs live in the page with no key; the recorded numbers are the run's.",
  "studies": [
@@ -63,19 +63,19 @@
    "model": "claude-sonnet-5",
    "provider": "anthropic",
    "date": "2026-09-14",
-   "recorded": "2026-09-14T21:47:28+00:00",
-   "usd": 0.9792,
-   "seconds": 537.5,
-   "steps": 6,
+   "recorded": "2026-09-14T23:14:30+00:00",
+   "usd": 1.0428,
+   "seconds": 574.5,
+   "steps": 8,
    "gates": {
     "passed": 11,
-    "total": 16
+    "total": 14
    },
    "checks": {
     "passed": 7,
     "total": 8
    },
-   "headline": "Notice: this report did not pass the Critic's checks (units_are_named); read its numbers with the list of what this study does not establish.",
+   "headline": "Notice: this report did not pass the Critic's checks (trend_matches_the_test); read its numbers with the list of what this study does not establish.",
    "files": [
     "workspace.json",
     "report.md",
@@ -86,12 +86,12 @@
     "figures/s3_series.png",
     "figures/s4_drought_strip.png",
     "figures/s5_series.png",
-    "figures/s5_trend.png",
-    "figures/s6_series.png",
+    "figures/s6_recharge.png",
+    "figures/s7_fdc.png",
+    "figures/s8_series.png",
+    "figures/s8_trend.png",
     "figures/s2.fallback_series.png",
-    "figures/s2.fallback_trend.png",
-    "figures/s6.fallback_series.png",
-    "figures/s6.fallback_trend.png"
+    "figures/s2.fallback_trend.png"
    ],
    "figures": [
     "s1_series.png",
@@ -100,12 +100,12 @@
     "s3_series.png",
     "s4_drought_strip.png",
     "s5_series.png",
-    "s5_trend.png",
-    "s6_series.png",
+    "s6_recharge.png",
+    "s7_fdc.png",
+    "s8_series.png",
+    "s8_trend.png",
     "s2.fallback_series.png",
-    "s2.fallback_trend.png",
-    "s6.fallback_series.png",
-    "s6.fallback_trend.png"
+    "s2.fallback_trend.png"
    ],
    "upload": null
   },
@@ -347,19 +347,19 @@
    "model": "claude-sonnet-5",
    "provider": "anthropic",
    "date": "2026-09-14",
-   "recorded": "2026-09-14T21:28:15+00:00",
-   "usd": 0.3734,
-   "seconds": 546.7,
+   "recorded": "2026-09-14T23:04:55+00:00",
+   "usd": 0.9542,
+   "seconds": 606.3,
    "steps": 4,
    "gates": {
-    "passed": 7,
-    "total": 7
+    "passed": 11,
+    "total": 11
    },
    "checks": {
     "passed": 9,
-    "total": 10
+    "total": 9
    },
-   "headline": "Notice: this report did not pass the Critic's checks (decision_in_answer); read its numbers with the list of what this study does not establish.",
+   "headline": "Notice: the Critic's fix requests on findings, results-s2 were not all resolved; read the report with the list of what this study does not establish.",
    "files": [
     "workspace.json",
     "report.md",
@@ -391,27 +391,31 @@
    "model": "claude-sonnet-5",
    "provider": "anthropic",
    "date": "2026-09-14",
-   "recorded": "2026-09-14T22:08:16+00:00",
-   "usd": 0.5319,
-   "seconds": 399.1,
-   "steps": 4,
+   "recorded": "2026-09-14T23:24:08+00:00",
+   "usd": 0.8341,
+   "seconds": 578.9,
+   "steps": 3,
    "gates": {
-    "passed": 1,
-    "total": 2
+    "passed": 6,
+    "total": 8
    },
    "checks": {
-    "passed": 5,
-    "total": 5
+    "passed": 7,
+    "total": 7
    },
-   "headline": "Notice: the Critic's fix requests on methodology, recommendations, summary were not all resolved; read the report with the list of what this study does not establish.",
+   "headline": "Whether an ungauged Sintra hills stream (38.80 N, -9.38 W, BasinATLAS HYBAS id 2120018870) can sustain a 4 ML/day run-of-river municipal offtake, and how reliable that supply would be: not established.",
    "files": [
     "workspace.json",
     "report.md",
     "study.yaml",
-    "figures/s1_site_map.png"
+    "figures/s1_site_map.png",
+    "figures/s2_donors_map.png",
+    "figures/s3.fallback_donors_map.png"
    ],
    "figures": [
-    "s1_site_map.png"
+    "s1_site_map.png",
+    "s2_donors_map.png",
+    "s3.fallback_donors_map.png"
    ],
    "upload": null
   },
@@ -519,9 +523,9 @@
    "model": "claude-sonnet-5",
    "provider": "anthropic",
    "date": "2026-09-14",
-   "recorded": "2026-09-14T22:19:59+00:00",
-   "usd": 0.9308,
-   "seconds": 702.5,
+   "recorded": "2026-09-14T23:33:14+00:00",
+   "usd": 1.1512,
+   "seconds": 545.5,
    "steps": 4,
    "gates": {
     "passed": 7,
@@ -529,9 +533,9 @@
    },
    "checks": {
     "passed": 6,
-    "total": 7
+    "total": 6
    },
-   "headline": "Notice: this report did not pass the Critic's checks (numbers_come_from_tools); read its numbers with the list of what this study does not establish.",
+   "headline": "Notice: the Critic's fix requests on decision, limitations, summary were not all resolved; read the report with the list of what this study does not establish.",
    "files": [
     "workspace.json",
     "report.md",

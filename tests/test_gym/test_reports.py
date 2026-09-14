@@ -192,16 +192,18 @@ def test_kingston_and_cambridge_score_perfectly_against_their_recorded_reports()
         assert out["reference"]["must_not_say"]["violated"] == []
 
 
-def test_toulouse_catches_the_downward_trend_claim_the_recorded_report_makes():
+def test_toulouse_states_the_significant_decreasing_trend_and_scores_clean():
+    """The 2026-09-07 recording called a p = 0.302 trend "downward" and the scorer caught it (the synthetic
+    direction-inversion test above keeps that metric honest). The 2026-09-15 recording on the 116-year record
+    finds a significant decreasing trend (p < 0.001) and says so; the reference now requires the direction to
+    be stated and forbids calling the trend insignificant."""
     ref = BY_ID["toulouse-irrigation"]
     with (gr.SHOWCASE_DIR / ref.study / "workspace.json").open(encoding="utf-8") as fh:
         ws = json.load(fh)
     out = gr.score_report(ws, reference=ref)
-    assert out["reference"]["must_say"]["failed"] == []
-    violated = out["reference"]["must_not_say"]["violated"]
-    assert violated and "downward trend" in violated[0]
-    assert out["reference"]["score"] < 1.0
-    assert any("claims down where the test found" in e for e in out["evidence"]["no_filled_holes"])
+    assert out["reference"]["must_say"]["failed"] == [], out["reference"]
+    assert out["reference"]["must_not_say"]["violated"] == []
+    assert out["reference"]["score"] == 1.0 and out["dimensions"]["no_filled_holes"] == 1.0
 
 
 # ── the CLI ──
