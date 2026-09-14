@@ -1629,6 +1629,21 @@ def cmd_studio(args: argparse.Namespace) -> None:
     if reply.kind == "report":
         print()
         print(reply.text)
+        decision = reply.payload.get("decision") or {}
+        findings = reply.payload.get("findings") or []
+        if (decision or findings) and not args.quiet:
+            if decision.get("grade"):
+                print(f"\n  Grade: {str(decision['grade']).replace('_', ' ')}", file=sys.stderr)
+            for line in decision.get("conditions") or []:
+                print(f"   · holds if: {line}", file=sys.stderr)
+            for line in decision.get("what_would_change_it") or []:
+                print(f"   · would change it: {line}", file=sys.stderr)
+            if findings:
+                print("\n  Findings:", file=sys.stderr)
+                for f in findings[:12]:
+                    print(f"   · [{str(f.get('grade') or '').replace('_', ' ')}] {f.get('claim')}", file=sys.stderr)
+            for r in reply.payload.get("data_requests") or []:
+                print(f"   · data the crew would ask for: {r.get('what')} ({r.get('effect_on_grade')})", file=sys.stderr)
         missing = reply.payload.get("not_established") or []
         if missing and not args.quiet:
             print("\n  What this study does not establish:", file=sys.stderr)

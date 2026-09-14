@@ -114,7 +114,7 @@ class FakeModel:
     """
 
     ROLE_WORDS = (("Consultant", "consultant"), ("Methodologist", "methodologist"), ("specialist", "analyst"),
-                  ("Critic", "critic"), ("Author", "author"))
+                  ("Interpreter", "interpreter"), ("Critic", "critic"), ("Author", "author"))
 
     def __init__(self, script: dict[str, Any]):
         self.script = {k: (list(v) if isinstance(v, list) else v) for k, v in script.items()}

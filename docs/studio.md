@@ -8,7 +8,7 @@ file re-runs with no model. [studio-design.md](studio-design.md) is the
 contract; this page is the user's guide.
 
 ```
- you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Critic ──► Author ──► bundle
+ you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Interpreter ──► Critic ──► Author ──► bundle
         (the brief)   (inventory)  (the plan)     (approve)  (run, gates)  (review)  (report)
 ```
 
@@ -39,7 +39,18 @@ contract; this page is the user's guide.
    Specialist fallback once (the playbook's
    branch, or a Specialist's proposal validated against the catalogue).
    Figures and tables are made per step as results land.
-6. **Report.** The Author writes the report from the results; every sentence
+6. **Interpret.** The Interpreter reads the results, the gates and the brief's
+   decision and writes findings, not prose: claims that each point at the
+   result they come from (`s3.ffa.fits.gev_lmoments.q.5`), whether the
+   estimates agree, the decision block (the value, its band, its grade, the
+   conditions, what would change it), the data the crew would ask for, and
+   the assumptions. Keyless it is a rule table over the key numbers and the
+   gates; with a model, one call the engine holds to the results (a basis
+   that resolves to nothing drops the finding, a grade may go down, never up).
+   Every answer carries a grade: `established` (at-site data, every gate
+   passed), `indicative` (a fallback, a donor transfer, a marginal method),
+   `screening` (regional or reanalysis data only), `not_established`.
+7. **Report.** The Author writes the report from the findings; every sentence
    a model wrote passes the Critic's number check first (one whose numbers
    are in no result is dropped and counted). The Critic then runs its
    deterministic checks and, with a model, one independent pass; every
@@ -47,12 +58,12 @@ contract; this page is the user's guide.
    the second critique keeps the model, and a report that still fails opens
    with one line naming the failed checks. What is not established is
    listed, never hidden.
-7. **Bundle.** Markdown, `study.yaml`, `report.json`, `workspace.json` and,
+8. **Bundle.** Markdown, `study.yaml`, `report.json`, `findings.json`, `workspace.json` and,
    when the deliverables package is installed, the figures, the Excel
    workbook, the Word report, the notebook and one zip. The raw record and
    the raw samples live in the workbook and the notebook; the documents say
    which sheet, and print the evidence tables only.
-8. **Follow-up.** A question is answered from the workspace; a change (another
+9. **Follow-up.** A question is answered from the workspace; a change (another
    return period, another statistic, another gauge, the donors) is planned,
    run and re-authored, reusing every step whose arguments and gates did not
    change.

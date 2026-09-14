@@ -1,6 +1,6 @@
 """The Coordinator: the state machine over the workspace, and the API every face is thin over.
 
-    intake -> scouting -> planning -> review -> running -> critique -> authoring -> done
+    intake -> scouting -> planning -> review -> running -> interpreting -> critique -> authoring -> done
                                         |                                          |
                                      declined                                  follow-up
 
@@ -160,6 +160,10 @@ class Studio:
             "not_established": report.get("not_established") or [], "status": self.ws.status,
             "critique_ok": bool(report.get("critique_ok", True)), "notice": report.get("notice"),
             "dropped": int(report.get("dropped") or 0), "cost_usd": self.ws.total_usd, "budget": self.ws.budget,
+            "findings": (self.ws.findings or {}).get("findings") or [],
+            "decision": (self.ws.findings or {}).get("decision"),
+            "data_requests": (self.ws.findings or {}).get("data_requests") or [],
+            "grade": ((self.ws.findings or {}).get("decision") or {}).get("grade"),
         })
 
     def _apply_verdict(self) -> None:
@@ -308,6 +312,7 @@ class Studio:
         from aquascope.studio.roles.analysts import run
         from aquascope.studio.roles.author import author_report
         from aquascope.studio.roles.critic import critique, fixes_for
+        from aquascope.studio.roles.interpreter import interpret
 
         ws = self.ws
         ws.set_status("running")
@@ -320,6 +325,11 @@ class Studio:
             ws.run = {"ok": False, "results": [], "gates": [], "failed_gates": [], "stopped_at": None,
                       "stop_reason": reason, "started": now(), "finished": now(), "replans": 0}
         ws.set_status("critique")
+        try:
+            interpret(ws, self.model)
+        except Exception as exc:  # noqa: BLE001 - the findings are an aid; the report goes on without them
+            ws.event("interpreter", "error", f"{type(exc).__name__}: {exc}")
+            ws.findings = None
         try:
             author_report(ws, self.model)
         except Exception as exc:  # noqa: BLE001

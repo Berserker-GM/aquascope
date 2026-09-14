@@ -39,6 +39,8 @@ SOFTWARE_DOI = "10.5281/zenodo.21903143"
 
 SECTION_TITLES: dict[str, str] = {
     "summary": "Summary",
+    "decision": "The decision",
+    "findings": "Findings",
     "problem": "Problem and decision",
     "site_data": "Site and data",
     "methodology": "Methodology",
@@ -571,7 +573,16 @@ def _recommendations(ws: Workspace, study: Study, missing: list[str]) -> list[st
     run = ws.run or {}
     plan = study.plan or {}
     out: list[str] = []
+    decision = (ws.findings or {}).get("decision") or {}
+    if decision.get("answer"):
+        out.append(f"Adopt this as the answer to the decision: {decision['answer']}")
+        for c in (decision.get("what_would_change_it") or [])[:2]:
+            out.append(f"To firm it up: {c}.")
+        for r in ((ws.findings or {}).get("data_requests") or [])[:1]:
+            out.append(f"Obtain {r.get('what')}: {r.get('effect_on_grade') or r.get('why')}.")
     for g in (run.get("failed_gates") or [])[:2]:
+        if len(out) >= 4:
+            break
         out.append(f"Before relying on step {g.get('step')}, settle the failed gate {g.get('check')}: "
                    f"{g.get('detail')}. A longer record or another source would.")
     if run.get("replans") or any(r.get("fallback_used") for r in run.get("results") or []):
@@ -588,13 +599,13 @@ def _recommendations(ws: Workspace, study: Study, missing: list[str]) -> list[st
             out.append(f"Quote both fits with their intervals: {g.get('detail')}.")
             break
     for c in (plan.get("caveats") or []):
-        if len(out) >= 4:
+        if len(out) >= 5:
             break
         out.append(f"Read the numbers with this caveat: {_first_sentence(str(c))}")
     if not out:
         out.append("Re-run the study file when the record is updated; the gates will say whether the estimate "
                    "moved.")
-    return out[:4]
+    return out[:5]
 
 
 _SENTENCE_END = re.compile(r"(?<!\bal)(?<!\bet)(?<!\bvs)(?<![A-Z])[.!?](?=\s+[A-Z(]|$)")
@@ -614,6 +625,24 @@ def _template_sections(ws: Workspace, study: Study, results: list[dict[str, Any]
     site = ws.site or {}
     sections: dict[str, str] = {}
     sections["summary"] = _summary_paragraph(ws, study, results, key, missing, answer)
+    findings = ws.findings or {}
+    decision = findings.get("decision") or {}
+    if findings.get("findings") or decision:
+        lines = []
+        if decision.get("answer"):
+            lines.append(str(decision["answer"]))
+        if decision.get("conditions"):
+            lines.append("It holds under these conditions: " + "; ".join(str(c) for c in decision["conditions"]) + ".")
+        if decision.get("what_would_change_it"):
+            lines.append("What would change it: " + "; ".join(str(c) for c in decision["what_would_change_it"]) + ".")
+        for r in findings.get("data_requests") or []:
+            lines.append(f"The crew would ask for {r.get('what')}: {r.get('effect_on_grade') or r.get('why')}.")
+        sections["decision"] = " ".join(lines)
+        rows = [f"- [{str(f.get('grade') or '').replace('_', ' ')}] {f.get('claim')} "
+                f"(from {', '.join(f.get('basis') or [])})" for f in findings.get("findings") or []]
+        for c in findings.get("consistency") or []:
+            rows.append(f"- {'Agrees' if c.get('agree') else 'Disagrees'}: {c.get('note')}")
+        sections["findings"] = "\n".join(rows) if rows else ""
 
     parts = [b.problem]
     if b.decision:
@@ -701,7 +730,9 @@ def _section_list(ws: Workspace, texts: dict[str, str], results: list[dict[str, 
             continue
         (figs if a.kind == "figure" else tables).setdefault(a.step, []).append(a.id)
     out: list[dict[str, Any]] = []
-    for sid in ("summary", "problem", "site_data", "methodology"):
+    for sid in ("summary", "decision", "findings", "problem", "site_data", "methodology"):
+        if sid in ("decision", "findings") and not texts.get(sid):
+            continue    # only when the Interpreter ran
         out.append({"id": sid, "title": SECTION_TITLES[sid], "text": texts.get(sid, ""),
                     "figures": figs.get(sid, []), "tables": tables.get(sid, [])})
     result_ids = [str(r.get("id")) for r in results] or ["none"]
@@ -740,6 +771,11 @@ def _draft(ws: Workspace) -> dict[str, Any]:
         quantities = _rules_quantities(ws.brief.playbook, ws.brief.intake)
     names = _record_names(ws)
     answer = name_records(_answer_from(_template_answer(study, prior_run(ws)), key, quantities), names)
+    decision = (ws.findings or {}).get("decision") or {}
+    if decision.get("answer"):
+        from aquascope.studio.roles.interpreter import decision_text
+
+        answer = f"{decision_text(decision)} {answer}".strip()
     texts = _template_sections(ws, study, results, key, missing, refs, answer)
     for sid in list(texts):
         if sid.startswith("results-") or sid == "summary":
@@ -774,8 +810,11 @@ def report_context(ws: Workspace, *, issues: list[dict[str, Any]] | None = None,
                                         if k in ("tool", "arguments", "ok", "gates", "result")}, max_list=24)
                    if r.get("fallback") else None} for r in results],
         "key_numbers": d["key"],
+        "findings": {k: v for k, v in (ws.findings or {}).items()
+                     if k in ("findings", "consistency", "decision", "data_requests", "assumptions")} or None,
         "numbers_rule": "every number in steps[*].result and steps[*].fallback.result may be quoted; "
-                        "key_numbers is the summary table's subset, not a whitelist",
+                        "key_numbers is the summary table's subset, not a whitelist; the answer opens with the "
+                        "decision's answer and grade, and the findings section walks the findings",
         "not_established": d["missing"],
         "inventory": [{k: v for k, v in ds.to_dict().items() if k in ("id", "kind", "variable", "source",
                                                                        "station_id", "name", "years")}
@@ -817,7 +856,7 @@ def author_report(ws: Workspace, model: Model | None, *, issues: list[dict[str, 
                 text, k = _checked(obj["answer"].strip(), pool, ws.brief.problem)
                 dropped += k
                 if text:
-                    answer = text
+                    answer = _with_decision(ws, text)
                     written_by["answer"] = "model"
             written = obj.get("sections") if isinstance(obj.get("sections"), dict) else {}
             n = 0
@@ -859,9 +898,14 @@ def author_report(ws: Workspace, model: Model | None, *, issues: list[dict[str, 
     if dropped:
         ws.event("critic", "dropped", f"{dropped} sentence(s) quoted numbers or years in no result")
     dropped += before
+    findings = ws.findings or {}
     report = {
         "title": title,
         "answer": answer,
+        "grade": (findings.get("decision") or {}).get("grade"),
+        "decision": findings.get("decision"),
+        "findings": findings.get("findings") or [],
+        "data_requests": findings.get("data_requests") or [],
         "key_numbers": key,
         "sections": _section_list(ws, texts, results),
         "not_established": missing,
@@ -882,6 +926,25 @@ def author_report(ws: Workspace, model: Model | None, *, issues: list[dict[str, 
     }
     ws.report = report
     return report
+
+
+def _with_decision(ws: Workspace, answer: str) -> str:
+    """The answer with the decision's value and grade in front when the prose does not carry them: the grade
+    is the engine's verdict, and it is not the model's to leave out (#418)."""
+    from aquascope.ai_engine.verify import _numbers, normalise
+    from aquascope.studio.roles.interpreter import decision_text
+
+    decision = (ws.findings or {}).get("decision") or {}
+    if not decision.get("answer"):
+        return answer
+    value, grade = decision.get("value"), str(decision.get("grade") or "")
+    text = normalise(answer)
+    has_grade = bool(grade) and grade.replace("_", " ") in text.lower()
+    has_value = not isinstance(value, (int, float)) or isinstance(value, bool) or any(
+        abs(n - float(value)) <= max(abs(float(value)), 1e-9) * 0.02 + 1e-9 for n in _numbers(text, claims_only=True))
+    if has_grade and has_value:
+        return answer
+    return f"{decision_text(decision)} {answer}".strip()
 
 
 def _bullets(text: str) -> list[str]:
@@ -951,7 +1014,7 @@ def narrate(ws: Workspace, sections: dict[str, str], *, source: str = "device") 
             ignored.append(sid)
             continue
         if sid == "answer":
-            report["answer"] = new_text
+            report["answer"] = _with_decision(ws, new_text)
         else:
             by_id[sid]["text"] = new_text
             if sid == "recommendations":

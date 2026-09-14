@@ -161,7 +161,7 @@ def test_narrate_replaces_sections_after_the_number_check(studio_factory):
                                 "The record runs 39.9 years.")
     assert after["results-s3"] == "- GEV gives 520 m3/s (90 % band 420 to 650 m3/s).\n- LP3 gives 548 m3/s."
     assert after["problem"] == before["problem"] and after["limitations"] == before["limitations"]
-    assert ws.report["answer"].startswith("About 520") and r.text.startswith("About 520")
+    assert "About 520" in ws.report["answer"] and "About 520" in r.text and "(established)" in r.text
     written_by = ws.report["written_by"]
     assert written_by["summary"] == "device" and written_by["results-s3"] == "device"
     assert written_by["answer"] == "device"
@@ -226,7 +226,7 @@ def test_the_contexts_are_what_the_roles_send_a_model(studio_factory):
         client.calls("methodologist")[0]["context"]
     k.approve(plan=VALID_PLAN)
     actx = k.author_context()
-    assert actx["system"] == prompts.AUTHOR and actx["section_ids"][:2] == ["summary", "problem"]
+    assert actx["system"] == prompts.AUTHOR and actx["section_ids"][:3] == ["summary", "decision", "findings"]
     sent = client.calls("author")[0]["context"]
     assert json.loads(json.dumps({x: y for x, y in actx.items() if x != "system"})) == sent
     fix = k.author_context(issues=[{"section": "summary", "severity": "fix", "text": "t", "fix": "f"}])
@@ -283,7 +283,7 @@ def test_explorer_prompts_json_matches_the_module():
                          "methodologist_repair", "methodologist_change", "author", "author_fix", "critic",
                          "specialist", "schemas", "version"}
     assert data["consultant"] == prompts.CONSULTANT and data["version"] == prompts.VERSION
-    assert set(data["schemas"]) == {"brief", "plan", "sections"}
+    assert set(data["schemas"]) == {"brief", "plan", "sections", "findings"}
     assert data["schemas"]["plan"]["properties"]["steps"]["items"]["required"] == ["id", "tool", "arguments",
                                                                                      "rationale"]
     assert "\u2014" not in shipped and "\u2013" not in shipped, "no dashes in what the page reads"

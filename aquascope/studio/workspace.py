@@ -275,6 +275,8 @@ class Workspace:
     #: The run: ``{"ok", "results": [...], "gates": [...], "stopped_at", "stop_reason", "started", "finished"}``.
     run: dict[str, Any] | None = None
     #: The Critic's findings: ``{"checks": [...], "issues": [...], "not_established": [...]}``.
+    #: The Interpreter's findings: claims with basis paths, consistency, the decision block, data requests.
+    findings: dict[str, Any] | None = None
     critique: dict[str, Any] | None = None
     #: The Author's report: ``{"title", "answer", "key_numbers": [...], "sections": [...], "not_established": [...],
     #: "references": [...], "footer"}``. A section is ``{"id", "title", "text", "figures": [ids], "tables": [ids]}``.
@@ -411,6 +413,7 @@ class Workspace:
             "inventory": self.inventory.to_dict() if self.inventory else None,
             "study": self.study,
             "run": self.run,
+            "findings": self.findings,
             "critique": self.critique,
             "report": self.report,
             "artifacts": [a.to_dict(with_data=with_artifacts) for a in self.artifacts],
@@ -436,6 +439,7 @@ class Workspace:
             inventory=Inventory.from_dict(d.get("inventory")),
             study=dict(d["study"]) if isinstance(d.get("study"), dict) else None,
             run=dict(d["run"]) if isinstance(d.get("run"), dict) else None,
+            findings=dict(d["findings"]) if isinstance(d.get("findings"), dict) else None,
             critique=dict(d["critique"]) if isinstance(d.get("critique"), dict) else None,
             report=dict(d["report"]) if isinstance(d.get("report"), dict) else None,
             artifacts=[Artifact.from_dict(a) for a in (d.get("artifacts") or []) if isinstance(a, dict)],

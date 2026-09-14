@@ -22,8 +22,8 @@ from aquascope.studio.model import Model, compact
 from aquascope.studio.prompts import CRITIC
 from aquascope.studio.workspace import Workspace
 
-__all__ = ["CHECK_FIXES", "check_issues", "critique", "failed_checks", "fixes_for", "not_established", "notice",
-           "tool_results"]
+__all__ = ["CHECK_FIXES", "check_issues", "critique", "failed_checks", "findings_checks", "fixes_for",
+           "not_established", "notice", "tool_results"]
 
 #: The repair each deterministic check asks of the Author when it fails. Every failed check is a "fix", the
 #: trend check included: a "significant" claim against a p above 0.05 is a contradiction, not a note.
@@ -37,6 +37,10 @@ CHECK_FIXES: dict[str, str] = {
                               "otherwise; keep the p-value as the test reported it.",
     "units_are_named": "Name the unit of the record next to the numbers.",
     "record_is_named": "Name the station or record the numbers come from.",
+    "findings_resolve": "Drop or re-anchor the findings whose basis paths point at no result.",
+    "decision_in_answer": "Open the answer with the decision's value, its band and its grade word.",
+    "stationarity_matches_the_maxima": "Say what the Mann-Kendall test on the annual maxima found, and treat the "
+                                       "record as stationary only when it found no trend.",
 }
 
 
@@ -126,6 +130,35 @@ def notice(critique: dict[str, Any] | None) -> str | None:
             "read the report with the list of what this study does not establish.")
 
 
+def findings_checks(ws: Workspace) -> list[Any]:
+    """Two deterministic checks over the Interpreter's findings (#417): every basis path resolves to a value
+    in the results, and the report's answer carries the decision's value and its grade word."""
+    from aquascope.ai_engine.verify import Check, _numbers, normalise
+    from aquascope.studio.roles.interpreter import resolve_basis
+
+    out: list[Any] = []
+    findings = ws.findings or {}
+    rows = findings.get("findings") or []
+    if rows:
+        bad = [f.get("id") for f in rows if not any(resolve_basis(ws, b) is not None for b in (f.get("basis") or []))]
+        out.append(Check("findings_resolve", not bad,
+                         "" if not bad else f"Finding(s) {', '.join(str(b) for b in bad)} point at no result."))
+    decision = findings.get("decision") or {}
+    value, grade = decision.get("value"), decision.get("grade")
+    answer = normalise(str((ws.report or {}).get("answer") or ""))
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and answer:
+        head = answer.split("\n\n")[-1] if answer.startswith("Notice:") else answer
+        nums = _numbers(head, claims_only=True)
+        has_value = any(abs(n - float(value)) <= max(abs(float(value)), 1e-9) * 0.02 + 1e-9 for n in nums)
+        has_grade = bool(grade) and str(grade).replace("_", " ") in head.lower()
+        out.append(Check("decision_in_answer", has_value and has_grade,
+                         "" if has_value and has_grade else
+                         ("The answer does not quote the decision's value " if not has_value else "")
+                         + ("The answer does not name the answer's grade " if not has_grade else "")
+                         + f"({value:g}, {grade})."))
+    return out
+
+
 def _draft(ws: Workspace) -> str:
     report = ws.report or {}
     answer = str(report.get("answer") or "")
@@ -147,6 +180,7 @@ def critique(ws: Workspace, model: Model | None) -> dict[str, Any]:
     draft = _draft(ws)
     results = tool_results(ws)
     checks = verify(draft, results, question=ws.brief.problem)
+    checks.checks.extend(findings_checks(ws))
     missing = not_established(ws)
     for c in checks.failed:
         missing.append(c.detail or c.name)

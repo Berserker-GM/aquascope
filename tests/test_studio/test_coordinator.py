@@ -21,10 +21,12 @@ def test_keyless_end_to_end_say_plan_approve_report_export(studio_factory, tmp_p
     assert calls == [], "nothing runs before the approval"
     r2 = s.approve()
     ws = s.workspace
-    assert r2.kind == "report" and ws.status == "done" and r2.text.startswith("The 100-year return level")
+    assert r2.kind == "report" and ws.status == "done" and "100-year return level" in r2.text[:120]
+    assert r2.text.startswith("design flow:") and "(established)" in r2.text[:160]
     assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     report = r2.payload["report"]
-    assert [x["id"] for x in report["sections"]][:5] == ["summary", "problem", "site_data", "methodology", "results-s1"]
+    assert [x["id"] for x in report["sections"]][:7] == ["summary", "decision", "findings", "problem", "site_data",
+                                                          "methodology", "results-s1"]
     assert any(k["label"].startswith("100-year return level") and k["value"] == 520 for k in report["key_numbers"])
     assert report["not_established"] == [] and report["critique"]["checks_passed"] == report["critique"]["checks"]
     assert ws.ledger == {} and ws.model is None
@@ -142,7 +144,8 @@ def test_a_failing_run_still_ends_in_a_report(studio_factory):
     assert ws.run["stopped_at"] is None and not ws.run["results"][1]["ok"]
     assert len(ws.run["results"]) == len(ws.study["steps"]), "every planned step ran or was skipped"
     assert ws.run["summary"]["failed"] >= 1 and [f["id"] for f in ws.run["failed_steps"]][0] == "s2"
-    assert "failed: RuntimeError: agency down" in r.payload["report"]["sections"][5]["text"]
+    s2_text = next(x["text"] for x in r.payload["report"]["sections"] if x["id"] == "results-s2")
+    assert "failed: RuntimeError: agency down" in s2_text
 
 
 def test_the_model_crew_end_to_end(studio_factory):
@@ -163,9 +166,10 @@ def test_the_model_crew_end_to_end(studio_factory):
     assert r.kind == "plan" and ws.brief.source == "model" and ws.study["author"] == "methodologist"
     assert len(ws.study["steps"]) == 4
     r2 = s.approve()
-    assert r2.kind == "report" and r2.text.startswith("About 520")
+    assert r2.kind == "report" and "About 520" in r2.text and "(established)" in r2.text
+    assert r2.payload["grade"] == "established" and r2.payload["decision"]["value"] == 520
     assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
-    assert set(ws.ledger) == {"consultant", "methodologist", "author", "critic"}
+    assert set(ws.ledger) == {"consultant", "methodologist", "interpreter", "author", "critic"}
     assert r2.payload["report"]["footer"]["prose"] == "model" and r2.payload["report"]["footer"]["model"] == "fake"
     assert r2.payload["report"]["footer"]["tokens"]["author"]["calls"] == 1
     assert ws.report["critique"]["issues"] == [] and ws.report["not_established"] == []

@@ -13,7 +13,7 @@ the way an engineer would: the user agrees the brief and approves the
 methodology, then the crew runs to the bundle.
 
 ```
- you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Critic ──► Author ──► bundle
+ you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Interpreter ──► Critic ──► Author ──► bundle
         (the brief)   (inventory)  (the plan)     (approve)  (run, gates)  (review)  (report)
                                                                  ▲                              │
                                                                  └────────── follow-up ◄────────┘
@@ -51,7 +51,8 @@ One serialisable object every role reads and writes:
 | `inventory` | Scout | site, datasets (station, upload, reanalysis, catchment, donors, samples), the raw `assess_site` recon (the sufficiency table lives there), catchment, donors, notes |
 | `study` | Methodologist | `Study.to_dict()`, version 3 |
 | `run` | Analysts | ok, results per step with gates, `failed_steps`, `summary` (planned, ran, ok, failed, skipped), stopped_at and stop_reason for a hard stop only |
-| `critique` | Critic | ok, checks, failed, issues, not_established |
+| `findings` | Interpreter | findings (claim, basis paths, grade), consistency, decision (answer, value, unit, band, grade, conditions, what_would_change_it), data_requests, assumptions, written_by, dropped |
+| `critique` | Critic | ok, checks (with `findings_resolve` and `decision_in_answer`), failed, issues, not_established |
 | `report` | Author | title, answer (opening with the notice when the critique is not ok), key_numbers, sections (id, title, text, figures, tables), not_established, critique, critique_ok, dropped, references, footer (ledger in tokens and USD, budget, dropped) |
 | `artifacts` | Analysts, Author | figures, tables, documents, workbook, notebook, study, bundle: bytes with a name, a media type, a caption, a step |
 | `messages` | everyone | the conversation, with a kind a face can render (text, questions, plan, report) |
@@ -106,6 +107,7 @@ out (`aquascope.studio.model.Model.call_json`).
 | Scout | `assess_site`, the ERA5 and GloFAS reach, uploads through `ingest` | the same (deterministic) | `inventory`, a `Dataset` per row |
 | Methodologist | the playbook tree (`playbooks.plan`); after the report, a rule table from the follow-up's words to catalogue steps appended to the plan (`FOLLOW_UP_RULES`) | a version-3 study composed from the catalogue; `validate_plan`; one repair call with the errors; then the tree; then a decline with the errors | `study`, a `plan` message |
 | Analysts | `run_study` with gates; a failed gate fails its step and the run goes on; the bounded replan per failed step of `team._execute`; figures per step as results land | the Specialist's fallback proposal after each failed gate, as in Solve | `run`, figure and table artifacts, events |
+| Interpreter | one finding per key number anchored at the path its value sits at (`find_path`), consistency from the comparison gates, the decision from the brief and the headline number with its band, the grade from the run (`grade_for_study`), data requests from a rule table over the playbooks | one call over the compact results, the gates and the rules' draft; validated: a basis that resolves to nothing drops the finding, a claim number not at its basis drops it, a grade above the rule's is lowered, a decision value at no basis is replaced | `findings` |
 | Critic | `verify.verify` on the draft, the gates, the plan's notes; every failed check is a fix for the Author (`fixes_for`), and the notice when the critique stays not ok | one independent pass over the draft sections and the compact results: issues with a section, a severity and a fix; the second pass after the fix round keeps the model | `critique` |
 | Author | template prose (`team._template_answer` and the sentence makers); the key numbers harvested from every payload (both fits at every return period, every drought timescale with its class, the transferred signatures' bands, the reliability by year) | one call per report for the prose of every section, given the compact results, the critique and the caveats; the numbers come from the results | `report` (with `written_by`), the documents, the workbook, the notebook, the bundle |
 | Coordinator | the state machine, checkpoints, follow-ups | the same; a follow-up is classified by the Consultant as a question (answered from the workspace) or a change (steps appended, run, re-authored) | `status`, `follow_ups` |

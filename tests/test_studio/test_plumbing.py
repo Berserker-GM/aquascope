@@ -28,7 +28,7 @@ def test_the_keyed_authors_prose_is_sentence_checked_and_the_drop_is_counted(stu
     s.say("A culvert on the Thames at Kingston, 100-year")
     r = s.approve()
     ws = s.workspace
-    assert r.kind == "report" and ws.report["answer"].startswith("About 520") and "77777" not in ws.report["answer"]
+    assert r.kind == "report" and "About 520" in ws.report["answer"] and "77777" not in ws.report["answer"]
     summary = next(x["text"] for x in ws.report["sections"] if x["id"] == "summary")
     assert "31415" not in summary and "520" in summary
     assert ws.report["dropped"] == 2 and r.payload["dropped"] == 2
