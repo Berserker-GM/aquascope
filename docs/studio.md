@@ -39,13 +39,19 @@ contract; this page is the user's guide.
    Specialist fallback once (the playbook's
    branch, or a Specialist's proposal validated against the catalogue).
    Figures and tables are made per step as results land.
-6. **Report.** The Author writes the report from the results; the Critic
-   checks it (every number must be in a result; a return level carries its
-   interval; the record is named) and lists what is not established. With a
-   model the Critic's `fix` issues earn one rewrite.
+6. **Report.** The Author writes the report from the results; every sentence
+   a model wrote passes the Critic's number check first (one whose numbers
+   are in no result is dropped and counted). The Critic then runs its
+   deterministic checks and, with a model, one independent pass; every
+   failed check and every `fix` issue goes to the Author for one rewrite,
+   the second critique keeps the model, and a report that still fails opens
+   with one line naming the failed checks. What is not established is
+   listed, never hidden.
 7. **Bundle.** Markdown, `study.yaml`, `report.json`, `workspace.json` and,
    when the deliverables package is installed, the figures, the Excel
-   workbook, the Word report, the notebook and one zip.
+   workbook, the Word report, the notebook and one zip. The raw record and
+   the raw samples live in the workbook and the notebook; the documents say
+   which sheet, and print the evidence tables only.
 8. **Follow-up.** A question is answered from the workspace; a change (another
    return period, another statistic, another gauge, the donors) is planned,
    run and re-authored, reusing every step whose arguments and gates did not
@@ -99,7 +105,10 @@ model, and the list of what can.
 
 A model is used only when asked for (`--provider`, `--model`, `--api-key`,
 `--base-url`, or a ready client). The ledger of calls and tokens per role is
-in the report's footer.
+in the report's footer, with the USD spent when the model is in the price table
+(`aquascope.ai_engine.providers.PRICES`) and the sentences the checks dropped.
+`--max-usd` (CLI), `max_usd` (`Studio`, MCP) is a spend ceiling: past it the roles
+run keyless, the event and the footer say so, and the study still ends in a bundle.
 
 ## CLI
 

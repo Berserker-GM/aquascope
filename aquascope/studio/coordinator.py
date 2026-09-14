@@ -15,6 +15,16 @@ workspace consistent, so a face can stop anywhere and resume with
 event, and a decline (intake, planning) or a report of what happened (the
 run).
 
+The Critic's verdict is acted on, not filed: its ``fix`` issues and every
+failed deterministic check go to the Author for one fix round (keyless, the
+template repair drops the sentences the checks refuse), the second critique
+keeps the model when there is one, and a report whose critique is still not
+ok opens with one line naming the failed checks (``report["notice"]``,
+``report["critique_ok"]`` and the reply payload's ``critique_ok``). A spend
+ceiling (``max_usd``) stops the model calls, not the crew: past it the roles
+run keyless, the event and ``ws.budget`` say so, and the footer shows the
+USD spent.
+
 Bring your own model: a face that runs a model of its own (the Explorer's
 on-device model, any client) hands the crew what that model wrote and the
 crew treats it exactly like its own model's output. ``say(text,
@@ -81,6 +91,7 @@ class Studio:
         workspace: dict[str, Any] | Workspace | None = None,
         tools: dict[str, Any] | None = None,
         intake: dict[str, Any] | None = None,
+        max_usd: float | None = None,
     ):
         if isinstance(workspace, Workspace):
             self.ws = workspace
@@ -105,10 +116,12 @@ class Studio:
                 self._frames[dataset_id] = value
         if intake:
             self.ws.brief.intake.update({k: v for k, v in intake.items() if v is not None})
+        self.max_usd = float(max_usd) if max_usd is not None else None
         self.model = Model.resolve(self.ws, provider=provider, model=model, api_key=api_key, base_url=base_url,
-                                   client=client)
+                                   client=client, max_usd=self.max_usd)
         if self.model:
-            self.ws.event("coordinator", "model", f"{self.ws.model} via {self.ws.provider}")
+            self.ws.event("coordinator", "model", f"{self.ws.model} via {self.ws.provider}"
+                          + (f", ceiling {self.max_usd:.2f} USD" if self.max_usd is not None else ""))
 
     # ── plumbing ──
 
@@ -145,7 +158,40 @@ class Studio:
         return Reply("report", str(report.get("answer") or ""), {
             "report": report, "artifacts": [a.to_dict(with_data=False) for a in self.ws.artifacts],
             "not_established": report.get("not_established") or [], "status": self.ws.status,
+            "critique_ok": bool(report.get("critique_ok", True)), "notice": report.get("notice"),
+            "dropped": int(report.get("dropped") or 0), "cost_usd": self.ws.total_usd, "budget": self.ws.budget,
         })
+
+    def _apply_verdict(self) -> None:
+        """Carry the Critic's verdict into the report: what is not established, the checks and the issues, and
+        when the critique is not ok, the one-line notice the answer opens with (so the bundle's README and every
+        document open with it too)."""
+        from aquascope.studio.roles.critic import failed_checks, notice
+
+        ws = self.ws
+        if ws.report is None or ws.critique is None:
+            return
+        report, critique = ws.report, ws.critique
+        issues = critique.get("issues") or []
+        ok = bool(critique.get("ok", not failed_checks(critique) and not any(i.get("severity") == "fix"
+                                                                              for i in issues)))
+        report["not_established"] = list(critique.get("not_established") or [])
+        report["critique"] = {"ok": ok, "issues": issues, "failed": failed_checks(critique),
+                              "checks_passed": sum(1 for c in critique.get("checks") or [] if c.get("passed")),
+                              "checks": len(critique.get("checks") or [])}
+        report["critique_ok"] = ok
+        answer = str(report.get("answer") or "")
+        old = report.get("notice")
+        if isinstance(old, str) and old and answer.startswith(old):
+            answer = answer[len(old):].lstrip()
+        line = notice(critique)
+        if line:
+            report["notice"] = line
+            report["answer"] = f"{line}\n\n{answer}" if answer else line
+            ws.event("critic", "notice", line)
+        else:
+            report.pop("notice", None)
+            report["answer"] = answer
 
     # ── the conversation ──
 
@@ -261,7 +307,7 @@ class Studio:
     def _run_to_report(self, *, prior: Any = None) -> Reply:
         from aquascope.studio.roles.analysts import run
         from aquascope.studio.roles.author import author_report
-        from aquascope.studio.roles.critic import critique
+        from aquascope.studio.roles.critic import critique, fixes_for
 
         ws = self.ws
         ws.set_status("running")
@@ -287,19 +333,17 @@ class Studio:
             ws.event("critic", "error", f"{type(exc).__name__}: {exc}")
             ws.critique = {"ok": False, "checks": [], "issues": [], "not_established": [f"the Critic failed: {exc}"]}
         ws.set_status("authoring")
-        fixes = [i for i in (ws.critique or {}).get("issues") or [] if i.get("severity") == "fix"]
+        fixes = fixes_for(ws.critique)
         if fixes:
+            checks = [str(i["check"]) for i in fixes if i.get("check")]
+            ws.event("critic", "fixes", f"{len(fixes)} fix(es) for the Author"
+                     + (f", failed checks: {', '.join(checks)}" if checks else ""))
             try:
                 author_report(ws, self.model, issues=fixes)
-                critique(ws, None)
+                critique(ws, self.model)
             except Exception as exc:  # noqa: BLE001
                 ws.event("author", "error", f"{type(exc).__name__}: {exc}")
-        if ws.report is not None and ws.critique is not None:
-            ws.report["not_established"] = list(ws.critique.get("not_established") or [])
-            ws.report["critique"] = {"issues": ws.critique.get("issues") or [],
-                                     "checks_passed": sum(1 for c in ws.critique.get("checks") or []
-                                                          if c.get("passed")),
-                                     "checks": len(ws.critique.get("checks") or [])}
+        self._apply_verdict()
         self._build_deliverables()
         ws.set_status("done")
         report = ws.report or {}
@@ -397,12 +441,7 @@ class Studio:
             critique(ws, None)
         except Exception as exc:  # noqa: BLE001
             ws.event("critic", "error", f"{type(exc).__name__}: {exc}")
-        if ws.critique is not None:
-            ws.report["not_established"] = list(ws.critique.get("not_established") or [])
-            ws.report["critique"] = {"issues": ws.critique.get("issues") or [],
-                                     "checks_passed": sum(1 for c in ws.critique.get("checks") or []
-                                                          if c.get("passed")),
-                                     "checks": len(ws.critique.get("checks") or [])}
+        self._apply_verdict()
         self._build_deliverables()
         ws.say("author", str(ws.report.get("answer") or ""), kind="report",
                payload={"title": ws.report.get("title"), "key_numbers": ws.report.get("key_numbers"),
@@ -495,7 +534,7 @@ class Studio:
     @classmethod
     def from_dict(cls, d: dict[str, Any] | Workspace, **kwargs: Any) -> Studio:
         """Resume from a workspace dict; the model kwargs (provider, model, api_key, base_url, client),
-        ``on_event``, ``on_artifact``, ``tools`` and ``data`` are the constructor's."""
+        ``max_usd``, ``on_event``, ``on_artifact``, ``tools`` and ``data`` are the constructor's."""
         return cls(workspace=d, **kwargs)
 
     def add_artifact(self, artifact: Artifact) -> Artifact:

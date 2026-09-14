@@ -5,7 +5,8 @@ crew needs a shared, serialisable memory: the brief the Consultant wrote, the
 inventory the Scout built, the plan the Methodologist proposed (a version-3
 :class:`aquascope.study.Study`), the run and its gates, the Critic's findings,
 the report the Author assembled, every artifact as bytes, the messages, the
-events and the token ledger per role. That is this module.
+events and the ledger per role (calls, tokens and, when the model is priced,
+USD). That is this module.
 
 It is plain dataclasses with ``to_dict`` / ``from_dict`` (bytes travel as
 base64), so the browser can hold it between worker calls, the CLI can write
@@ -281,10 +282,14 @@ class Workspace:
     artifacts: list[Artifact] = field(default_factory=list)
     messages: list[Message] = field(default_factory=list)
     events: list[dict[str, Any]] = field(default_factory=list)
-    #: Tokens per role: ``{"consultant": {"calls", "prompt_tokens", "completion_tokens"}, ...}``.
-    ledger: dict[str, dict[str, int]] = field(default_factory=dict)
+    #: Calls and tokens per role: ``{"consultant": {"calls", "prompt_tokens", "completion_tokens"}, ...}``, plus
+    #: ``cost_usd`` when the model is in the price table (:data:`aquascope.ai_engine.providers.PRICES`).
+    ledger: dict[str, dict[str, Any]] = field(default_factory=dict)
     model: str | None = None
     provider: str | None = None
+    #: The spend ceiling, once one was reached: ``{"max_usd", "spent_usd", "role", "at"}``. The roles run
+    #: keyless from that point; the event with the same words is in ``events``.
+    budget: dict[str, Any] | None = None
     #: The user's tables as CSV text by dataset id, so they round-trip with the workspace.
     tables: dict[str, str] = field(default_factory=dict)
     #: Follow-ups after the report: ``{"text", "at", "kind": "question" | "change", "steps": [...]}``.
@@ -367,15 +372,29 @@ class Workspace:
 
     # ── the ledger ──
 
-    def charge(self, role: str, prompt_tokens: int = 0, completion_tokens: int = 0) -> None:
+    def charge(self, role: str, prompt_tokens: int = 0, completion_tokens: int = 0,
+               cost_usd: float | None = None) -> None:
         entry = self.ledger.setdefault(role, {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})
         entry["calls"] += 1
         entry["prompt_tokens"] += int(prompt_tokens or 0)
         entry["completion_tokens"] += int(completion_tokens or 0)
+        if cost_usd is not None:
+            self.charge_usd(role, cost_usd)
+
+    def charge_usd(self, role: str, cost_usd: float) -> None:
+        """Add ``cost_usd`` to the role's line (the tokens were counted by the transport)."""
+        entry = self.ledger.setdefault(role, {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0})
+        entry["cost_usd"] = round(float(entry.get("cost_usd") or 0.0) + float(cost_usd), 6)
 
     @property
     def tokens(self) -> int:
         return sum(v.get("prompt_tokens", 0) + v.get("completion_tokens", 0) for v in self.ledger.values())
+
+    @property
+    def total_usd(self) -> float | None:
+        """The USD spent across the roles, or None when no line is priced (an unknown model: tokens only)."""
+        priced = [float(v["cost_usd"]) for v in self.ledger.values() if v.get("cost_usd") is not None]
+        return round(sum(priced), 6) if priced else None
 
     # ── (de)serialisation ──
 
@@ -400,6 +419,7 @@ class Workspace:
             "ledger": {k: dict(v) for k, v in self.ledger.items()},
             "model": self.model,
             "provider": self.provider,
+            "budget": dict(self.budget) if self.budget else None,
             "tables": dict(self.tables),
             "follow_ups": list(self.follow_ups),
             "declined_reason": self.declined_reason,
@@ -424,6 +444,7 @@ class Workspace:
             ledger={str(k): dict(v) for k, v in (d.get("ledger") or {}).items() if isinstance(v, dict)},
             model=d.get("model"),
             provider=d.get("provider"),
+            budget=dict(d["budget"]) if isinstance(d.get("budget"), dict) else None,
             tables={str(k): str(v) for k, v in (d.get("tables") or {}).items()},
             follow_ups=[dict(f) for f in (d.get("follow_ups") or []) if isinstance(f, dict)],
             declined_reason=d.get("declined_reason"),
@@ -450,6 +471,6 @@ class Workspace:
             "datasets": len(self.inventory.datasets) if self.inventory else 0,
             "steps": len((self.study or {}).get("steps") or []),
             "artifacts": [a.to_dict(with_data=False) for a in self.artifacts],
-            "tokens": self.tokens, "model": self.model, "provider": self.provider,
-            "declined_reason": self.declined_reason,
+            "tokens": self.tokens, "usd": self.total_usd, "model": self.model, "provider": self.provider,
+            "budget": self.budget, "declined_reason": self.declined_reason,
         }

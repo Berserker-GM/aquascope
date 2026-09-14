@@ -1551,7 +1551,8 @@ def cmd_studio(args: argparse.Namespace) -> None:
 
     try:
         studio = Studio(args.lat, args.lon, provider=args.provider, model=args.model, api_key=args.api_key,
-                        base_url=args.base_url, data=data, on_event=on_event, workspace=workspace, intake=intake)
+                        base_url=args.base_url, data=data, on_event=on_event, workspace=workspace, intake=intake,
+                        max_usd=args.max_usd)
     except (RuntimeError, ValueError, ImportError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
@@ -2681,6 +2682,9 @@ def main() -> None:
     p_studio.add_argument("--model", default=None, help="Model name")
     p_studio.add_argument("--api-key", default=None)
     p_studio.add_argument("--base-url", default=None, help="Any OpenAI-compatible endpoint (or Anthropic's)")
+    p_studio.add_argument("--max-usd", type=float, default=None, metavar="USD",
+                          help="A spend ceiling for the model calls: past it the roles run keyless and the "
+                               "footer says so (models in the price table only)")
     p_studio.add_argument("--out", "-o", default=None, help="The bundle's directory (default ./studio-<id>/)")
     p_studio.add_argument("--yes", "-y", action="store_true", help="Answer the defaults, approve the plan, export")
     p_studio.add_argument("--resume", default=None, metavar="WORKSPACE.JSON", help="Resume a saved workspace")

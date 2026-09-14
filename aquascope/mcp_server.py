@@ -659,11 +659,11 @@ _WIDGET_CSS = (
 
 def _studio(workspace: dict[str, Any] | None, *, lat: float | None = None, lon: float | None = None,
             intake: dict[str, Any] | None = None, provider: str | None = None, model: str | None = None,
-            api_key: str | None = None, base_url: str | None = None) -> Any:
+            api_key: str | None = None, base_url: str | None = None, max_usd: float | None = None) -> Any:
     from aquascope.studio import Studio
 
     return Studio(lat, lon, provider=provider, model=model, api_key=api_key, base_url=base_url,
-                  workspace=workspace, intake=intake)
+                  workspace=workspace, intake=intake, max_usd=max_usd)
 
 
 def _studio_reply(studio: Any, reply: Any) -> dict[str, Any]:
@@ -674,6 +674,7 @@ def _studio_reply(studio: Any, reply: Any) -> dict[str, Any]:
 def studio_start(
     problem: str, lat: float, lon: float, intake: dict[str, Any] | None = None, provider: str | None = None,
     model: str | None = None, api_key: str | None = None, base_url: str | None = None,
+    max_usd: float | None = None,
 ) -> dict[str, Any]:
     """Open a study at a point with the Studio crew (Consultant, Scout, Methodologist, Analysts, Critic, Author).
     The Consultant takes the brief from the problem text; the reply is either `questions` (answer them with
@@ -684,7 +685,7 @@ def studio_start(
     """
     try:
         studio = _studio(None, lat=float(lat), lon=float(lon), intake=intake, provider=provider, model=model,
-                         api_key=api_key, base_url=base_url)
+                         api_key=api_key, base_url=base_url, max_usd=max_usd)
         return _studio_reply(studio, studio.say(problem))
     except Exception as exc:  # noqa: BLE001 - an MCP tool answers with an error, not a traceback
         return {"error": f"{type(exc).__name__}: {exc}"}
@@ -693,6 +694,7 @@ def studio_start(
 def studio_say(
     workspace: dict[str, Any], text: str, proposed: dict[str, Any] | None = None, provider: str | None = None,
     model: str | None = None, api_key: str | None = None, base_url: str | None = None,
+    max_usd: float | None = None,
 ) -> dict[str, Any]:
     """Continue the conversation with the Studio crew: answer the Consultant's questions (in order, or "just go"
     for the defaults), change the brief at review, or ask a follow-up after the report. Returns the next reply
@@ -702,7 +704,8 @@ def studio_say(
     coercion a model reply gets (studio_context with role "consultant" gives the prompt and the context).
     """
     try:
-        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url)
+        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url,
+                         max_usd=max_usd)
         return _studio_reply(studio, studio.say(text, proposed=proposed))
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}"}
@@ -711,12 +714,13 @@ def studio_say(
 def studio_approve(
     workspace: dict[str, Any], edits: dict[str, Any] | None = None, plan: dict[str, Any] | None = None,
     provider: str | None = None, model: str | None = None, api_key: str | None = None,
-    base_url: str | None = None,
+    base_url: str | None = None, max_usd: float | None = None,
 ) -> dict[str, Any]:
     """Approve the plan in the workspace (optionally with edits: {"s3": {"arguments": {"k": 8}}} or a
     replacement {"steps": [...]}, revalidated) and run the crew to the report: the Analysts with their gates,
     the Critic, the Author. The reply is `report` (answer, key numbers, sections, what is not established)
-    with the artifacts listed; the workspace carries their bytes.
+    with the artifacts listed; the workspace carries their bytes. max_usd: a spend ceiling for the model
+    calls (priced models only); past it the roles run keyless and the footer says so.
     plan: a plan a model of your own wrote in the Methodologist's reply shape ({objective, decision, methodology,
     steps: [{id, tool, arguments, rationale, method, expects, fallback, depends_on, outputs}], assumptions,
     alternatives, limitations_expected, citations, source}); it goes through the validator like a model plan
@@ -724,7 +728,8 @@ def studio_approve(
     (proposed or tree) and `plan_errors`.
     """
     try:
-        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url)
+        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url,
+                         max_usd=max_usd)
         return _studio_reply(studio, studio.approve(edits=edits, plan=plan))
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}"}
@@ -769,13 +774,14 @@ def studio_context(workspace: dict[str, Any], role: str, text: str | None = None
 
 def studio_follow_up(
     workspace: dict[str, Any], text: str, provider: str | None = None, model: str | None = None,
-    api_key: str | None = None, base_url: str | None = None,
+    api_key: str | None = None, base_url: str | None = None, max_usd: float | None = None,
 ) -> dict[str, Any]:
     """A follow-up after the report: a question is answered from the workspace (reply `answer`); a change
     (another return period, another statistic) is planned, run and re-authored (reply `report`).
     """
     try:
-        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url)
+        studio = _studio(workspace, provider=provider, model=model, api_key=api_key, base_url=base_url,
+                         max_usd=max_usd)
         return _studio_reply(studio, studio.follow_up(text))
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}"}
