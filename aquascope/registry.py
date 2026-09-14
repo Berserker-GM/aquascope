@@ -69,6 +69,11 @@ class SourceMeta:
     license: str = "unknown"
     redistributable: bool = False
     attribution: str = ""
+    #: Whether a web page can call the agency's API directly: CORS open to any
+    #: origin, and served over https. False when the API whitelists only its
+    #: own origin or is plain http; the Explorer then serves the archive mirror
+    #: or says plainly that the record is package-only (#408).
+    browser_reachable: bool = True
 
     def __post_init__(self) -> None:
         unknown = [v for v in self.variables if v not in VARIABLES]
@@ -228,6 +233,7 @@ SOURCES: dict[str, SourceMeta] = {
         output_model="WaterLevelReading | StreamflowReading | ClimateReading",
         license="unknown", redistributable=False,
         attribution="Hydroscope, the Greek National Databank for Hydrological and Meteorological Information",
+        browser_reachable=False,  # plain http, and CORS only for localhost (#408)
     ),
     "greece_openhi": _s(
         key="greece_openhi", label="Greece OpenHi.net", region="Greece",
@@ -240,6 +246,7 @@ SOURCES: dict[str, SourceMeta] = {
         output_model="StreamflowReading | WaterLevelReading | ClimateReading | WaterQualitySample",
         license="CC-BY-SA-4.0", redistributable=True,
         attribution="OpenHi.net, Open Hydrosystem Information Network (ITIA, NTUA), CC BY-SA 4.0",
+        browser_reachable=False,  # CORS only for localhost; the Explorer serves the archive mirror (#408)
     ),
     "eu_wfd": _s(
         key="eu_wfd", label="EU Water Framework Directive", region="Europe",

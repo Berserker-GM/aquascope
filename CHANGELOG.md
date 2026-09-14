@@ -10,6 +10,7 @@ All notable changes to AquaScope are documented here.
 ### Changed
 
 ### Fixed
+- **Explorer: Greek pins returned nothing in the browser** (#408). Both Greek APIs allow cross-origin requests from `localhost:3000` only and Hydroscope is plain http, so every click on a Greek pin failed: OpenHi with a bare `NetworkError`, Hydroscope silently as "no observations". `greece_openhi` (CC BY-SA 4.0) is now mirrored by the weekly harvest, its 15-minute telemetry folded to daily (rainfall summed, the rest averaged), and the Explorer serves it from the archive. A source a browser cannot call is declared `browser_reachable=False` in the registry; in the browser the station card then says so and points at the Python package rather than claiming an empty record, and the registry test refuses a catalogue source with an `http://` API that is not declared. A refused cross-origin call from any other source now reads as a plain sentence instead of XHR text.
 
 ## [0.16.0] - 2026-09-11
 
