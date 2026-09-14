@@ -91,8 +91,10 @@ _COMPASS = re.compile(r"(\d+\.?\d*)\s*°?\s*([NSEW])\b")
 _OTHER_SERIES = re.compile(r"\b(low[- ]flow|q95|q05|q90|q10|baseflow|base flow|peak|maxim|minim|"
                            r"groundwater|rainfall|precipitation)\b", re.I)
 
-#: Conventional thresholds, not claims about anyone's data.
-_CONVENTIONS = {0.05, 0.01, 0.1, 0.9, 0.95, 0.99}
+#: Conventional thresholds, not claims about anyone's data. 0.001 is how a
+#: tiny p-value is reported ("p < 0.001"), which the Studio's key numbers and
+#: template prose write rather than a figure like 4.3e-07.
+_CONVENTIONS = {0.05, 0.01, 0.1, 0.9, 0.95, 0.99, 0.001}
 
 #: Digit grouping with a space: "14 555" is one number, not 14 and 555. Only
 #: before groups of exactly three digits, which is what grouping means, and

@@ -6,8 +6,12 @@ words in the pool, as the Solve team does), the failed gates, the steps that
 did not run, the plan's notes. Those make the "what this study does not
 establish" list. With a model, one more call reads the sections and the
 compact results and returns issues with a section, a severity (``fix`` or
-``note``) and the fix; the Author is called again once when anything is a
-``fix``.
+``note``) and the fix. The Author is called again once when anything is a
+``fix``, and every failed deterministic check is a fix (:func:`fixes_for`):
+the check's detail and the repair it asks for go to the Author with the
+model's issues, once; keyless, the Author's template repair drops the
+sentences the checks refuse. A report whose critique is still not ok after
+that opens with :func:`notice`, one line naming the failed checks.
 """
 
 from __future__ import annotations
@@ -18,7 +22,22 @@ from aquascope.studio.model import Model, compact
 from aquascope.studio.prompts import CRITIC
 from aquascope.studio.workspace import Workspace
 
-__all__ = ["critique", "not_established", "tool_results"]
+__all__ = ["CHECK_FIXES", "check_issues", "critique", "failed_checks", "fixes_for", "not_established", "notice",
+           "tool_results"]
+
+#: The repair each deterministic check asks of the Author when it fails. Every failed check is a "fix", the
+#: trend check included: a "significant" claim against a p above 0.05 is a contradiction, not a note.
+CHECK_FIXES: dict[str, str] = {
+    "tools_were_used": "No result exists: say so and quote no number.",
+    "numbers_come_from_tools": "Remove or replace every number that is in no result; quote only numbers from the "
+                               "steps' results.",
+    "years_traceable": "Drop the years that are in no result, or say they are general knowledge.",
+    "flood_estimate_carries_uncertainty": "Quote the return level with its confidence interval from the result.",
+    "trend_matches_the_test": "Call the trend significant only when the test's p is below 0.05 and not significant "
+                              "otherwise; keep the p-value as the test reported it.",
+    "units_are_named": "Name the unit of the record next to the numbers.",
+    "record_is_named": "Name the station or record the numbers come from.",
+}
 
 
 def tool_results(ws: Workspace) -> list[dict[str, Any]]:
@@ -68,9 +87,52 @@ def not_established(ws: Workspace) -> list[str]:
     return out
 
 
+def failed_checks(critique: dict[str, Any] | None) -> list[str]:
+    """The names of the deterministic checks that failed."""
+    return [str(c.get("name") or "check") for c in (critique or {}).get("checks") or [] if not c.get("passed")]
+
+
+def check_issues(critique: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The failed deterministic checks as issues for the Author's fix round: severity ``fix``, the check's name
+    under ``check``, its detail as the text, and the repair it calls for."""
+    out: list[dict[str, Any]] = []
+    for c in (critique or {}).get("checks") or []:
+        if c.get("passed"):
+            continue
+        name = str(c.get("name") or "check")
+        out.append({"section": "*", "severity": "fix", "check": name, "text": str(c.get("detail") or name),
+                    "fix": CHECK_FIXES.get(name, "Correct the draft so the check passes.")})
+    return out
+
+
+def fixes_for(critique: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The Author's fix list: the model's ``fix`` issues, then every failed check, each once."""
+    issues = [dict(i) for i in (critique or {}).get("issues") or [] if i.get("severity") == "fix"]
+    return issues + check_issues(critique)
+
+
+def notice(critique: dict[str, Any] | None) -> str | None:
+    """One line for the top of a report whose critique is not ok, naming the failed checks; None when it is ok.
+    Written without digits, so the checks never read the notice itself as a claim."""
+    if critique is None or critique.get("ok", True):
+        return None
+    failed = failed_checks(critique)
+    if failed:
+        return (f"Notice: this report did not pass the Critic's checks ({', '.join(failed)}); read its numbers "
+                "with the list of what this study does not establish.")
+    sections = sorted({str(i.get("section") or "summary") for i in critique.get("issues") or []
+                       if i.get("severity") == "fix"})
+    return (f"Notice: the Critic's fix requests on {', '.join(sections) or 'the draft'} were not all resolved; "
+            "read the report with the list of what this study does not establish.")
+
+
 def _draft(ws: Workspace) -> str:
     report = ws.report or {}
-    parts = [str(report.get("answer") or "")]
+    answer = str(report.get("answer") or "")
+    head = report.get("notice")
+    if isinstance(head, str) and head and answer.startswith(head):
+        answer = answer[len(head):].lstrip()
+    parts = [answer]
     for s in report.get("sections") or []:
         if s.get("id") in ("appendix", "references"):
             continue
@@ -109,7 +171,9 @@ def critique(ws: Workspace, model: Model | None) -> dict[str, Any]:
             issues.append({"section": str(raw.get("section") or "summary"), "severity": severity,
                            "text": str(raw["text"]), "fix": str(raw.get("fix") or "")})
     ws.critique = {"ok": checks.ok and not any(i["severity"] == "fix" for i in issues),
-                   "checks": checks.to_dict()["checks"], "issues": issues, "not_established": missing}
+                   "checks": checks.to_dict()["checks"], "issues": issues, "not_established": missing,
+                   "failed": [c.name for c in checks.failed]}
     ws.event("critic", "checks", f"{len(checks.checks) - len(checks.failed)} of {len(checks.checks)} checks passed"
+             + (f" (failed: {', '.join(c.name for c in checks.failed)})" if checks.failed else "")
              + (f"; {len(issues)} issue(s) from the model" if issues else ""))
     return ws.critique
