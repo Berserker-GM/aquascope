@@ -1,59 +1,58 @@
 # An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.
 #   aquascope run study.yaml
 version: 3
-title: "Estimate whether an ungauged stream in the Sintra hills can : 38.8, -9.38"
+title: "Assess whether an ungauged stream in the Sintra hills can su: 38.8, -9.38"
 question: "A stream in the Sintra hills near Lisbon with no gauge: can it supply a village with 4 ML/day run of river, and how reliably?"
-created: "2026-09-14T16:54:24+00:00"
+created: "2026-09-14T22:03:12+00:00"
 aquascope_version: "0.16.0"
 author: "methodologist"
 model: "claude-sonnet-5"
 problem:
   kind: "supply_reliability"
   site: {"lat": 38.8, "lon": -9.38}
-  params: {"demand_m3s": 0.0463, "demand_ml_day": 4.0, "use": "municipal", "share": 0.1, "storage": false}
+  params: {"demand_ml_day": 4.0, "use": "municipal", "share": 0.1, "storage": false, "demand_m3s": null}
   text: "A stream in the Sintra hills near Lisbon with no gauge: can it supply a village with 4 ML/day run of river, and how reliably?"
 plan:
   author: "methodologist"
   playbook: "supply_reliability"
-  objective: "Estimate whether an ungauged stream in the Sintra hills can sustain a 4 ML/day (0.0463 m3/s) run-of-river abstraction for a village, and how reliably, using regionalisation since no gauge exists within 50 km of the site."
-  decision: "whether the ungauged Sintra hills stream can supply the village's 4 ML/day run-of-river demand, and how reliably, expressed as a band across donor-transferred flow duration points rather than a single number"
-  methodology: ["Delineate the contributing catchment at the site from BasinATLAS to fix the upstream area needed to convert regionalised flow signatures from mm/d to m3/s.", "Identify donor gauges whose catchments most resemble the site's attributes, since no at-site discharge record exists within 50 km.", "Transfer flow signatures (mean, median, Q95, Q05) from the donor set to the site, quantifying the transfer with a band and leave-one-out skill.", "Screen the 4 ML/day demand against the transferred flow-duration points and the 10 percent share-of-flow rule, keeping Q95 as reserve, to read off the percent of time the demand can be met without storage.", "Report the abstraction as a fraction of daily flow and the resulting reliability as a band bounded by the donor transfer's own uncertainty."]
-  assumptions: ["catchment delineation from BasinATLAS (HydroATLAS v1.0), HYBAS id 2120018870, upstream area 478.7 km2, taken as the contributing area at the site", "flow regime estimated via regionalize_signatures and similar_basins using the 10 donor gauges identified in the catalog, since no discharge record exists at this site or within 50 km", "GloFAS reanalysis discharge at this point used as an independent cross-check on the regionalised estimate", "share of flow (10 percent of daily flow) used as the default screening threshold for a safe abstraction, per the playbook default", "no storage or regulation at the offtake, consistent with the client's description of run-of-river supply", "1 ML/day equals 0.01157 m3/s, so 4 ML/day equals about 0.0463 m3/s", "Catchment delineation from BasinATLAS (HydroATLAS v1.0), HYBAS id 2120018870, upstream area 478.7 km2, taken as the contributing area at the site.", "No gauge within 50 km (nearest hubeau_hydrometrie/S516001001 at 823 km) rules out at-site methods; the regionalisation path (similar_basins, regionalize_signatures) is the only defensible route.", "10 percent of daily flow is used as the default screening share, per the playbook default, with Q95 kept in the river as environmental reserve.", "No storage or regulation at the offtake, consistent with the client's description of run-of-river supply.", "1 ML/day equals 0.01157 m3/s, so 4 ML/day equals about 0.0463 m3/s."]
-  alternatives: [{"method": "flow_duration (at-site, via analyze_station)", "why_not": "no discharge record at this site or within 50 km; sufficiency table marks flow_duration not_defensible here"}, {"method": "gr4j_calibration", "why_not": "no discharge record at this site to calibrate against; not_defensible"}, {"method": "baseflow_separation", "why_not": "no discharge record at this site; not_defensible"}, {"method": "low_flow_frequency (at-site)", "why_not": "no discharge record at this site; not_defensible"}]
-  limitations_expected: ["A screening rule, not a licence assessment: Q95 kept in the river and at most the stated share of flow taken follow flow-duration-curve environmental-flow practice, not a regulator's formal standard.", "Reliability is quoted with its cross-donor band and leave-one-out skill; three transferred flow-duration points give the reliability to within that band and not beyond it.", "The estimate describes the regionalised long-term regime; a changing climate, new upstream abstraction, or a drier decade than any donor's record would move the answer.", "No return flows, upstream abstractions, dams or storage are represented at this ungauged site beyond the zero-dams catchment attribute."]
+  objective: "Assess whether an ungauged stream in the Sintra hills can sustain a 4 ML/day (about 0.0463 m3/s) run-of-river abstraction for a village, and quantify how reliably, using regionalisation from donor gauges since no gauge exists within reach."
+  decision: "whether the ungauged Sintra hills stream can sustain a 4 ML/day run-of-river abstraction for the village, and at what reliability"
+  methodology: ["Describe the catchment at the site from BasinATLAS to fix the upstream area needed to convert regionalised specific flows (mm/d) into m3/s.", "Identify donor gauges whose catchments most resemble the site's, using catchment-similarity distance in HydroATLAS attribute space.", "Transfer flow signatures (mean, median, Q95, Q05) from the donor gauges to the ungauged site via regionalisation, carrying the cross-donor band and leave-one-out skill.", "Run the run-of-river supply-reliability screen at the site with the 4 ML/day demand and a 10 percent-of-flow share, keeping Q95 as the environmental reserve.", "Report the reliability and flow-duration percentiles as a band bounded by donor spread and regionalisation skill, not as a single number."]
+  assumptions: ["no gauge exists within 50 km (nearest is hubeau_hydrometrie/S516001001 at 823 km), so at-site flow methods are not defensible", "flow at the site will be estimated by regionalisation (similar_basins and regionalize_signatures) using the 10 donor gauges identified from BasinATLAS HydroATLAS catchment 2120018870, cross-checked against GloFAS", "storage is assumed false, i.e. the village intake is run-of-river with no buffering reservoir", "the default screening share of 10 percent of daily flow is used as the sustainable abstraction limit", "No gauge exists within 50 km (nearest is hubeau_hydrometrie/S516001001 at 823 km), so at-site flow methods are not defensible", "Flow at the site is estimated by regionalisation (similar_basins and regionalize_signatures) using the 10 donor gauges identified from BasinATLAS catchment 2120018870", "Storage is false: the village intake is run-of-river with no buffering reservoir", "The default screening share of 10 percent of daily flow, with Q95 kept as reserve, is used as the sustainable abstraction limit"]
+  alternatives: [{"method": "flow_duration / low_flow_frequency / gr4j_calibration / baseflow_separation at the site", "why_not": "no discharge record exists at this ungauged site, so these at-site methods are marked not_defensible in the sufficiency table"}, {"method": "recharge_wtf", "why_not": "no groundwater level record exists at this site"}]
+  limitations_expected: ["A screening rule, not a licence assessment: Q95 kept in the river and at most the stated share of flow taken follow flow-duration-curve environmental-flow practice; the regulator's flow standard, return flows, upstream abstractions and storage are not in the number.", "Reliability read off the transferred record describes the donors' years on record; a changing climate, new upstream abstraction or a drier decade than any recorded would move it.", "Every transferred flow is quoted with its band across donors and the leave-one-out skill; the three flow-duration points give the reliability only to within that band and no further."]
   citations: ["Vogel, R. M. and Fennessey, N. M. (1994). Flow-duration curves I: new interpretation and confidence intervals. J. Water Resour. Plann. Manage. 120, 485-504.", "Smakhtin, V., & Eriyagama, N. (2008). Developing a software package for global desktop assessment of environmental flows. Environ. Model. Softw. 23, 1396-1406. doi:10.1016/j.envsoft.2008.04.002", "Acreman, M., & Dunbar, M. J. (2004). Defining environmental river flow requirements: a review. Hydrol. Earth Syst. Sci. 8, 861-876.", "Smakhtin, V. U. (2001). Low flow hydrology: a review. J. Hydrol. 240, 147-186.", "Lyne, V., & Hollick, M. (1979). Stochastic time-variable rainfall-runoff modelling. Inst. Eng. Aust. Natl. Conf. Publ. 79/10, 89-93.", "Oudin, L. et al. (2008). Spatial proximity, physical similarity, regression and ungaged catchments. Water Resour. Res. 44, W03413.", "National-scale validation of donor regionalisation: Hydrol. Earth Syst. Sci. 28 (2024), doi:10.5194/hess-28-3367-2024", "Smakhtin and Eriyagama 2008", "Acreman and Dunbar 2004"]
   caveats: ["A screening rule, not a licence assessment: Q95 kept in the river and at most the stated share of the flow taken are assumptions in the tradition of flow-duration-curve environmental-flow practice (Smakhtin and Eriyagama 2008; Acreman and Dunbar 2004); the regulator's flow standard, return flows, upstream abstractions and storage are not in the number.", "Reliability read off the record describes the years on record; a changing climate, new upstream abstraction or a drier decade than any recorded moves it.", "Every transferred flow is quoted with its band across donors and the leave-one-out skill; three flow-duration points give the reliability to within that band and not beyond it, and a bare regionalised reliability is not an estimate."]
-  rationale: "Estimate whether an ungauged stream in the Sintra hills can sustain a 4 ML/day (0.0463 m3/s) run-of-river abstraction for a village, and how reliably, using regionalisation since no gauge exists within 50 km of the site."
+  rationale: "Assess whether an ungauged stream in the Sintra hills can sustain a 4 ML/day (about 0.0463 m3/s) run-of-river abstraction for a village, and quantify how reliably, using regionalisation from donor gauges since no gauge exists within reach."
   recon_notes: ["No catalog gauge within 50 km; the nearest is La Nivelle \u00e0 Ciboure (hubeau_hydrometrie/S516001001) at 823 km.", "10 donor gauges from a pool of 34,786 gauged catchments.", "ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.", "CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted.", "No gauge with a usable record within 50 km: at-site methods are not defensible; what remains is the regionalisation path (similar_basins, regionalize_signatures) and the GloFAS cross-check."]
-  replans: [{"step": "s4", "reason": "gate failed: not_empty (nothing at 'fdc')", "fallback": {"tool": "similar_basins", "arguments": {"lat": 38.8, "lon": -9.38, "k": 5, "method": "similarity"}, "rationale": "The failed supply_reliability step had no fdc since there is no gauge record at this ungauged Sintra hills point, so a regional cross-check against donor gauges is the defensible fallback per the playbook.", "expects": [{"check": "min_donors", "path": "k"}, {"check": "not_empty", "path": "stations"}]}}]
 steps:
   - tool: "describe_catchment"
     id: "s1"
-    rationale: "Establishes the catchment and upstream area needed to convert regionalised signatures from mm/d to m3/s."
+    rationale: "Establishes the site's sub-basin and upstream area needed to convert regionalised specific discharge into m3/s."
     arguments:
       lat: 38.8
       lon: -9.38
       upstream: true
     expects:
       - {"check": "not_empty", "path": "sub_basin"}
-      - {"check": "max_area_km2", "path": "sub_basin.up_area", "value": 478.7}
+      - {"check": "max_area_km2", "path": "sub_basin.up_area"}
     outputs: [{"kind": "figure", "id": "s1_site_map", "caption": "site map from describe_catchment"}, {"kind": "table", "id": "s1_catchment_attributes", "caption": "catchment attributes from describe_catchment"}]
   - tool: "similar_basins"
     id: "s2"
-    rationale: "Selects donor gauges whose catchments most resemble this one in BasinATLAS attribute space, the basis for the regionalised transfer."
+    rationale: "Finds the 10 donor gauges whose catchments most resemble this ungauged one, per the inventory's donor pool."
     method: "similar_basins"
     arguments:
       lat: 38.8
       lon: -9.38
       k: 10
     expects:
-      - {"check": "min_donors", "path": "k", "value": 3}
+      - {"check": "min_donors", "path": "k", "value": 10}
       - {"check": "not_empty", "path": "stations"}
     depends_on: ["s1"]
-    outputs: [{"kind": "figure", "id": "s2_donors_map", "caption": "donors map from similar_basins"}, {"kind": "table", "id": "s2_donors", "caption": "donors from similar_basins"}]
+    outputs: [{"kind": "figure", "id": "s2_donors_map", "caption": "donors map from similar_basins"}, {"kind": "table", "id": "s2_donors", "caption": "donor gauges from similar_basins"}]
   - tool: "regionalize_signatures"
     id: "s3"
-    rationale: "Transfers mean, median, Q95 and Q05 flow (mm/d, converted via upstream area to m3/s) from the donor set with a band and leave-one-out skill, giving the mean annual flow and flow-duration percentiles the brief asks for."
+    rationale: "Transfers mean and Q95 flow signatures from the 10 donors to the site, with the donor band and leave-one-out skill, giving the two quantities the brief asks for."
     method: "regionalize_signatures"
     arguments:
       lat: 38.8
@@ -64,26 +63,22 @@ steps:
       - {"check": "not_empty", "path": "estimates"}
       - {"check": "not_empty", "path": "skill"}
     depends_on: ["s2"]
-    outputs: [{"kind": "table", "id": "s3_signatures", "caption": "regionalised flow signatures (mean, Q95, Q50, Q05) from regionalize_signatures"}]
+    outputs: [{"kind": "table", "id": "s3_signatures", "caption": "regionalised flow signatures (mean, Q95, Q05) from regionalize_signatures"}]
   - tool: "supply_reliability"
     id: "s4"
-    rationale: "Screens the 4 ML/day demand against the regionalised flow-duration points and the 10 percent share-of-flow rule, keeping Q95 in the river, to give the percent of time the demand is met and the abstraction's share of daily flow."
+    rationale: "Converts the regionalised signatures to m3/s over the upstream area and reads the reliability of the 4 ML/day demand against the transferred flow-duration curve under the 10 percent screening share."
     method: "regionalize_signatures"
     arguments:
       lat: 38.8
       lon: -9.38
-      demand_m3s: 0.0463
       demand_ml_day: 4.0
       share: 0.1
       reserve: "q95"
     expects:
       - {"check": "not_empty", "path": "reliability"}
       - {"check": "not_empty", "path": "fdc"}
-    fallback: {"step": {"tool": "similar_basins", "arguments": {"lat": 38.8, "lon": -9.38, "k": 5, "method": "similarity"}, "rationale": "The failed supply_reliability step had no fdc since there is no gauge record at this ungauged Sintra hills point, so a regional cross-check against donor gauges is the defensible fallback per the playbook.", "expects": [{"check": "min_donors", "path": "k"}, {"check": "not_empty", "path": "stations"}]}}
-    depends_on: ["s2", "s3"]
-    outputs: [{"kind": "figure", "id": "s4_reliability_curve", "caption": "reliability curve from supply_reliability"}, {"kind": "table", "id": "s4_reliability", "caption": "reliability (percent of time demand met) from supply_reliability"}, {"kind": "table", "id": "s4_fdc_percentiles", "caption": "fdc percentiles (Q05, Q50, Q95) from supply_reliability"}]
+      - {"check": "unit_present", "path": "unit"}
+    depends_on: ["s3"]
+    outputs: [{"kind": "figure", "id": "s4_reliability_curve", "caption": "reliability curve from supply_reliability"}, {"kind": "table", "id": "s4_reliability", "caption": "reliability from supply_reliability"}, {"kind": "table", "id": "s4_fdc_percentiles", "caption": "fdc percentiles from supply_reliability"}]
 results:
-  s1: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'sub_basin' is present"}, {"check": "max_area_km2", "passed": true, "detail": "catchment of 479 km2 against a ceiling of 479 km2"}], "summary": "latitude=38.8, longitude=-9.38, license=CC-BY-4.0, attribution=HydroATLAS v1.0 (BasinATLAS), CC BY 4.0. Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019). Global hydro-environmental sub-basin", "fallback_used": false, "sha256": "9dbb0a626977d684"}
-  s2: {"ok": true, "gates": [{"check": "min_donors", "passed": true, "detail": "10 donors, 3 needed"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=10, method=combined", "fallback_used": false, "sha256": "5b2b0361728e5387"}
-  s3: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'estimates' is present"}, {"check": "not_empty", "passed": true, "detail": "'skill' is present"}], "summary": "method=similarity", "fallback_used": false, "sha256": "844a31370580337d"}
-  s4: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'reliability' is present"}, {"check": "not_empty", "passed": false, "detail": "nothing at 'fdc'"}], "summary": "unit=m3/s, n_donors=1155", "fallback_used": true, "sha256": "0c4a572cbe2a06c1", "failed_reason": "gate failed: not_empty (nothing at 'fdc'); the fallback similar_basins did not pass its own gates", "fallback": {"tool": "similar_basins", "arguments": {"lat": 38.8, "lon": -9.38, "k": 5, "method": "similarity"}, "ok": true, "gates": [{"check": "min_donors", "passed": false, "detail": "no donor count at 'k'"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=5, method=similarity"}}
+  s1: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'sub_basin' is present"}, {"check": "max_area_km2", "passed": false, "detail": "no area at 'sub_basin.up_area'"}], "summary": "latitude=38.8, longitude=-9.38, license=CC-BY-4.0, attribution=HydroATLAS v1.0 (BasinATLAS), CC BY 4.0. Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019). Global hydro-environmental sub-basin", "fallback_used": false, "sha256": "9dbb0a626977d684", "failed_reason": "gate failed: max_area_km2 (no area at 'sub_basin.up_area')"}

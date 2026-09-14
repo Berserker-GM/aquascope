@@ -148,7 +148,7 @@ def findings_checks(ws: Workspace) -> list[Any]:
     answer = normalise(str((ws.report or {}).get("answer") or ""))
     if isinstance(value, (int, float)) and not isinstance(value, bool) and answer:
         head = answer.split("\n\n")[-1] if answer.startswith("Notice:") else answer
-        nums = _numbers(head, claims_only=True)
+        nums = _numbers(head, claims_only=True) + _numbers(head)   # a percentage is a claim here (82.5 %)
         has_value = any(abs(n - float(value)) <= max(abs(float(value)), 1e-9) * 0.02 + 1e-9 for n in nums)
         has_grade = bool(grade) and str(grade).replace("_", " ") in head.lower()
         out.append(Check("decision_in_answer", has_value and has_grade,

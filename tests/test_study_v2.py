@@ -153,7 +153,7 @@ def test_a_dependent_of_a_gate_failed_step_is_skipped_with_the_reason():
     calls: list = []
     study = _plan()
     study.steps[1].arguments = {"k": 1}
-    study.steps.append(Step(tool="probe", id="s3", depends_on=["s2"]))
+    study.steps.append(Step(tool="probe", id="s3", depends_on=["s2"], arguments={"years": "{{ result.s2.k }}"}))
     study.steps.append(Step(tool="probe", id="s4"))
     with patch("aquascope.study._tools", return_value=_fake_tools(calls)):
         run = run_study(study)
@@ -282,3 +282,15 @@ i: 'single ''quoted'''
     assert got["a"] == 1 and got["b"] == ["x", "y", 3] and got["c"] == {"k": "v", "n": 2}
     assert got["d"] == "folded text on two lines" and got["e"] == "literal\nlines\n"
     assert got["f"] == [{"g": 1, "h": [1, 2]}, "item text", "plain item"] and got["i"] == "single 'quoted'"
+
+
+def test_a_gate_failed_dependency_only_blocks_the_steps_that_read_its_result():
+    calls: list = []
+    study = _plan()
+    study.steps[1].arguments = {"k": 1}                                # s2 fails its gate, the tool ran
+    study.steps.append(Step(tool="probe", id="s3", depends_on=["s2"]))
+    study.steps.append(Step(tool="probe", id="s4", depends_on=["s2"], arguments={"years": "{{ result.s2.k }}"}))
+    with patch("aquascope.study._tools", return_value=_fake_tools(calls)):
+        run = run_study(study)
+    assert run.results[2]["ok"], "s3 orders itself after s2 but reads nothing from it"
+    assert run.results[3]["skipped"] and "s2 (failed its gate)" in run.results[3]["error"]

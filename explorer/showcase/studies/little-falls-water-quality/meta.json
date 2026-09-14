@@ -20,47 +20,47 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T17:16:29+00:00",
- "seconds": 273.4,
+ "recorded": "2026-09-14T22:24:15+00:00",
+ "seconds": 255.8,
  "tokens": {
-  "prompt": 39265,
-  "completion": 21271,
-  "calls": 5,
+  "prompt": 48542,
+  "completion": 22246,
+  "calls": 7,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3209,
-    "completion_tokens": 1016,
-    "cost_usd": 0.016578
+    "completion_tokens": 465,
+    "cost_usd": 0.011068
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 10409,
-    "completion_tokens": 2342,
-    "cost_usd": 0.044238
+    "prompt_tokens": 10319,
+    "completion_tokens": 1965,
+    "cost_usd": 0.040288
    },
    "interpreter": {
     "calls": 1,
-    "prompt_tokens": 6658,
-    "completion_tokens": 5636,
-    "cost_usd": 0.069676
+    "prompt_tokens": 4596,
+    "completion_tokens": 3577,
+    "cost_usd": 0.044962
    },
    "author": {
-    "calls": 1,
-    "prompt_tokens": 10586,
-    "completion_tokens": 4348,
-    "cost_usd": 0.064652
+    "calls": 2,
+    "prompt_tokens": 17830,
+    "completion_tokens": 8165,
+    "cost_usd": 0.11731
    },
    "critic": {
-    "calls": 1,
-    "prompt_tokens": 8403,
-    "completion_tokens": 7929,
-    "cost_usd": 0.096096
+    "calls": 2,
+    "prompt_tokens": 12588,
+    "completion_tokens": 8074,
+    "cost_usd": 0.105916
    }
   },
-  "total": 60536
+  "total": 70788
  },
- "usd": 0.4369,
+ "usd": 0.4793,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -68,7 +68,7 @@
  "playbook": "water_quality",
  "branch": null,
  "plan_author": "methodologist",
- "steps": 4,
+ "steps": 3,
  "gates": {
   "passed": 4,
   "total": 4
@@ -79,7 +79,7 @@
  },
  "replans": 0,
  "stop_reason": null,
- "headline": "The CCME Water Quality Index for the Potomac River near Little Falls (USGS-01646500, 2021-09-14 to 2026-09-13) scores 100 of 100 (Excellent), grade: indicative.",
+ "headline": "Risk screening: CCME WQI = 100 of 100 (Excellent), graded established, computed from the USGS-01646500 Potomac River near Wash DC Little Falls Pump Sta daily record (2021-09-14 to 2026-09-13).",
  "not_established": [],
  "figures": [
   {

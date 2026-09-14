@@ -20,53 +20,53 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T16:30:46+00:00",
- "seconds": 653.5,
+ "recorded": "2026-09-14T21:47:28+00:00",
+ "seconds": 537.5,
  "tokens": {
-  "prompt": 59212,
-  "completion": 33298,
-  "calls": 7,
+  "prompt": 81072,
+  "completion": 49065,
+  "calls": 9,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3244,
-    "completion_tokens": 1106,
-    "cost_usd": 0.017548
+    "completion_tokens": 971,
+    "cost_usd": 0.016198
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 11494,
-    "completion_tokens": 4279,
-    "cost_usd": 0.065778
+    "prompt_tokens": 11512,
+    "completion_tokens": 4111,
+    "cost_usd": 0.064134
    },
    "analyst": {
     "calls": 2,
-    "prompt_tokens": 6972,
-    "completion_tokens": 640,
-    "cost_usd": 0.020344
+    "prompt_tokens": 6942,
+    "completion_tokens": 480,
+    "cost_usd": 0.018684
    },
    "interpreter": {
     "calls": 1,
-    "prompt_tokens": 8919,
-    "completion_tokens": 9999,
-    "cost_usd": 0.117828
+    "prompt_tokens": 9483,
+    "completion_tokens": 9021,
+    "cost_usd": 0.109176
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 28583,
-    "completion_tokens": 17274,
-    "cost_usd": 0.229906
+    "prompt_tokens": 30993,
+    "completion_tokens": 18454,
+    "cost_usd": 0.246526
    },
    "critic": {
-    "calls": 0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "cost_usd": 0.0
+    "calls": 2,
+    "prompt_tokens": 18898,
+    "completion_tokens": 16028,
+    "cost_usd": 0.198076
    }
   },
-  "total": 92510
+  "total": 130137
  },
- "usd": 0.6771,
+ "usd": 0.9792,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -74,24 +74,24 @@
  "playbook": "groundwater_decline",
  "branch": null,
  "plan_author": "methodologist",
- "steps": 5,
+ "steps": 6,
  "gates": {
-  "passed": 8,
-  "total": 12
+  "passed": 11,
+  "total": 16
  },
  "checks": {
-  "passed": 6,
+  "passed": 7,
   "total": 8
  },
  "replans": 2,
  "stop_reason": null,
- "headline": "Notice: this report did not pass the Critic's checks (trend_matches_the_test, units_are_named); read its numbers with the list of what this study does not establish.",
+ "headline": "Notice: this report did not pass the Critic's checks (units_are_named); read its numbers with the list of what this study does not establish.",
  "not_established": [
   "Step s2, gate min_years: 9.7 years of record, 10 needed: too short",
   "Step s2, gate not_empty: nothing at 'trend'",
-  "Step s5, gate min_years: 9.7 years of record, 10 needed: too short",
-  "Step s5, gate not_empty: nothing at 'trend'",
-  "The answer's wording about significance does not match the test (p = 0.0).",
+  "Step s2.fallback, gate min_years: no record length at 'years'",
+  "Step s6, gate min_years: 9.7 years of record, 10 needed: too short",
+  "Step s6, gate not_empty: nothing at 'trend'",
   "The answer quotes numbers without a unit; the records are in mAOD (metres Above Ordnance Datum)."
  ],
  "figures": [
@@ -120,20 +120,34 @@
    "name": "s3_series.png",
    "id": "fig-s3-series",
    "step": "s3",
-   "caption": "Groundwater level at Haggis Farm (uk_ea b3272d5b-f4fd-48eb-8bc7-67c102d65943), 1977 to 2026.",
-   "bytes": 77837
+   "caption": "Groundwater level at Haggis Farm (uk_ea b3272d5b-f4fd-48eb-8bc7-67c102d65943), 2016 to 2026.",
+   "bytes": 79902
   },
   {
    "name": "s4_drought_strip.png",
    "id": "fig-s4-drought_strip",
    "step": "s4",
-   "caption": "Standardised Groundwater Index at the site at 52.20 N, 0.12 E, 1977 to 2026: blue above zero is above the monthly norm, red below; shaded spans are the droughts at or below -1.",
-   "bytes": 54135
+   "caption": "Standardised Groundwater Index at the site at 52.20 N, 0.12 E, 2016 to 2026: blue above zero is above the monthly norm, red below; shaded spans are the droughts at or below -1.",
+   "bytes": 45132
   },
   {
    "name": "s5_series.png",
    "id": "fig-s5-series",
    "step": "s5",
+   "caption": "Monthly groundwater level at Stapleford (uk_ea 996023f9-5a1d-42c6-8ba4-6889e0ed6de6), 1980 to 2026.",
+   "bytes": 111749
+  },
+  {
+   "name": "s5_trend.png",
+   "id": "fig-s5-trend",
+   "step": "s5",
+   "caption": "Annual mean groundwater level at Stapleford (uk_ea 996023f9-5a1d-42c6-8ba4-6889e0ed6de6) with the Sen slope line; the Mann-Kendall test finds no trend (p = 0.796, 36 years).",
+   "bytes": 84559
+  },
+  {
+   "name": "s6_series.png",
+   "id": "fig-s6-series",
+   "step": "s6",
    "caption": "Groundwater level at Stapleford (uk_ea 996023f9-5a1d-42c6-8ba4-6889e0ed6de6), 2016 to 2026.",
    "bytes": 80510
   },
@@ -152,16 +166,16 @@
    "bytes": 68319
   },
   {
-   "name": "s5.fallback_series.png",
-   "id": "fig-s5.fallback-series",
-   "step": "s5.fallback",
+   "name": "s6.fallback_series.png",
+   "id": "fig-s6.fallback-series",
+   "step": "s6.fallback",
    "caption": "Monthly groundwater level at Stapleford (uk_ea 996023f9-5a1d-42c6-8ba4-6889e0ed6de6), 1980 to 2026.",
    "bytes": 114648
   },
   {
-   "name": "s5.fallback_trend.png",
-   "id": "fig-s5.fallback-trend",
-   "step": "s5.fallback",
+   "name": "s6.fallback_trend.png",
+   "id": "fig-s6.fallback-trend",
+   "step": "s6.fallback",
    "caption": "Annual mean groundwater level at Stapleford (uk_ea 996023f9-5a1d-42c6-8ba4-6889e0ed6de6) with the Sen slope line; the Mann-Kendall test finds no trend (p = 0.842, 35 years).",
    "bytes": 84617
   }
@@ -176,10 +190,12 @@
   "figures/s3_series.png",
   "figures/s4_drought_strip.png",
   "figures/s5_series.png",
+  "figures/s5_trend.png",
+  "figures/s6_series.png",
   "figures/s2.fallback_series.png",
   "figures/s2.fallback_trend.png",
-  "figures/s5.fallback_series.png",
-  "figures/s5.fallback_trend.png"
+  "figures/s6.fallback_series.png",
+  "figures/s6.fallback_trend.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"

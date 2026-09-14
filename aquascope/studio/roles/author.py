@@ -941,7 +941,8 @@ def _with_decision(ws: Workspace, answer: str) -> str:
     text = normalise(answer)
     has_grade = bool(grade) and grade.replace("_", " ") in text.lower()
     has_value = not isinstance(value, (int, float)) or isinstance(value, bool) or any(
-        abs(n - float(value)) <= max(abs(float(value)), 1e-9) * 0.02 + 1e-9 for n in _numbers(text, claims_only=True))
+        abs(n - float(value)) <= max(abs(float(value)), 1e-9) * 0.02 + 1e-9
+        for n in _numbers(text, claims_only=True) + _numbers(text))
     if has_grade and has_value:
         return answer
     return f"{decision_text(decision)} {answer}".strip()

@@ -175,3 +175,42 @@ def test_the_workspace_round_trips_the_findings():
     back = Workspace.from_dict(json.loads(ws.to_json()))
     assert back.findings["decision"]["value"] == 520 and len(back.findings["findings"]) == len(ws.findings["findings"])
     assert RECON is not None
+
+
+def test_a_wrong_basis_path_is_re_anchored_when_the_number_is_in_that_steps_result():
+    ws = _ran()
+    gev = {"claim": "The GEV 100-year flow is 520 m3/s.", "basis": ["s3.ffa.gev.q100"], "grade": "established"}
+    none = {"claim": "Nothing at 999 anywhere.", "basis": ["s3.ffa.gev.q999"], "grade": "established"}
+    reply = {"findings": [gev, none],
+             "decision": {"answer": "Adopt 520 m3/s (established).", "value": 520, "unit": "m3/s",
+                          "grade": "established"}}
+    model = Model.resolve(ws, client=FakeModel({"interpreter": [reply]}), model="fake", provider="custom")
+    out = interpreter.interpret(ws, model)
+    assert out["written_by"] == "model" and out["reanchored"] == 1 and out["dropped"] == 1
+    assert out["findings"][0]["basis"] == ["s3.ffa.fits.gev_lmoments.q.5"]
+
+
+def test_the_headline_follows_the_briefs_first_quantity_and_says_when_nothing_answers():
+    ws = _ran()
+    ws.brief.quantities = ["long-term trend in the level (m/year)", "the SGI for the last ten years"]
+    ws.brief.kind = "groundwater_decline"
+    out = interpreter.rules_findings(ws)
+    head = "Design flow for a road crossing, 100-year return period: Sen's slope"
+    assert out["decision"]["answer"].startswith(head), out["decision"]["answer"]
+    ws2 = _ran()
+    ws2.brief.quantities = ["the seasonal crop water requirement"]
+    ws2.brief.kind = "irrigation_feasibility"
+    out2 = interpreter.rules_findings(ws2)
+    answer2 = out2["decision"]["answer"]
+    assert out2["decision"]["value"] is None and "No number in the results answers the decision" in answer2
+    assert "the study established" in answer2
+
+
+def test_a_percentage_decision_is_found_in_the_answer():
+    ws = _ran()
+    interpreter.interpret(ws, None)
+    ws.findings["decision"].update({"value": 82.53, "unit": "%",
+                                    "answer": "Days the demand is met 82.53 % (established)."})
+    author.author_report(ws, None)
+    out = critic.critique(ws, None)
+    assert {c["name"]: c["passed"] for c in out["checks"]}["decision_in_answer"]

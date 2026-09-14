@@ -24,47 +24,47 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T16:52:24+00:00",
- "seconds": 535.5,
+ "recorded": "2026-09-14T22:01:37+00:00",
+ "seconds": 420.9,
  "tokens": {
-  "prompt": 81807,
-  "completion": 40398,
+  "prompt": 75767,
+  "completion": 33815,
   "calls": 7,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3096,
-    "completion_tokens": 784,
-    "cost_usd": 0.014032
+    "completion_tokens": 834,
+    "cost_usd": 0.014532
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 7615,
-    "completion_tokens": 7897,
-    "cost_usd": 0.0942
+    "prompt_tokens": 7634,
+    "completion_tokens": 9013,
+    "cost_usd": 0.105398
    },
    "interpreter": {
     "calls": 1,
-    "prompt_tokens": 11849,
-    "completion_tokens": 5990,
-    "cost_usd": 0.083598
+    "prompt_tokens": 11031,
+    "completion_tokens": 5300,
+    "cost_usd": 0.075062
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 34099,
-    "completion_tokens": 8367,
-    "cost_usd": 0.151868
+    "prompt_tokens": 30332,
+    "completion_tokens": 8541,
+    "cost_usd": 0.146074
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 25148,
-    "completion_tokens": 17360,
-    "cost_usd": 0.223896
+    "prompt_tokens": 23674,
+    "completion_tokens": 10127,
+    "cost_usd": 0.148618
    }
   },
-  "total": 122205
+  "total": 109582
  },
- "usd": 0.8514,
+ "usd": 0.7345,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -74,8 +74,8 @@
  "plan_author": "methodologist",
  "steps": 3,
  "gates": {
-  "passed": 8,
-  "total": 8
+  "passed": 6,
+  "total": 6
  },
  "checks": {
   "passed": 6,
@@ -83,38 +83,46 @@
  },
  "replans": 0,
  "stop_reason": null,
- "headline": "Notice: the Critic's fix requests on summary were not all resolved; read the report with the list of what this study does not establish.",
+ "headline": "Notice: the Critic's fix requests on findings were not all resolved; read the report with the list of what this study does not establish.",
  "not_established": [],
  "figures": [
   {
-   "name": "s1_drought_strip.png",
-   "id": "fig-s1-drought_strip",
+   "name": "s1_site_map.png",
+   "id": "fig-s1-site_map",
    "step": "s1",
-   "caption": "SPEI (bars) with SPI (grey line) at the site at 1.29 S, 36.82 E for the 3, 6, 12 month accumulations, 1986 to 2026: blue above zero is wetter than normal, red below is drier; the dashed lines mark the moderate (1), severe (1.5) and extreme (2) classes.",
-   "bytes": 199271
-  },
-  {
-   "name": "s2_demand_monthly.png",
-   "id": "fig-s2-demand_monthly",
-   "step": "s2",
-   "caption": "Crop evapotranspiration, effective rain and net and gross irrigation per season for maize on 1.0 ha planted on the first of month 3; the mean gross depth is 327.2 mm over the season.",
-   "bytes": 60256
-  },
-  {
-   "name": "s3_site_map.png",
-   "id": "fig-s3-site_map",
-   "step": "s3",
    "caption": "The site, in longitude and latitude (no basemap); no catalogue station was listed with it.",
    "bytes": 20829
+  },
+  {
+   "name": "s2_monthly_climate.png",
+   "id": "fig-s2-monthly_climate",
+   "step": "s2",
+   "caption": "Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 1.29 S, 36.82 E, 40 years ending 2026-09-07.",
+   "bytes": 54207
+  },
+  {
+   "name": "s2_glofas_series.png",
+   "id": "fig-s2-glofas_series",
+   "step": "s2",
+   "caption": "Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 1.29 S, 36.82 E, 1997 to 2026: a model output, indicative only, not a gauge reading.",
+   "bytes": 69856
+  },
+  {
+   "name": "s3_drought_strip.png",
+   "id": "fig-s3-drought_strip",
+   "step": "s3",
+   "caption": "SPEI (bars) with SPI (grey line) at the site at 1.29 S, 36.82 E for the 3, 6, 12 month accumulations, 1986 to 2026: blue above zero is wetter than normal, red below is drier; the dashed lines mark the moderate (1), severe (1.5) and extreme (2) classes.",
+   "bytes": 203977
   }
  ],
  "files": [
   "workspace.json",
   "report.md",
   "study.yaml",
-  "figures/s1_drought_strip.png",
-  "figures/s2_demand_monthly.png",
-  "figures/s3_site_map.png"
+  "figures/s1_site_map.png",
+  "figures/s2_monthly_climate.png",
+  "figures/s2_glofas_series.png",
+  "figures/s3_drought_strip.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"

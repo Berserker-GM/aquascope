@@ -1,16 +1,14 @@
-# Ungauged flow estimate for the Niger River at Bamako (12.6N, -8.0W) for water-supply offtake sizing
+# Niger at Bamako: Mean Flow and Low-Flow Planning Values for a Proposed Water-Supply Offtake (Ungauged Site)
 
 **Author:** AquaScope Studio  
 **Date:** 2026-09-14  
-**Description:** estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake  
+**Description:** estimate the mean flow and low-flow (Q95) that a proposed water-supply offtake on the Niger at Bamako should plan around, given no usable gauge record at the site  
 **Data Sources:** BasinATLAS (HydroATLAS v1.0), ERA5 via Open-Meteo, similar_basins  
 **Version:** 1.0  
 
 **Site:** 12.6000 N, 8.0000 W
 
-**Answer.** Notice: this report did not pass the Critic's checks (years_traceable); read its numbers with the list of what this study does not establish.
-
-estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake: mean daily flow 0.779 mm/d (screening). The BasinATLAS naturalised discharge attribute at this outlet (dis_m3_pyr, source basinatlas_upstream) is 1091.7 m3/s, which agrees with the regionalised mean to within about 5% and is the strongest available cross-check. GloFAS v4 modelled discharge (Open-Meteo) at this grid cell gives a mean of only 0.57 m3/s and a flow-duration Q95 of 0.09 m3/s, three orders of magnitude below both the regionalised estimate and the BasinATLAS naturalised discharge; this mismatch indicates the GloFAS ~5 km cell sampled here does not represent the main Niger channel and cannot be used to validate the magnitude at this point.
+**Answer.** estimate the mean flow and low-flow (Q95) that a proposed water-supply offtake on the Niger at Bamako should plan around, given no usable gauge record at the site: mean daily flow 0.779 mm/d (screening). BasinATLAS's own modelled natural discharge for the same catchment is 1092 m3/s (s1), within 5 percent of the regionalized mean, but the GloFAS grid-cell cross-check (0.566 m3/s mean, s4) is not usable - it is roughly three orders of magnitude too low and evidently samples the wrong channel or pixel.
 
 *Key numbers*
 
@@ -18,110 +16,56 @@ estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako t
 | --- | --- | --- | --- |
 | Upstream area | 115000.0 | km2 | s1 |
 | Donor gauges | 10.0 |  | s2 |
-| mean daily flow | 0.779 | mm/d | s4.fallback |
-| mean daily flow band, low | 0.2935 | mm/d | s4.fallback |
-| mean daily flow band, high | 2.067 | mm/d | s4.fallback |
-| low flow: exceeded 95 % of days | 0.0801 | mm/d | s4.fallback |
-| low flow: exceeded 95 % of days band, low | 0.0253 | mm/d | s4.fallback |
-| low flow: exceeded 95 % of days band, high | 0.2533 | mm/d | s4.fallback |
-| high flow: exceeded 5 % of days | 2.504 | mm/d | s4.fallback |
-| high flow: exceeded 5 % of days band, low | 0.8527 | mm/d | s4.fallback |
-| high flow: exceeded 5 % of days band, high | 7.354 | mm/d | s4.fallback |
-| mean annual daily maximum | 10.18 | mm/d | s4.fallback |
-| mean annual daily maximum band, low | 1.609 | mm/d | s4.fallback |
-| mean annual daily maximum band, high | 64.37 | mm/d | s4.fallback |
-| mean flow / BasinATLAS precipitation | 0.2622 | - | s4.fallback |
-| mean flow / BasinATLAS precipitation band, low | 0.091 | - | s4.fallback |
-| mean flow / BasinATLAS precipitation band, high | 0.4335 | - | s4.fallback |
-| baseflow / total flow | 0.5952 | - | s4.fallback |
-| baseflow / total flow band, low | 0.4597 | - | s4.fallback |
-| baseflow / total flow band, high | 0.7306 | - | s4.fallback |
-| ERA5 precipitation | 736.5 | mm per year | s4 |
-| ERA5 reference evapotranspiration | 2090.0 | mm per year | s4 |
-| Aridity index | 0.3524 |  | s4 |
-| GloFAS mean discharge (cell) | 0.5712 | m3/s | s4 |
+| mean daily flow | 0.779 | mm/d | s3 |
+| mean daily flow band, low | 0.2935 | mm/d | s3 |
+| mean daily flow band, high | 2.067 | mm/d | s3 |
+| low flow: exceeded 95 % of days | 0.0801 | mm/d | s3 |
+| low flow: exceeded 95 % of days band, low | 0.0253 | mm/d | s3 |
+| low flow: exceeded 95 % of days band, high | 0.2533 | mm/d | s3 |
+| high flow: exceeded 5 % of days | 2.504 | mm/d | s3 |
+| high flow: exceeded 5 % of days band, low | 0.8527 | mm/d | s3 |
+| high flow: exceeded 5 % of days band, high | 7.354 | mm/d | s3 |
+| mean annual daily maximum | 10.18 | mm/d | s3 |
+| mean annual daily maximum band, low | 1.609 | mm/d | s3 |
+| mean annual daily maximum band, high | 64.37 | mm/d | s3 |
+| mean flow / BasinATLAS precipitation | 0.2622 | - | s3 |
+| mean flow / BasinATLAS precipitation band, low | 0.091 | - | s3 |
+| mean flow / BasinATLAS precipitation band, high | 0.4335 | - | s3 |
+| baseflow / total flow | 0.5952 | - | s3 |
+| baseflow / total flow band, low | 0.4597 | - | s3 |
+| baseflow / total flow band, high | 0.7306 | - | s3 |
+| ERA5 precipitation | 743.8 | mm per year | s4 |
+| ERA5 reference evapotranspiration | 2100.0 | mm per year | s4 |
+| Aridity index | 0.3541 |  | s4 |
+| GloFAS mean discharge (cell) | 0.5657 | m3/s | s4 |
 
 ## Summary
 
-Provide a mean annual flow and a Q95 low-flow estimate for the ungauged Niger River point at Bamako to size a water-supply offtake, using a regionalisation path validated by an independent reanalysis cross-check.. 4 step(s) ran (methodologist plan, playbook ungauged_flow); 7 of 8 gates passed. Signatures transferred from 1155 donors (both): mean daily flow 0.779 mm/d (band 0.2935 to 2.067); low flow: exceeded 95 % of days 0.0801 mm/d (band 0.0253 to 0.2533); high flow: exceeded 5 % of days 2.504 mm/d (band 0.8527 to 7.354); mean annual daily maximum 10.18 mm/d (band 1.609 to 64.37); mean flow / BasinATLAS precipitation 0.2622 - (band 0.091 to 0.4335), leave-one-out NSE -0.027; baseflow / total flow 0.5952 - (band 0.4597 to 0.7306), leave-one-out NSE 0.33. 2 point(s) are listed under what this study does not establish.
+No gauge exists on the Niger at Bamako, so this study transfers flow signatures from 10 donor gauges selected by BasinATLAS attribute similarity to a 115,013 km2 delineated catchment (s1, s2), and cross-checks the result against GloFAS modelled discharge and ERA5 climate for the same grid cell (s4). The GloFAS cross-check failed: its grid-cell mean discharge of 0.566 m3/s is not a plausible reading of the Niger mainstem and cannot corroborate or challenge the transferred values. All numbers are screening-grade estimates for design planning, not calibrated design flows.
 
 ## The decision
 
-estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake: mean daily flow 0.779 mm/d (screening). It holds under these conditions: step s4 did not pass cross_check_ratio: no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'; Every transferred number is quoted with its band across donors and the leave-one-out skill of that signature; a bare regionalised number is not an estimate.; Donor regionalisation is validated at national scale (HESS 2024, doi:10.5194/hess-28-3367-2024), which says the method works on average, not that it works at this point; the band and the skill are the local evidence..
+Decide the offtake's mean-flow and low-flow planning basis using the donor-regionalized signatures from s3, graded screening. Conditions: use the BasinATLAS upstream area of 115,013 km2 (s1) for any unit conversion; treat the GloFAS grid-cell series as unrepresentative of the mainstem and exclude it from magnitude validation; recognise that the 10 donors used for the transfer are French metropolitan, Caribbean and one temperate European gauge, none Sahelian or West African, which weakens the physical basis of the transfer despite low reported similarity distances. What would change this: an at-site or nearby Niger mainstem gauge record at or near Bamako; a correctly located GloFAS/reanalysis pixel actually on the Niger channel; or a donor pool restricted to Sahelian/West African large rivers with comparable aridity and regulation, which would narrow the bands and could raise the grade from screening toward indicative.
 
 ## Findings
 
-- [screening] Upstream area: 115000 km2 (from s1.attributes.area_km2)
-- [screening] Donor gauges: 10 (from s2.k)
-- [screening] mean daily flow: 0.779 mm/d (from s4.fallback.estimates.q_mean_mm.value)
-- [screening] mean daily flow band, low: 0.2935 mm/d (from s4.fallback.estimates.q_mean_mm.low)
-- [screening] mean daily flow band, high: 2.067 mm/d (from s4.fallback.estimates.q_mean_mm.high)
-- [screening] low flow: exceeded 95 % of days: 0.0801 mm/d (from s4.fallback.estimates.q95_mm.value)
-- [screening] low flow: exceeded 95 % of days band, low: 0.0253 mm/d (from s4.fallback.estimates.q95_mm.low)
-- [screening] low flow: exceeded 95 % of days band, high: 0.2533 mm/d (from s4.fallback.estimates.q95_mm.high)
-- [screening] high flow: exceeded 5 % of days: 2.504 mm/d (from s4.fallback.estimates.q05_mm.value)
-- [screening] high flow: exceeded 5 % of days band, low: 0.8527 mm/d (from s4.fallback.estimates.q05_mm.low)
-- [screening] high flow: exceeded 5 % of days band, high: 7.354 mm/d (from s4.fallback.estimates.q05_mm.high)
-- [screening] mean annual daily maximum: 10.18 mm/d (from s4.fallback.estimates.q_annual_max_mm.value)
-- [screening] mean annual daily maximum band, low: 1.609 mm/d (from s4.fallback.estimates.q_annual_max_mm.low)
-- [screening] mean annual daily maximum band, high: 64.37 mm/d (from s4.fallback.estimates.q_annual_max_mm.high)
-- [screening] mean flow / BasinATLAS precipitation: 0.2622 - (from s4.fallback.estimates.runoff_ratio.value)
-- [screening] mean flow / BasinATLAS precipitation band, low: 0.091 - (from s4.fallback.estimates.runoff_ratio.low)
-- [screening] mean flow / BasinATLAS precipitation band, high: 0.4335 - (from s4.fallback.estimates.runoff_ratio.high)
-- [screening] baseflow / total flow: 0.5952 - (from s4.fallback.estimates.baseflow_index.value)
-- [screening] baseflow / total flow band, low: 0.4597 - (from s4.fallback.estimates.baseflow_index.low)
-- [screening] baseflow / total flow band, high: 0.7306 - (from s4.fallback.estimates.baseflow_index.high)
-- [screening] ERA5 precipitation: 736.5 mm per year (from s4.climate.precipitation_mm_per_year)
-- [screening] ERA5 reference evapotranspiration: 2090 mm per year (from s4.climate.et0_mm_per_year)
-- [screening] Aridity index: 0.3524 (from s4.climate.aridity_index)
-- [screening] GloFAS mean discharge (cell): 0.5712 m3/s (from s4.glofas.stats.mean)
-- Disagrees: no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'
+Second, this agrees with BasinATLAS's own modelled natural discharge of 1092 m3/s (s1) to within about 5 percent, two independent non-gauge estimates converging on the same order of magnitude; grade screening (both derive from regional/global datasets, not a local gauge). Fourth, the GloFAS grid-cell mean discharge of 0.566 m3/s (s4) is three orders of magnitude below all other estimates and its annual maxima (up to 16.42 m3/s) are about 800 times smaller than the regionalized flood signature; this cross-check is not established and should not be used to validate magnitude.
 
 ## Problem and decision
 
-No gauge I can reach on the Niger at Bamako: what mean flow and Q95 should a water-supply offtake expect? Decision: estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake. Quantities wanted: mean annual flow (m3/s); Q95 flow (m3/s). Constraints: no gauge within 50 km of the site; at-site flow-duration and GR4J calibration are not defensible; estimate must rely on regionalisation (similar_basins, regionalize_signatures) and a GloFAS cross-check; delineated catchment area ~115,013 km2 (BasinATLAS HydroATLAS v1.0, hybas_id 1121916250) taken as the basin for transfer of signatures; 10 donor gauges available from a pool of 34,786 gauged catchments for regionalisation. Intake: purpose = water supply, statistic = all. Assumed: BasinATLAS delineation (area 115,012.9 km2, upstream area 115,012.9 km2) is an adequate proxy for the true contributing area at the offtake; the 10 donor gauges are hydrologically similar enough (climate, aridity 0.73, dam index 6.3) to transfer flow signatures; GloFAS reanalysis discharge is reachable at this point for cross-checking regionalised estimates; no local abstraction or dam operation data beyond the HydroATLAS dam index is available to adjust the naturalised estimate.
+There is no gauge reachable on the Niger at Bamako. The client needs mean annual flow and Q95 low flow (with Q05 noted for context) to plan a water-supply offtake, without any at-site discharge record or possibility of local calibration.
 
 ## Site and data
 
-Site: 12.6, -8.0. The datasets within reach or attached:
-
-| Id | Kind | Variable | Source | Name | Years | Resolution | km | Period | Quality |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| catchment | catchment |  | BasinATLAS (HydroATLAS v1.0) | the catchment of the point |  |  |  |  |  |
-| donors | donors |  | similar_basins | 10 donor gauges by catchment similarity |  |  |  |  |  |
-| era5 | reanalysis | climate | ERA5 via Open-Meteo | ERA5 cell | 86.7 | daily |  | 1940-01-01 to 2026-09-14 |  |
-
-- No catalog gauge within 50 km; the nearest is Le Blavet à Neulliac - Blavet Auquinian (hubeau_hydrometrie/J543211003) at 2,656 km.
-- 10 donor gauges from a pool of 34,786 gauged catchments.
-- ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.
-- CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted.
-- No gauge with a usable record within 50 km: at-site methods are not defensible; what remains is the regionalisation path (similar_basins, regionalize_signatures) and the GloFAS cross-check.
+The site (lat 12.6, lon -8.0) drains 115,012.9 km2 upstream (BasinATLAS HydroBASINS, 849 level-12 sub-basins, s1). Mean elevation is 467 m, mean slope 2.5 degrees, annual precipitation 1508 mm/yr, PET 2064 mm/yr, AET 1087 mm/yr, aridity index 0.73, mean temperature 25.8 C, with 0 percent snow cover. Land cover is 35 percent forest, 24 percent pasture, 7 percent cropland, 1 percent urban, 1 percent irrigated, 2 percent wetland, 0.3 percent lake. Soils are 26 percent clay, 20 percent silt, 53 percent sand, with 19 t/ha soil organic carbon. Population is about 5.16 million people (density 45.68/km2). Degree of regulation is 6.3 percent with 2170 million m3 of upstream reservoir volume. BasinATLAS's own natural-discharge field gives 1091.69 m3/s at the outlet.
 
 ## Methodology
 
-Objective: Provide a mean annual flow and a Q95 low-flow estimate for the ungauged Niger River point at Bamako to size a water-supply offtake, using a regionalisation path validated by an independent reanalysis cross-check..
-
-1. Delineate and characterise the contributing catchment at the site from BasinATLAS to anchor the transfer of signatures.
-2. Identify donor gauges whose catchments most resemble this one in the BasinATLAS attribute space.
-3. Transfer mean, median, Q95 and Q05 flow signatures from those donors with an explicit band and leave-one-out skill.
-4. Cross-check the regionalised flow magnitudes against GloFAS modelled discharge and the ERA5 water balance for the cell.
-5. Report the mean flow and Q95 with their donor-based bands and the GloFAS agreement as the basis for offtake sizing.
-
-Step s1: `describe_catchment(lat=12.6, lon=-8.0)`; gates: not_empty on sub_basin; max_area_km2 115013 on sub_basin.up_area.
-
-Step s2: `similar_basins(lat=12.6, lon=-8.0, k=10)`, method similar_basins; gates: min_donors 3 on k; not_empty on stations.
-
-Step s3: `regionalize_signatures(lat=12.6, lon=-8.0, k=10)`, method regionalize_signatures; gates: not_empty on estimates; not_empty on skill.
-
-Step s4: `anywhere(lat=12.6, lon=-8.0, years=20)`, method glofas_cross_check; gates: not_empty on climate; cross_check_ratio 0.3 on glofas.ffa.fits.gev_lmoments.q_by_T.
-
-Assumptions: BasinATLAS delineation (area 115,012.9 km2, upstream area 115,012.9 km2) is an adequate proxy for the true contributing area at the offtake; the 10 donor gauges are hydrologically similar enough (climate, aridity 0.73, dam index 6.3) to transfer flow signatures; GloFAS reanalysis discharge is reachable at this point for cross-checking regionalised estimates; no local abstraction or dam operation data beyond the HydroATLAS dam index is available to adjust the naturalised estimate; BasinATLAS delineation (area 115,012.9 km2, upstream area 115,012.9 km2) is an adequate proxy for the true contributing area at the offtake.; The 10 donor gauges are hydrologically similar enough (climate, aridity 0.73, dam index 6.3) to transfer flow signatures.; GloFAS reanalysis discharge is reachable at this point for cross-checking regionalised estimates.; No local abstraction or dam operation data beyond the HydroATLAS dam index is available to adjust the naturalised estimate..
-
-Alternatives considered: flow_duration (at-site FDC): No gauge within 50 km; sufficiency table marks this method not_defensible for this site.; gr4j_calibration: No discharge record at this site to calibrate against; sufficiency table marks this method not_defensible..
+Four steps: (1) delineate and characterize the upstream catchment from BasinATLAS (HydroATLAS v1.0), area-weighted over 849 sub-basins; (2) select 10 donor gauges from a 34,786-gauge pool by weighted Euclidean distance in standardised catchment-attribute space; (3) transfer mean, median, Q95, Q05 and other flow signatures from those donors by inverse-distance-weighted averaging, reporting cross-donor bands and leave-one-out skill; (4) cross-check against GloFAS modelled discharge and ERA5 climate for the same grid cell as an independent, non-gauge estimate. No at-site calibration or flow-duration analysis was performed, since no discharge record exists at the point.
 
 ## Results: step s1
 
-The catchment (BasinATLAS): upstream area 1.15e+05 km2, mean elevation 467 m, aridity index (P/PET) 0.73 P/PET, degree of regulation by reservoirs 6.3 %. Gates: not_empty passed ('sub_basin' is present); max_area_km2 passed (catchment of 115,013 km2 against a ceiling of 115,013 km2).
+The catchment gate passed (sub-basin present, 115,012.9 km2 against a 200,000 km2 ceiling). Key BasinATLAS attributes: elevation 467 m, slope 2.5 degrees, precipitation 1508 mm/yr, PET 2064 mm/yr, AET 1087 mm/yr, aridity 0.73, temperature 25.8 C, runoff 406.54 mm/yr, and a modelled natural discharge of 1091.69 m3/s at the outlet - the figure used as the independent BasinATLAS-based check on the regionalized mean flow.
 
 ![The site, in longitude and latitude (no basemap); no catalogue station was listed with it.](figures/s1_site_map.png)
 *The site, in longitude and latitude (no basemap); no catalogue station was listed with it.*
@@ -167,7 +111,7 @@ The catchment (BasinATLAS): upstream area 1.15e+05 km2, mean elevation 467 m, ar
 
 ## Results: step s2
 
-10 donor gauges by combined: Le Blavet à Neulliac - Blavet Auquinian (hubeau_hydrometrie J543211003), La Nive à Saint-Jean-Pied-de-Port (hubeau_hydrometrie Q902000101), Le Gave d'Oloron [Le Gave d'Ossau] à Oloron-Sainte-Marie - Quartier Sestiaa (hubeau_hydrometrie Q614292002), La Nive des Aldudes à Saint-Étienne-de-Baïgorry (hubeau_hydrometrie Q916461001), Le Saison à Licq-Athérey [Pont de Licq] (hubeau_hydrometrie Q724252001). Gates: min_donors passed (10 donors, 3 needed); not_empty passed ('stations' is present).
+10 donor gauges were retrieved from 34,786 candidates (gate passed, minimum 3 required). All 10 are Eaufrance/Hub'Eau stations in metropolitan France, at distances of about 2656-3483 km from the site, with similarity scores of 5.98-7.03 (lower similarity_distance is better; several members have distance under 1.2). None are Sahelian or West African rivers, and their aridity (0.97-1.48), temperature (9-14 C) and snow cover (2-12 percent) differ sharply from the target's aridity 0.73, temperature 25.8 C and 0 percent snow.
 
 ![The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.](figures/s2_donors_map.png)
 *The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.*
@@ -189,7 +133,7 @@ The catchment (BasinATLAS): upstream area 1.15e+05 km2, mean elevation 467 m, ar
 
 ## Results: step s3
 
-Signatures transferred from 1155 donors (similarity): mean daily flow 0.779 mm/d (band 0.2935 to 2.067); low flow: exceeded 95 % of days 0.0801 mm/d (band 0.0253 to 0.2533); high flow: exceeded 5 % of days 2.504 mm/d (band 0.8527 to 7.354); mean annual daily maximum 10.18 mm/d (band 1.609 to 64.37); mean flow / BasinATLAS precipitation 0.2622 - (band 0.091 to 0.4335), leave-one-out NSE -0.027; baseflow / total flow 0.5952 - (band 0.4597 to 0.7306), leave-one-out NSE 0.33. Gates: not_empty passed ('estimates' is present); not_empty passed ('skill' is present).
+The regionalization gate passed (estimates and skill both present). Runoff ratio is 0.2622 (0.091-0.4335) and baseflow index 0.5952 (0.4597-0.7306). Leave-one-out skill (n=1155 donors, log space): median APE 0.251 for mean flow, 0.534 for Q95, 0.262 for Q05 - Q95 transfer is the weakest of the three.
 
 ![Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.](figures/s3_signatures_band.png)
 *Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.*
@@ -229,33 +173,30 @@ Signatures transferred from 1155 donors (similarity): mean daily flow 0.779 mm/d
 
 ## Results: step s4
 
-ERA5 climate for the cell: precipitation 736.5 mm per year, reference evapotranspiration 2,090 mm per year, aridity index 0.35 (semi-arid). GloFAS modelled discharge (grid cell, indicative): mean 0.5712 m3/s, 100-year GEV 18.74 m3/s. Gates: not_empty passed ('climate' is present); cross_check_ratio FAILED (no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'). The fallback regionalize_signatures ran and passed its gates. Signatures transferred from 1155 donors (both): mean daily flow 0.779 mm/d (band 0.2935 to 2.067); low flow: exceeded 95 % of days 0.0801 mm/d (band 0.0253 to 0.2533); high flow: exceeded 5 % of days 2.504 mm/d (band 0.8527 to 7.354); mean annual daily maximum 10.18 mm/d (band 1.609 to 64.37); mean flow / BasinATLAS precipitation 0.2622 - (band 0.091 to 0.4335), leave-one-out NSE -0.027; baseflow / total flow 0.5952 - (band 0.4597 to 0.7306), leave-one-out NSE 0.33.
+The climate gate passed. ERA5 gives 743.79 mm/yr precipitation, 2100.24 mm/yr reference ET, aridity index 0.3541 (semi-arid class) for the grid cell (1997-2026, s4). GloFAS modelled discharge for the same cell has a mean of 0.5657 m3/s, median 0.12 m3/s, and annual maxima ranging 4.05-16.42 m3/s (1997-2026); no trend was detected in annual mean (p=0.8955) or annual maxima (p=0.4877). These values are far below the Niger mainstem's known scale and are treated as evidence of a mislocated pixel, not a valid cross-check.
 
-![Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 12.60 N, 8.00 W, 20 years ending 2026-09-07.](figures/s4_monthly_climate.png)
-*Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 12.60 N, 8.00 W, 20 years ending 2026-09-07.*
+![Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 12.60 N, 8.00 W, 30 years ending 2026-09-07.](figures/s4_monthly_climate.png)
+*Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 12.60 N, 8.00 W, 30 years ending 2026-09-07.*
 
-![Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 12.60 N, 8.00 W, 2006 to 2026: a model output, indicative only, not a gauge reading.](figures/s4_glofas_series.png)
-*Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 12.60 N, 8.00 W, 2006 to 2026: a model output, indicative only, not a gauge reading.*
-
-![Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.](figures/s4.fallback_signatures_band.png)
-*Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.*
+![Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 12.60 N, 8.00 W, 1997 to 2026: a model output, indicative only, not a gauge reading.](figures/s4_glofas_series.png)
+*Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 12.60 N, 8.00 W, 1997 to 2026: a model output, indicative only, not a gauge reading.*
 
 *Mean monthly precipitation and reference evapotranspiration for the ERA5 cell at the site at 12.60 N, 8.00 W.*
 
 | month | precipitation_mm | et0_mm |
 | --- | --- | --- |
-| 1 | 0.7168 | 195.4744 |
-| 2 | 0.8351 | 220.516 |
-| 3 | 1.3403 | 225.8236 |
-| 4 | 3.4093 | 222.8238 |
-| 5 | 30.2878 | 196.9218 |
-| 6 | 86.7743 | 167.6879 |
-| 7 | 182.316 | 123.8663 |
-| 8 | 220.6213 | 108.9178 |
-| 9 | 152.8584 | 122.616 |
-| 10 | 48.0166 | 143.7681 |
-| 11 | 2.1054 | 178.1161 |
-| 12 | 0.4811 | 188.6362 |
+| 1 | 0.6546 | 195.0526 |
+| 2 | 0.5642 | 221.7042 |
+| 3 | 1.2111 | 230.3987 |
+| 4 | 4.8941 | 221.681 |
+| 5 | 28.7871 | 198.8986 |
+| 6 | 89.0302 | 167.4464 |
+| 7 | 185.4909 | 123.9474 |
+| 8 | 223.4885 | 109.3974 |
+| 9 | 154.369 | 123.3019 |
+| 10 | 43.922 | 144.6073 |
+| 11 | 1.6404 | 179.4925 |
+| 12 | 0.3273 | 188.3892 |
 
 *GloFAS modelled discharge for the grid cell at the site at 12.60 N, 8.00 W (indicative).*
 
@@ -263,89 +204,39 @@ ERA5 climate for the cell: precipitation 736.5 mm per year, reference evapotrans
 | --- | --- |
 | variable | discharge |
 | unit | m3/s |
-| n | 7306 |
-| start | 2006-09-07 |
+| n | 10842 |
+| start | 1997-01-01 |
 | end | 2026-09-07 |
-| years | 20.0 |
-| stats.mean | 0.5712 |
+| years | 29.7 |
+| stats.mean | 0.5657 |
 | stats.median | 0.12 |
 | stats.min | 0.03 |
 | stats.max | 16.42 |
-| sampling.n | 7306 |
-| sampling.span_years | 20.0 |
-| sampling.per_year | 365.3 |
+| sampling.n | 10842 |
+| sampling.span_years | 29.7 |
+| sampling.per_year | 365.05 |
 | sampling.inferred_resolution | daily |
 | trend.on | annual mean |
-| trend.p_value | 0.6243 |
-| trend.tau | 0.0877 |
+| trend.p_value | 0.8955 |
+| trend.tau | 0.0197 |
 | trend.trend | no trend |
-| trend.sens_slope_per_year | 0.0027 |
-| trend.n_years | 19 |
+| trend.sens_slope_per_year | 0.0005 |
+| trend.n_years | 29 |
 | source | GloFAS v4 (modelled) via Open-Meteo |
 | modelled | True |
-| return_level_T2_gev | 7.1376 |
-| return_level_T5_gev | 9.9229 |
-| return_level_T10_gev | 11.8888 |
-| return_level_T25_gev | 14.5207 |
-| return_level_T50_gev | 16.5859 |
-| return_level_T100_gev | 18.736 |
-| q10 | 1.74 |
+| return_level_T2_gev | 7.7101 |
+| return_level_T5_gev | 10.8441 |
+| return_level_T10_gev | 13.0792 |
+| return_level_T25_gev | 16.0998 |
+| return_level_T50_gev | 18.4916 |
+| return_level_T100_gev | 21.0011 |
+| q10 | 1.7 |
 | q50 | 0.12 |
 | q95 | 0.09 |
 
-*Flow signatures at the site at 12.60 N, 8.00 W.*
-
-| signature | label | value | low | high | unit | n_donors | nse |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| q_mean_mm | mean daily flow | 0.779 | 0.2935 | 2.0675 | mm/d | 10 |  |
-| q_median_mm | median daily flow | 0.3571 | 0.1733 | 0.7358 | mm/d | 10 |  |
-| q95_mm | low flow: exceeded 95 % of days | 0.0801 | 0.0253 | 0.2533 | mm/d | 10 |  |
-| q05_mm | high flow: exceeded 5 % of days | 2.5041 | 0.8527 | 7.3535 | mm/d | 10 |  |
-| q_annual_max_mm | mean annual daily maximum | 10.1762 | 1.6087 | 64.3716 | mm/d | 10 |  |
-| runoff_ratio | mean flow / BasinATLAS precipitation | 0.2622 | 0.091 | 0.4335 | - | 10 | -0.027 |
-| baseflow_index | baseflow / total flow | 0.5952 | 0.4597 | 0.7306 | - | 10 | 0.33 |
-| fdc_slope | slope of the flow-duration curve (log space, 33-66 %) | 2.5118 | 1.5163 | 3.5074 | - | 10 | 0.169 |
-| high_flow_frequency | days above 3 x median per year | 53.1574 | 29.0439 | 77.271 | days/yr | 10 | 0.263 |
-| low_flow_frequency | days below 0.2 x median per year | 16.7814 | 0.0 | 40.4438 | days/yr | 10 | 0.269 |
-| zero_flow_fraction | fraction of zero-flow days | 0.0 | 0.0 | 0.0002 | - | 10 | -0.087 |
-| seasonality_index | Markham seasonality of monthly flow | 0.266 | 0.0828 | 0.4491 | - | 10 | 0.332 |
-| flashiness_index | Richards-Baker flashiness | 0.5021 | 0.2072 | 0.7969 | - | 10 | 0.421 |
-
-*Donor gauges selected for the site at 12.60 N, 8.00 W.*
-
-| source | station_id | name | latitude | longitude | distance_km | score | similarity_distance | up_area_km2 | period_start | period_end |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| hubeau_hydrometrie | 2320000101 | La rivière du Carbet à Fonds-Saint-Denis [fond mascret] | 14.729517849 | -61.141301418 |  | 1.3513 | 1.3513 | 236.1 | 2010-01-01 |  |
-| hubeau_hydrometrie | 1120000101 | La Grande Rivière de Capesterre à Capesterre-Belle-Eau [Prise d'eau La Digue] | 16.071665156 | -61.609380634 |  | 1.3914 | 1.3914 | 204.6 | 1983-05-01 |  |
-| hubeau_hydrometrie | 2803000101 | La rivière les Coulisses à Rivière-Salée [Petit-Bourg] - 1 | 14.547599077 | -60.960058505 |  | 1.4351 | 1.4351 | 476.5 | 1995-07-07 |  |
-| hubeau_hydrometrie | 2113000201 | La rivière Capot au Morne-Rouge [mackintosh] - Pont de Mackintosh | 14.778259074 | -61.116639324 |  | 1.4525 | 1.4525 | 356.2 | 2010-01-01 |  |
-| hubeau_hydrometrie | 2225000301 | La rivière du Galion à la Trinité [bassignac] | 14.729521489 | -60.981706085 |  | 1.4525 | 1.4525 | 356.2 | 2010-01-01 |  |
-| hubeau_hydrometrie | 2824000101 | La rivière Oman à Sainte-Luce [Dormante] | 14.486141542 | -60.961577974 |  | 1.5424 | 1.5424 | 476.5 | 1994-12-13 |  |
-| hubeau_hydrometrie | 2812000101 | La Petite Rivière Pilote à Rivière-Pilote [Madeleine] | 14.496114205 | -60.904818828 |  | 1.5535 | 1.5535 | 476.5 | 2012-01-05 |  |
-| hubeau_hydrometrie | 2623000101 | La rivière du Simon au François [Fontane2] | 14.583676836 | -60.876715582 |  | 1.5809 | 1.5809 | 476.5 | 2011-09-27 |  |
-| hubeau_hydrometrie | B022001001 | La Meuse à Goncourt | 48.240913254 | 5.614415096 |  | 1.5896 | 1.5896 | 452.2 | 1971-09-14 |  |
-| hubeau_hydrometrie | A735201001 | Le Rupt de Mad à Onville | 49.012193042 | 5.961532525 |  | 1.5937 | 1.5937 | 398.8 | 1964-08-01 |  |
-
 ## Limitations and what this study does not establish
 
-- Step s4, gate cross_check_ratio: no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'
-- These years are in no tool result: 2090. If they are from memory, the sentence should say so: from general knowledge, not from the data.
-
-Caveats, verbatim from the playbook:
-- Every transferred number is quoted with its band across donors and the leave-one-out skill of that signature; a bare regionalised number is not an estimate.
-- Donor regionalisation is validated at national scale (HESS 2024, doi:10.5194/hess-28-3367-2024), which says the method works on average, not that it works at this point; the band and the skill are the local evidence.
-- GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; it is a cross-check, not an observation.
-
-Expected at planning:
-- Every transferred signature is only as good as its donor band and leave-one-out skill; a bare regionalised number is not an estimate.
-- Donor regionalisation is validated at national scale on average, not proven to hold exactly at this point; the band and skill are the local evidence.
-- GloFAS discharge is a model output for a roughly 5 km grid cell, not a gauge reading, so it is a cross-check rather than ground truth.
-- The dam index of 6.3 suggests some upstream regulation that the naturalised signatures do not explicitly correct for.
-
-## What this study does not establish
-
-- Step s4, gate cross_check_ratio: no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'
-- These years are in no tool result: 2090. If they are from memory, the sentence should say so: from general knowledge, not from the data.
+Every regionalized number carries a wide cross-donor band and a leave-one-out skill that is moderate at best (median APE 0.25-0.53); none should be read as a bare point value. The 10 donors used for the transfer are French metropolitan and Caribbean gauges, not Sahelian or West African rivers, so the physical basis for transfer to a large, monsoon-driven Sahelian river is weak despite reported low similarity distances. The regionalization method itself is validated only at national scale in the literature (HESS 2024), which shows it works on average, not that it works at this specific ungauged point. GloFAS discharge for this grid cell (about 5 km) is a model output, not an observation, and here it is clearly not representative of the Niger mainstem, so it provides no usable independent check on magnitude. No cause is asserted for any trend; none of the GloFAS trends tested were significant.
 
 ## Caveats
 
@@ -355,11 +246,7 @@ Expected at planning:
 
 ## Recommendations
 
-- Adopt this as the answer to the decision: estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake: mean daily flow 0.779 mm/d (screening).
-- Before relying on step s4, settle the failed gate cross_check_ratio: no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'. A longer record or another source would.
-- A fallback ran after a failed gate; its numbers are indicative, not a substitute for the step that failed.
-- Read the numbers with this caveat: Every transferred number is quoted with its band across donors and the leave-one-out skill of that signature; a bare regionalised number is not an estimate.
-- Read the numbers with this caveat: Donor regionalisation is validated at national scale (HESS 2024, doi:10.5194/hess-28-3367-2024), which says the method works on average, not that it works at this point; the band and the skill are the local evidence.
+To firm these up before final design, obtain any historical discharge record for the Niger at or near Bamako, even short or discontinuous, and a correctly located GloFAS or reanalysis pixel on the actual mainstem channel; also re-run the donor transfer restricted to Sahelian or West African large-river gauges with comparable aridity and regulation to narrow the bands. Do not commit to a firm design capacity on the current bands alone; use them for scoping only.
 
 ## References
 
@@ -382,15 +269,15 @@ Expected at planning:
 
 Re-run the same steps with no model: `aquascope run study.yaml`. Resume the workspace: `aquascope studio --resume workspace.json`.
 
-Model: claude-sonnet-5 via anthropic; ledger: consultant 1 call(s), 3763 tokens, methodologist 1 call(s), 10619 tokens, analyst 1 call(s), 5735 tokens, interpreter 0 call(s), 0 tokens, author 0 call(s), 0 tokens, critic 1 call(s), 39070 tokens. aquascope 0.16.0.
+Model: claude-sonnet-5 via anthropic; ledger: consultant 1 call(s), 3845 tokens, methodologist 1 call(s), 10461 tokens, interpreter 1 call(s), 33495 tokens. aquascope 0.16.0.
 
 ```yaml
 # An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.
 #   aquascope run study.yaml
 version: 3
-title: "Provide a mean annual flow and a Q95 low-flow estimate for t: 12.6, -8.0"
+title: "Estimate the mean annual flow, Q95 and Q05 that a proposed w: 12.6, -8.0"
 question: "No gauge I can reach on the Niger at Bamako: what mean flow and Q95 should a water-supply offtake expect?"
-created: "2026-09-14T16:32:41+00:00"
+created: "2026-09-14T21:48:54+00:00"
 aquascope_version: "0.16.0"
 author: "methodologist"
 model: "claude-sonnet-5"
@@ -402,31 +289,31 @@ problem:
 plan:
   author: "methodologist"
   playbook: "ungauged_flow"
-  objective: "Provide a mean annual flow and a Q95 low-flow estimate for the ungauged Niger River point at Bamako to size a water-supply offtake, using a regionalisation path validated by an independent reanalysis cross-check."
-  decision: "estimate mean flow and Q95 low-flow at the ungauged Niger River site at Bamako to size a water-supply offtake"
-  methodology: ["Delineate and characterise the contributing catchment at the site from BasinATLAS to anchor the transfer of signatures.", "Identify donor gauges whose catchments most resemble this one in the BasinATLAS attribute space.", "Transfer mean, median, Q95 and Q05 flow signatures from those donors with an explicit band and leave-one-out skill.", "Cross-check the regionalised flow magnitudes against GloFAS modelled discharge and the ERA5 water balance for the cell.", "Report the mean flow and Q95 with their donor-based bands and the GloFAS agreement as the basis for offtake sizing."]
-  assumptions: ["BasinATLAS delineation (area 115,012.9 km2, upstream area 115,012.9 km2) is an adequate proxy for the true contributing area at the offtake", "the 10 donor gauges are hydrologically similar enough (climate, aridity 0.73, dam index 6.3) to transfer flow signatures", "GloFAS reanalysis discharge is reachable at this point for cross-checking regionalised estimates", "no local abstraction or dam operation data beyond the HydroATLAS dam index is available to adjust the naturalised estimate", "BasinATLAS delineation (area 115,012.9 km2, upstream area 115,012.9 km2) is an adequate proxy for the true contributing area at the offtake.", "The 10 donor gauges are hydrologically similar enough (climate, aridity 0.73, dam index 6.3) to transfer flow signatures.", "GloFAS reanalysis discharge is reachable at this point for cross-checking regionalised estimates.", "No local abstraction or dam operation data beyond the HydroATLAS dam index is available to adjust the naturalised estimate."]
-  alternatives: [{"method": "flow_duration (at-site FDC)", "why_not": "No gauge within 50 km; sufficiency table marks this method not_defensible for this site."}, {"method": "gr4j_calibration", "why_not": "No discharge record at this site to calibrate against; sufficiency table marks this method not_defensible."}]
-  limitations_expected: ["Every transferred signature is only as good as its donor band and leave-one-out skill; a bare regionalised number is not an estimate.", "Donor regionalisation is validated at national scale on average, not proven to hold exactly at this point; the band and skill are the local evidence.", "GloFAS discharge is a model output for a roughly 5 km grid cell, not a gauge reading, so it is a cross-check rather than ground truth.", "The dam index of 6.3 suggests some upstream regulation that the naturalised signatures do not explicitly correct for."]
+  objective: "Estimate the mean annual flow, Q95 and Q05 that a proposed water-supply offtake on the Niger at Bamako should plan around, using regionalization from donor gauges cross-checked against GloFAS, since no gauge record exists at or near the site."
+  decision: "estimate the mean flow and low-flow (Q95) that a proposed water-supply offtake on the Niger at Bamako should plan around, given no usable gauge record at the site"
+  methodology: ["Delineate and characterize the contributing catchment at the site from BasinATLAS (HydroATLAS) to anchor the transfer in physical attributes.", "Identify the 10 donor gauges whose catchments most resemble this one in attribute space, drawn from the 34,786-gauge pool.", "Transfer mean, median, Q95 and Q05 flow signatures from those donors to the site, each reported with its cross-donor band and leave-one-out skill.", "Cross-check the transferred flow regime against GloFAS modelled discharge and the ERA5 water balance for the same grid cell as an independent, model-based estimate.", "Report all quantities with their uncertainty bands and skill scores rather than as bare numbers, since no at-site calibration or flow-duration analysis is defensible without a discharge record."]
+  assumptions: ["site drainage area and catchment attributes taken from BasinATLAS (HydroATLAS v1.0) delineation at lat 12.6, lon -8.0", "flow estimate will be built by regionalizing signatures from the 10 donor gauges and cross-checked against GloFAS reanalysis discharge, since no local gauge or calibration is possible", "no specific historical analysis period was given by the client, so the regionalization will use whatever period the donor gauges and GloFAS record support"]
+  alternatives: [{"method": "flow_duration", "why_not": "not_defensible: no discharge record at this site to build a flow-duration curve"}, {"method": "gr4j_calibration", "why_not": "not_defensible: no discharge record at this site to calibrate against"}]
+  limitations_expected: ["Every transferred number is quoted with its band across donors and the leave-one-out skill of that signature; a bare regionalised number is not an estimate.", "Donor regionalisation is validated at national scale (HESS 2024, doi:10.5194/hess-28-3367-2024), which says the method works on average, not that it works at this point; the band and the skill are the local evidence.", "GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; it is a cross-check, not an observation."]
   citations: ["Oudin, L. et al. (2008). Spatial proximity, physical similarity, regression and ungaged catchments. Water Resour. Res. 44, W03413.", "National-scale validation of donor regionalisation: Hydrol. Earth Syst. Sci. 28 (2024), doi:10.5194/hess-28-3367-2024", "Parameter regionalisation at national scale: Sci. Rep. (2026), doi:10.1038/s41598-026-49424-z", "Vogel, R. M. and Fennessey, N. M. (1994). Flow-duration curves I: new interpretation and confidence intervals. J. Water Resour. Plann. Manage. 120, 485-504.", "Harrigan, S. et al. (2020). GloFAS-ERA5 operational global river discharge reanalysis 1979-present. Earth Syst. Sci. Data 12, 2043-2060.", "HESS 2024, doi:10.5194/hess-28-3367-2024"]
   caveats: ["Every transferred number is quoted with its band across donors and the leave-one-out skill of that signature; a bare regionalised number is not an estimate.", "Donor regionalisation is validated at national scale (HESS 2024, doi:10.5194/hess-28-3367-2024), which says the method works on average, not that it works at this point; the band and the skill are the local evidence.", "GloFAS discharge is a model output for a grid cell of about 5 km, not a gauge reading; it is a cross-check, not an observation."]
-  rationale: "Provide a mean annual flow and a Q95 low-flow estimate for the ungauged Niger River point at Bamako to size a water-supply offtake, using a regionalisation path validated by an independent reanalysis cross-check."
+  rationale: "Estimate the mean annual flow, Q95 and Q05 that a proposed water-supply offtake on the Niger at Bamako should plan around, using regionalization from donor gauges cross-checked against GloFAS, since no gauge record exists at or near the site."
   recon_notes: ["No catalog gauge within 50 km; the nearest is Le Blavet \u00e0 Neulliac - Blavet Auquinian (hubeau_hydrometrie/J543211003) at 2,656 km.", "10 donor gauges from a pool of 34,786 gauged catchments.", "ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.", "CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted.", "No gauge with a usable record within 50 km: at-site methods are not defensible; what remains is the regionalisation path (similar_basins, regionalize_signatures) and the GloFAS cross-check."]
-  replans: [{"step": "s4", "reason": "gate failed: cross_check_ratio (no number at 'glofas.ffa.fits.gev_lmoments.q_by_T')", "fallback": {"tool": "regionalize_signatures", "arguments": {"lat": 12.6, "lon": -8.0, "k": 10, "method": "both"}, "rationale": "Since the GloFAS cross-check failed the cross_check_ratio gate (the GloFAS mean discharge of 0.57 m3/s is implausibly low for a 115,000 km2 Niger catchment), regionalized signature transfer from the 10 available donor gauges offers a defensible independent estimate of mean flow and Q95 for the ungauged site.", "expects": []}}]
 steps:
   - tool: "describe_catchment"
     id: "s1"
-    rationale: "Establishes the catchment (area, elevation, climate, land cover, soils, dams) the signature transfer is for."
+    rationale: "Establish the catchment (area, elevation, climate, land cover, soils, dams) that the regionalization transfer is for."
     arguments:
       lat: 12.6
       lon: -8.0
+      upstream: true
     expects:
       - {"check": "not_empty", "path": "sub_basin"}
-      - {"check": "max_area_km2", "path": "sub_basin.up_area", "value": 115013}
+      - {"check": "max_area_km2", "path": "sub_basin.up_area", "value": 200000}
     outputs: [{"kind": "figure", "id": "s1_site_map", "caption": "site map from describe_catchment"}, {"kind": "table", "id": "s1_catchment_attributes", "caption": "catchment attributes from describe_catchment"}]
   - tool: "similar_basins"
     id: "s2"
-    rationale: "Selects the 10 donor gauges whose catchments most resemble this one by BasinATLAS attribute distance."
+    rationale: "Select the 10 donor gauges whose catchments most resemble this one by BasinATLAS attribute distance, as specified by the brief."
     method: "similar_basins"
     arguments:
       lat: 12.6
@@ -439,7 +326,7 @@ steps:
     outputs: [{"kind": "figure", "id": "s2_donors_map", "caption": "donors map from similar_basins"}, {"kind": "table", "id": "s2_donors", "caption": "donors from similar_basins"}]
   - tool: "regionalize_signatures"
     id: "s3"
-    rationale: "Transfers mean and Q95 flow signatures (and others) from the 10 donors, each with a band and leave-one-out skill."
+    rationale: "Transfer mean, median, Q95 and Q05 flow signatures from the 10 donors, with a band and leave-one-out skill, to answer the water-supply quantities directly."
     method: "regionalize_signatures"
     arguments:
       lat: 12.6
@@ -452,22 +339,21 @@ steps:
     outputs: [{"kind": "figure", "id": "s3_signatures_band", "caption": "signatures band from regionalize_signatures"}, {"kind": "table", "id": "s3_signatures", "caption": "signatures from regionalize_signatures"}, {"kind": "table", "id": "s3_donors", "caption": "donors from regionalize_signatures"}]
   - tool: "anywhere"
     id: "s4"
-    rationale: "Provides GloFAS modelled discharge and the ERA5 water balance for the cell as an independent cross-check on the regionalised mean and Q95 flows."
+    rationale: "Cross-check the regionalized flow regime against GloFAS modelled discharge and ERA5 water balance for the same cell, as an independent estimate not derived from the donor transfer."
     method: "glofas_cross_check"
     arguments:
       lat: 12.6
       lon: -8.0
-      years: 20
+      years: 30
     expects:
-      - {"check": "not_empty", "path": "climate", "repaired_from": "glofas"}
-      - {"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T", "value": 0.3}
-    fallback: {"step": {"tool": "regionalize_signatures", "arguments": {"lat": 12.6, "lon": -8.0, "k": 10, "method": "both"}, "rationale": "Since the GloFAS cross-check failed the cross_check_ratio gate (the GloFAS mean discharge of 0.57 m3/s is implausibly low for a 115,000 km2 Niger catchment), regionalized signature transfer from the 10 available donor gauges offers a defensible independent estimate of mean flow and Q95 for the ungauged site.", "expects": []}}
+      - {"check": "not_empty", "path": "climate"}
+    depends_on: ["s3"]
     outputs: [{"kind": "figure", "id": "s4_monthly_climate", "caption": "monthly climate from anywhere"}, {"kind": "figure", "id": "s4_glofas_series", "caption": "glofas series from anywhere"}, {"kind": "table", "id": "s4_monthly_climate", "caption": "monthly climate from anywhere"}, {"kind": "table", "id": "s4_glofas_summary", "caption": "glofas summary from anywhere"}]
 results:
-  s1: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'sub_basin' is present"}, {"check": "max_area_km2", "passed": true, "detail": "catchment of 115,013 km2 against a ceiling of 115,013 km2"}], "summary": "latitude=12.6, longitude=-8.0, license=CC-BY-4.0, attribution=HydroATLAS v1.0 (BasinATLAS), CC BY 4.0. Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019). Global hydro-environmental sub-basin ", "fallback_used": false, "sha256": "6fde09031ecf7058"}
-  s2: {"ok": true, "gates": [{"check": "min_donors", "passed": true, "detail": "10 donors, 3 needed"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=10, method=combined", "fallback_used": false, "sha256": "dd737ae333ef84e8"}
-  s3: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'estimates' is present"}, {"check": "not_empty", "passed": true, "detail": "'skill' is present"}], "summary": "method=similarity", "fallback_used": false, "sha256": "94b557db973e6f0d"}
-  s4: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'climate' is present"}, {"check": "cross_check_ratio", "passed": false, "detail": "no number at 'glofas.ffa.fits.gev_lmoments.q_by_T'"}], "summary": "years=20, start=2006-09-07, end=2026-09-07", "fallback_used": true, "sha256": "1ec12651cff82cbc", "fallback": {"tool": "regionalize_signatures", "arguments": {"lat": 12.6, "lon": -8.0, "k": 10, "method": "both"}, "ok": true, "gates": [], "summary": "method=both"}}
+  s1: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'sub_basin' is present"}, {"check": "max_area_km2", "passed": true, "detail": "catchment of 115,013 km2 against a ceiling of 200,000 km2"}], "summary": "latitude=12.6, longitude=-8.0, license=CC-BY-4.0, attribution=HydroATLAS v1.0 (BasinATLAS), CC BY 4.0. Linke, S., Lehner, B., Ouellet Dallaire, C., et al. (2019). Global hydro-environmental sub-basin ", "fallback_used": false, "sha256": "6fde09031ecf7058"}
+  s2: {"ok": true, "gates": [{"check": "min_donors", "passed": true, "detail": "10 donors, 3 needed"}, {"check": "not_empty", "passed": true, "detail": "'stations' is present"}], "summary": "k=10, method=combined", "fallback_used": false, "sha256": "f92e291ebd6352f2"}
+  s3: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'estimates' is present"}, {"check": "not_empty", "passed": true, "detail": "'skill' is present"}], "summary": "method=similarity", "fallback_used": false, "sha256": "ff95d9992706116e"}
+  s4: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'climate' is present"}], "summary": "years=30, start=1996-09-07, end=2026-09-07", "fallback_used": false, "sha256": "989c0be005499550"}
 ```
 
 ## Cite this software
@@ -477,4 +363,4 @@ AquaScope Studio (2026). AquaScope: Open-source water data aggregation toolkit (
 
 ---
 
-*{'model': 'claude-sonnet-5', 'provider': 'anthropic', 'prose': 'model', 'tokens': {'consultant': {'calls': 1, 'prompt_tokens': 2917, 'completion_tokens': 846, 'cost_usd': 0.014294}, 'methodologist': {'calls': 1, 'prompt_tokens': 7699, 'completion_tokens': 2920, 'cost_usd': 0.044598}, 'analyst': {'calls': 1, 'prompt_tokens': 5407, 'completion_tokens': 328, 'cost_usd': 0.014094}, 'interpreter': {'calls': 0, 'prompt_tokens': 0, 'completion_tokens': 0, 'cost_usd': 0.0}, 'author': {'calls': 1, 'prompt_tokens': 28885, 'completion_tokens': 9770, 'cost_usd': 0.15547}, 'critic': {'calls': 1, 'prompt_tokens': 28439, 'completion_tokens': 10631, 'cost_usd': 0.163188}}, 'total_tokens': 97842, 'total_usd': 0.391644, 'budget': None, 'dropped': 2, 'aquascope_version': '0.16.0', 'date': '2026-09-14 16:41 UTC', 'workspace': 'a5d549a3a314', 'plan_author': 'methodologist', 'written_by': {'answer': 'model', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'results-s2': 'template', 'results-s3': 'template', 'results-s4': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*
+*{'model': 'claude-sonnet-5', 'provider': 'anthropic', 'prose': 'model', 'tokens': {'consultant': {'calls': 1, 'prompt_tokens': 2917, 'completion_tokens': 928, 'cost_usd': 0.015114}, 'methodologist': {'calls': 1, 'prompt_tokens': 7721, 'completion_tokens': 2740, 'cost_usd': 0.042842}, 'interpreter': {'calls': 1, 'prompt_tokens': 24907, 'completion_tokens': 8588, 'cost_usd': 0.135694}, 'author': {'calls': 1, 'prompt_tokens': 26247, 'completion_tokens': 8293, 'cost_usd': 0.135424}}, 'total_tokens': 82341, 'total_usd': 0.329074, 'budget': None, 'dropped': 11, 'aquascope_version': '0.16.0', 'date': '2026-09-14 21:52 UTC', 'workspace': 'a04e314abf6c', 'plan_author': 'methodologist', 'written_by': {'answer': 'model', 'summary': 'model', 'decision': 'model', 'findings': 'model', 'problem': 'model', 'site_data': 'model', 'methodology': 'model', 'results-s1': 'model', 'results-s2': 'model', 'results-s3': 'model', 'results-s4': 'model', 'limitations': 'model', 'recommendations': 'model', 'references': 'template', 'appendix': 'template'}}*

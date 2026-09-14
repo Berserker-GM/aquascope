@@ -189,6 +189,15 @@ _STOP_WORDS = frozenset({"the", "and", "with", "its", "for", "from", "over", "pe
 #: What each problem kind's answer is called in the key numbers, so a brief with no usable quantity words still
 #: gets the right headline (a flood question gets a return level, never the record's mean; an irrigation
 #: question gets the demand or the reliability, never the flood fit the record also carries).
+#: What a brief's word is called in a key-number label.
+_SYNONYMS: dict[str, set[str]] = {
+    "trend": {"slope", "sen's"}, "trends": {"slope"}, "slope": {"trend"},
+    "flood": {"return", "level"}, "return": {"level"}, "discharge": {"return", "flow"},
+    "reliability": {"reliab", "days", "met"}, "reliable": {"reliab", "days", "met"}, "reliably": {"reliab", "days"},
+    "drought": {"spi", "spei", "sgi", "class"}, "index": {"spi", "spei", "sgi", "wqi"},
+    "demand": {"demand", "requirement"}, "requirement": {"demand"},
+    "low-flow": {"q95"}, "low": {"q95"}, "quality": {"wqi", "index"},
+}
 _KIND_ANSWERS: dict[str, str] = {
     "flood_risk": r"return level",
     "ungauged_flow": r"q95|mean flow|q05|signature|flow",
@@ -210,17 +219,31 @@ def _headline(ws: Workspace, key: list[dict[str, Any]]) -> dict[str, Any] | None
     if not key:
         return None
     candidates = [kn for kn in key if not _FRAMING_LABELS.search(str(kn.get("label") or ""))]
-    words = {w for q in ws.brief.quantities for w in re.findall(r"[a-z0-9-]+", q.lower())
-             if len(w) > 2 and w not in _STOP_WORDS}
+
+    def words_of(text: str) -> set[str]:
+        out = {w for w in re.findall(r"[a-z0-9-]+", text.lower()) if len(w) > 2 and w not in _STOP_WORDS}
+        for w in list(out):
+            out |= _SYNONYMS.get(w, set())
+        return out
+
+    quantities = list(ws.brief.quantities)
+    first = words_of(quantities[0]) if quantities else set()
+    rest = {w for q in quantities[1:] for w in words_of(q)}
     kind_pattern = _KIND_ANSWERS.get(str(ws.brief.kind or ""), None) or _KIND_ANSWERS.get(str(ws.brief.playbook or ""))
+    if kind_pattern:
+        # the problem kind says what an answer is called: a flood question is answered by a return level or
+        # nothing, never by the record's mean flow because the brief happened to say "flow"
+        candidates = [kn for kn in candidates if re.search(kind_pattern, str(kn.get("label") or ""), re.I)]
     best, best_score = None, 0.0
     for kn in candidates:
         label = str(kn.get("label") or "").lower()
-        score = float(sum(1 for w in words if re.search(rf"(?<![a-z0-9]){re.escape(w)}", label)))
-        if kind_pattern and re.search(kind_pattern, label, re.I):
-            score += 0.5
+        # the brief's first quantity is what it asks for first; a word from it counts double
+        score = float(sum(2 for w in first if re.search(rf"(?<![a-z0-9]){re.escape(w)}", label)))
+        score += float(sum(1 for w in rest - first if re.search(rf"(?<![a-z0-9]){re.escape(w)}", label)))
         if score > best_score:
             best, best_score = kn, score
+    if best is None and candidates and kind_pattern:
+        best = candidates[0]    # the kind's own vocabulary, in the plan's order, when the brief's words say nothing
     return best
 
 
@@ -429,7 +452,11 @@ def rules_findings(ws: Workspace) -> dict[str, Any]:
                               f"{float(headline['value']):g} {headline.get('unit') or ''}".rstrip()
                               + f"{band_text} ({grade.replace('_', ' ')}).")
     else:
-        decision["answer"] = f"No number could be established for the decision ({grade.replace('_', ' ')})."
+        answers = [kn for kn in key if not _FRAMING_LABELS.search(str(kn.get("label") or ""))][:3]
+        have = "; ".join(f"{kn.get('label')} {kn.get('value')} {kn.get('unit') or ''}".strip() for kn in answers
+                         if _is_number(kn.get("value")))
+        decision["answer"] = (f"No number in the results answers the decision ({grade.replace('_', ' ')})"
+                              + (f"; the study established {have}." if have else "."))
     run = ws.run or {}
     for g in (run.get("failed_gates") or [])[:3]:
         decision["conditions"].append(f"step {g.get('step')} did not pass {g.get('check')}: {g.get('detail')}")
@@ -494,23 +521,44 @@ def validate_findings(ws: Workspace, obj: dict[str, Any], *, rules: dict[str, An
     only ever go down from the rule's."""
     rules = rules or rules_findings(ws)
     dropped = 0
+    reanchored = 0
     findings: list[dict[str, Any]] = []
     for raw in (obj.get("findings") or [])[:_MAX_FINDINGS]:
         if not isinstance(raw, dict) or not raw.get("claim"):
             dropped += 1
             continue
         bases = [str(b) for b in (raw.get("basis") or []) if isinstance(b, str) and b.strip()]
+        claimed = _claimed_numbers(str(raw["claim"]))
         values: list[float] = []
+        kept_bases: list[str] = []
         for b in bases:
             v = resolve_basis(ws, b)
+            if v is None and claimed:
+                # A path a model guessed wrong is re-anchored when the claim's number is in that step's result:
+                # the number exists and the tool computed it, the path was the model's typo.
+                parts = b.split(".")
+                sid, head = parts[0], (parts[1] if len(parts) > 1 else None)
+                payload = _result_of(ws, sid)
+                found = None
+                if isinstance(payload, dict) and head in payload:
+                    # the model's path started right: look under that key first ("s3.ffa.gev.q100" -> under ffa)
+                    found = next((find_path(payload[head], c, _prefix=f"{head}.") for c in claimed
+                                  if find_path(payload[head], c, _prefix=f"{head}.")), None)
+                if found is None and payload is not None:
+                    found = next((find_path(payload, c) for c in claimed if find_path(payload, c)), None)
+                if found:
+                    b, v = f"{sid}.{found}", resolve_basis(ws, f"{sid}.{found}")
+                    reanchored += 1
             if _is_number(v):
                 values.append(float(v))
+                kept_bases.append(b)
             elif isinstance(v, (list, dict)):
                 values.extend(float(x) for x in _walk(v))
+                kept_bases.append(b)
+        bases = kept_bases
         if not bases or not values:
             dropped += 1
             continue
-        claimed = _claimed_numbers(str(raw["claim"]))
         if claimed and not all(any(_close(c, v) for v in values) for c in claimed):
             dropped += 1
             continue
@@ -555,7 +603,7 @@ def validate_findings(ws: Workspace, obj: dict[str, Any], *, rules: dict[str, An
     next_steps = [dict(s) for s in (obj.get("next_steps") or []) if isinstance(s, dict) and s.get("tool")][:4]
     return {"findings": findings, "consistency": consistency or rules["consistency"], "decision": decision,
             "data_requests": requests or rules["data_requests"], "assumptions": assumptions,
-            "next_steps": next_steps, "written_by": "model", "dropped": dropped,
+            "next_steps": next_steps, "written_by": "model", "dropped": dropped, "reanchored": reanchored,
             "primary_step": rules.get("primary_step")}
 
 

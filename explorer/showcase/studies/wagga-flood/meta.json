@@ -19,53 +19,47 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T17:11:56+00:00",
- "seconds": 391.0,
+ "recorded": "2026-09-14T22:19:59+00:00",
+ "seconds": 702.5,
  "tokens": {
-  "prompt": 60928,
-  "completion": 31709,
-  "calls": 8,
+  "prompt": 122107,
+  "completion": 37634,
+  "calls": 6,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3208,
-    "completion_tokens": 965,
-    "cost_usd": 0.016066
+    "completion_tokens": 972,
+    "cost_usd": 0.016136
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 10327,
-    "completion_tokens": 2848,
-    "cost_usd": 0.049134
-   },
-   "analyst": {
-    "calls": 1,
-    "prompt_tokens": 3501,
-    "completion_tokens": 277,
-    "cost_usd": 0.009772
+    "prompt_tokens": 10356,
+    "completion_tokens": 3249,
+    "cost_usd": 0.053202
    },
    "interpreter": {
-    "calls": 1,
-    "prompt_tokens": 5332,
-    "completion_tokens": 3707,
-    "cost_usd": 0.047734
+    "calls": 0,
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "cost_usd": 0.0
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 23028,
-    "completion_tokens": 14995,
-    "cost_usd": 0.196006
+    "prompt_tokens": 54806,
+    "completion_tokens": 18634,
+    "cost_usd": 0.295952
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 15532,
-    "completion_tokens": 8917,
-    "cost_usd": 0.120234
+    "prompt_tokens": 53737,
+    "completion_tokens": 14779,
+    "cost_usd": 0.255264
    }
   },
-  "total": 92637
+  "total": 159741
  },
- "usd": 0.6584,
+ "usd": 0.9308,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -75,21 +69,18 @@
  "plan_author": "methodologist",
  "steps": 4,
  "gates": {
-  "passed": 2,
-  "total": 4
+  "passed": 7,
+  "total": 7
  },
  "checks": {
-  "passed": 7,
+  "passed": 6,
   "total": 7
  },
  "replans": 0,
  "stop_reason": null,
- "headline": "Notice: the Critic's fix requests on findings, key_numbers, limitations, problem, site_data were not all resolved; read the report with the list of what this study does not establish.",
+ "headline": "Notice: this report did not pass the Critic's checks (numbers_come_from_tools); read its numbers with the list of what this study does not establish.",
  "not_established": [
-  "Step s2, gate min_donors: no donor count at 'k'",
-  "Step s2, gate not_empty: nothing at 'stations'",
-  "Step s3 (regionalize_signatures) did not run: depends on s2 (failed its gate), so it was not run",
-  "Step s4 (anywhere) did not run: depends on s3 (skipped), so it was not run"
+  "These numbers are not in any tool result: 2.704."
  ],
  "figures": [
   {
@@ -98,13 +89,45 @@
    "step": "s1",
    "caption": "The site, in longitude and latitude (no basemap); no catalogue station was listed with it.",
    "bytes": 29405
+  },
+  {
+   "name": "s2_donors_map.png",
+   "id": "fig-s2-donors_map",
+   "step": "s2",
+   "caption": "The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.",
+   "bytes": 43843
+  },
+  {
+   "name": "s3_signatures_band.png",
+   "id": "fig-s3-signatures_band",
+   "step": "s3",
+   "caption": "Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.",
+   "bytes": 92477
+  },
+  {
+   "name": "s4_monthly_climate.png",
+   "id": "fig-s4-monthly_climate",
+   "step": "s4",
+   "caption": "Mean monthly precipitation (bars) and FAO-56 reference evapotranspiration (line) for the ERA5 cell at the site at 35.10 S, 147.37 E, 20 years ending 2026-09-07.",
+   "bytes": 52198
+  },
+  {
+   "name": "s4_glofas_series.png",
+   "id": "fig-s4-glofas_series",
+   "step": "s4",
+   "caption": "Annual maxima of the modelled discharge from GloFAS v4 (Open-Meteo) for the grid cell at the site at 35.10 S, 147.37 E, 2006 to 2026: a model output, indicative only, not a gauge reading.",
+   "bytes": 65373
   }
  ],
  "files": [
   "workspace.json",
   "report.md",
   "study.yaml",
-  "figures/s1_site_map.png"
+  "figures/s1_site_map.png",
+  "figures/s2_donors_map.png",
+  "figures/s3_signatures_band.png",
+  "figures/s4_monthly_climate.png",
+  "figures/s4_glofas_series.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"

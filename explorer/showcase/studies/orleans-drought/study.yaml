@@ -1,9 +1,9 @@
 # An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.
 #   aquascope run study.yaml
 version: 3
-title: "Determine whether the Loire at Orleans is currently experien: 47.9, 1.9"
+title: "Determine whether the Loire at Orleans is currently in hydro: 47.9, 1.9"
 question: "Is the Loire at Orleans in hydrological drought, and how does the river's low flow follow the rainfall deficit?"
-created: "2026-09-14T17:36:57+00:00"
+created: "2026-09-14T22:42:06+00:00"
 aquascope_version: "0.16.0"
 author: "methodologist"
 model: "claude-sonnet-5"
@@ -15,115 +15,57 @@ problem:
 plan:
   author: "methodologist"
   playbook: "drought_status"
-  objective: "Determine whether the Loire at Orleans is currently experiencing hydrological drought and quantify how the river's low-flow response (Q95, flow-duration percentiles, baseflow index) tracks the ERA5-based precipitation-temperature deficit (SPEI) at 3- and 12-month accumulation, for water-supply planning."
-  decision: "State the current drought status of the Loire at Orleans and describe the strength and lag of the link between the reanalysis-derived rainfall deficit and the gauge's low-flow indicators (Q95, FDC, baseflow index, Mann-Kendall trend, low-flow return period)."
-  methodology: ["Compute SPEI at 3- and 12-month accumulation from ERA5 reanalysis precipitation and temperature at the site coordinates, since no local rain gauge exists.", "Pull the full daily discharge record for the primary gauge, La Loire a Orleans - Pont Royal (hubeau_hydrometrie K435001010), to serve as the basis for all flow statistics.", "Derive the flow-duration curve and its percentiles (including Q95) from that daily series.", "Separate the hydrograph into baseflow and quickflow to obtain the baseflow index.", "Test the discharge record for a long-term trend in low flows with the Mann-Kendall statistic.", "Characterise how low the current flow is against the historical record: Q95/Q50/Q10, 7Q10, and the return period of the present deficit.", "Cross-check the low-flow picture at the secondary gauge, La Loire a Orleans - Quai du Roi (K435001020), given its close proximity and independent record."]
-  assumptions: ["Daily resolution is assumed for the discharge and water-level records at hubeau_hydrometrie station K435001010 (La Loire a Orleans - Pont Royal), as record resolution is not stated in the catalog", "SPEI will be computed from ERA5 reanalysis precipitation and temperature at the site coordinates since no local precipitation station is in the catalog", "The primary gauge for flow statistics is K435001010 given its proximity (0.4 km) and long record (62.7 years); the Quai du Roi gauge (K435001020) is a secondary check", "flash_drought is left at its default (false) as the concern stated is water supply reliability, not a rapid-onset event", "Daily resolution is assumed for the discharge and water-level records at K435001010, as record resolution is not stated in the catalog beyond the 'daily' tag.", "SPEI is computed from ERA5 reanalysis precipitation and temperature at the site coordinates since no local precipitation station is in the catalog.", "PET behind the SPEI is a temperature-only Thornthwaite (1948) approximation, as ERA5 alone does not supply the humidity, wind and radiation FAO-56 Penman-Monteith needs.", "The primary gauge for flow statistics is K435001010 given its proximity (0.4 km) and long record (62.7 years); the Quai du Roi gauge (K435001020) serves only as a secondary check.", "SPEI years is set to 40 (below the full 86.7-year ERA5 span) to keep the run tractable while clearing the min_years gate."]
-  alternatives: [{"method": "spi", "why_not": "marked not_defensible in the sufficiency table: no precipitation record at this site."}, {"method": "sgi", "why_not": "marked not_defensible in the sufficiency table: no groundwater level record at this site."}]
-  limitations_expected: ["SPI/SPEI are monthly-resolution indices; they see droughts a month and longer and cannot resolve week-scale or flash-drought behaviour (flash_drought is false here regardless).", "SPEI describes the ERA5 grid cell (about 9 km), a reanalysis climate, not a rain gauge; it says nothing about the physical cause of the deficit.", "The Thornthwaite PET behind SPEI is a temperature-only approximation, coarser than FAO-56 Penman-Monteith.", "The Mann-Kendall trend statistic reports association, not causation, between long-term flow change and the rainfall deficit.", "Q95, FDC and BFI are properties of a single gauge (K435001010); the secondary gauge (K435001020) is a nearby but independent check, not a duplicate of the same cross-section."]
-  citations: ["McKee, T. B., Doesken, N. J., & Kleist, J. (1993). The relationship of drought frequency and duration to time scales. Proc. 8th Conf. on Applied Climatology, 179-184.", "Vicente-Serrano, S. M., Begueria, S., & Lopez-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the Standardized Precipitation Evapotranspiration Index. J. Climate 23, 1696-1718. doi:10.1175/2009JCLI2909.1", "Begueria, S., Vicente-Serrano, S. M., Reig, F., & Latorre, B. (2014). Standardized precipitation evapotranspiration index (SPEI) revisited. Int. J. Climatol. 34, 3001-3023. doi:10.1002/joc.3887", "Thornthwaite, C. W. (1948). An approach toward a rational classification of climate. Geographical Review 38, 55-94.", "Bloomfield, J. P., & Marchant, B. P. (2013). Analysis of groundwater drought building on the standardised precipitation index approach. Hydrol. Earth Syst. Sci. 17, 4769-4787.", "WMO (2012). Standardized Precipitation Index User Guide (Svoboda, Hayes, Wood). WMO-No. 1090.", "SPI against SPEI at 219 stations across Turkiye: Earth Science Informatics (2024), doi:10.1007/s12145-024-01401-8", "SPI-SPEI correlation under warming in Umbria: Environ. Sci. Pollut. Res. (2024), doi:10.1007/s11356-024-35740-2", "Hersbach, H. et al. (2020). The ERA5 global reanalysis. Q. J. R. Meteorol. Soc. 146, 1999-2049.", "ERA5 via Open-Meteo", "Thornthwaite (1948)"]
+  objective: "Determine whether the Loire at Orleans is currently in hydrological drought and quantify how closely its low-flow deficit tracks the ERA5-derived rainfall (SPEI) deficit, to support water-supply decisions."
+  decision: "Establish current drought status (Q95, low-flow percentile, baseflow index, long-term trend) at Hubeau station K435001010 and compare it against SPEI-3/SPEI-12 computed from ERA5 reanalysis for the site, since no local precipitation or groundwater record exists."
+  methodology: ["Compute SPEI at 3- and 12-month timescales from ERA5 reanalysis precipitation and temperature for the Orleans cell, since no on-site rain gauge exists to support standard SPI/SPEI.", "Characterise the river's current low-flow state at the nearest discharge gauge (Hubeau K435001010, 0.4 km, 62.7 years) with Q95/Q50/Q10, baseflow index and where the last 30-90 days sit in the historical record.", "Test the 62.7-year discharge record at the same gauge for a long-term monotonic trend with the Mann-Kendall test to see whether low flows are worsening independent of the current drought episode.", "Compare the timing and severity of the SPEI-3/12 deficit episodes against the low-flow/drought-severity percentile from the gauge to describe, qualitatively, how closely rainfall deficit and streamflow deficit track one another, since no groundwater or precipitation gauge exists at the site to formally test lag with drought_propagation."]
+  assumptions: ["Discharge record used is Hubeau station K435001010 (La Loire a Orleans - Pont Royal), daily resolution, 62.7 years of record, 0.4 km from the site", "SPEI at 3- and 12-month timescales will be derived from ERA5 reanalysis precipitation and FAO-56 ET0 since no on-site precipitation record exists", "flash_drought left at playbook default (false) since not mentioned in the brief", "Low-flow statistic Q95 and low_flow_frequency, flow_duration, baseflow_separation, and trend_mann_kendall methods are all defensible with the available discharge record", "SPEI-3 and SPEI-12 are derived from ERA5 reanalysis precipitation and temperature-based PET for the site cell rather than from a local rain gauge", "flash_drought is left at the playbook default (false) as the brief does not raise sub-monthly flash-drought concerns", "40 years of ERA5 record is sufficient and representative for the SPEI-3/12 climatology at this site", "The full 62.7-year discharge record is used for the Mann-Kendall trend test to maximise power to detect a long-term drift"]
+  alternatives: [{"method": "spi/spei from a local rain gauge", "why_not": "no precipitation gauge exists at the site so SPI/SPEI cannot be computed from local records (marked not_defensible)"}, {"method": "sgi (groundwater drought index)", "why_not": "no groundwater level record exists at this site so SGI cannot be computed (marked not_defensible)"}, {"method": "drought_propagation lag analysis", "why_not": "this tool computes SGI-based lag between SPI and groundwater; with no groundwater record it cannot be applied to give a formal rainfall-to-streamflow lag"}]
+  limitations_expected: ["SPEI-3/12 are monthly-resolution indices; they describe multi-week to multi-month deficits and cannot resolve week-to-week or flash-drought dynamics", "SPEI here rests on ERA5 reanalysis for a roughly 9 km cell, not a gauge, so it characterises the area's climate rather than a point rainfall record", "PET behind SPEI is typically a temperature-only approximation (Thornthwaite) from ERA5 temperature rather than full FAO-56 Penman-Monteith, which would be preferable were humidity, wind and radiation available", "No formal statistical lag between rainfall deficit and streamflow deficit can be computed because the only lag tool in the catalogue (drought_propagation) is built around the groundwater SGI, which is not defensible here for lack of a well record", "SPEI and low-flow percentiles show association, not causation; pumping, reservoir operation or the four dams noted in the catchment could also drive part of the observed low-flow deficit"]
+  citations: ["McKee, T. B., Doesken, N. J., & Kleist, J. (1993). The relationship of drought frequency and duration to time scales. Proc. 8th Conf. on Applied Climatology, 179-184.", "Vicente-Serrano, S. M., Begueria, S., & Lopez-Moreno, J. I. (2010). A multiscalar drought index sensitive to global warming: the Standardized Precipitation Evapotranspiration Index. J. Climate 23, 1696-1718. doi:10.1175/2009JCLI2909.1", "Begueria, S., Vicente-Serrano, S. M., Reig, F., & Latorre, B. (2014). Standardized precipitation evapotranspiration index (SPEI) revisited. Int. J. Climatol. 34, 3001-3023. doi:10.1002/joc.3887", "Thornthwaite, C. W. (1948). An approach toward a rational classification of climate. Geographical Review 38, 55-94.", "Bloomfield, J. P., & Marchant, B. P. (2013). Analysis of groundwater drought building on the standardised precipitation index approach. Hydrol. Earth Syst. Sci. 17, 4769-4787.", "WMO (2012). Standardized Precipitation Index User Guide (Svoboda, Hayes, Wood). WMO-No. 1090.", "SPI against SPEI at 219 stations across Turkiye: Earth Science Informatics (2024), doi:10.1007/s12145-024-01401-8", "SPI-SPEI correlation under warming in Umbria: Environ. Sci. Pollut. Res. (2024), doi:10.1007/s11356-024-35740-2", "Hersbach, H. et al. (2020). The ERA5 global reanalysis. Q. J. R. Meteorol. Soc. 146, 1999-2049."]
   caveats: ["Monthly resolution: the indices see droughts a month and longer; what happened this week is not in them, and a flash drought is out of their reach.", "SPI and SPEI say how unusual a deficit is against this record; they say nothing about its cause, and the SPI-to-SGI lag is a statistical association read off the two series, not a model of the aquifer.", "SPEI needs a PET series: here PET is Thornthwaite (1948) from ERA5 temperature, a temperature-only approximation and the formulation SPEI was introduced with; FAO-56 Penman-Monteith is the better PET where humidity, wind and radiation exist.", "No rain gauge within reach: the indices describe the ERA5 cell (about 9 km), a reanalysis climate, not a gauge; a gauge record with twenty years is what turns this into a station answer."]
-  rationale: "Determine whether the Loire at Orleans is currently experiencing hydrological drought and quantify how the river's low-flow response (Q95, flow-duration percentiles, baseflow index) tracks the ERA5-based precipitation-temperature deficit (SPEI) at 3- and 12-month accumulation, for water-supply planning."
+  rationale: "Determine whether the Loire at Orleans is currently in hydrological drought and quantify how closely its low-flow deficit tracks the ERA5-derived rainfall (SPEI) deficit, to support water-supply decisions."
   recon_notes: ["Record resolution is not in the catalog; daily is assumed for every variable.", "10 donor gauges from a pool of 34,786 gauged catchments.", "ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land (Open-Meteo); not checked here.", "CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); not counted."]
-  replans: [{"step": "s2", "reason": "gate failed: min_years (no record length at 'years')", "fallback": {"tool": "low_flow_context", "arguments": {"source": "hubeau_hydrometrie", "station_id": "K435001010", "years": 62.7}, "rationale": "Use the low-flow context tool on the same primary gauge (Loire a Orleans - Pont Royal, K435001010) since its 62.7 year record satisfies the min_years gate and the sufficiency check already flags low_flow_frequency as defensible for this station.", "expects": []}}, {"step": "s3", "reason": "ValueError: No column 'discharge'; columns are ['datetime', 'value']", "fallback": {"tool": "flow_duration", "arguments": {"from_step": "s2", "column": "value", "percentiles": [5, 10, 25, 50, 75, 90, 95, 99]}, "rationale": "The upstream timeseries only has a 'value' column (not 'discharge'), so re-run the flow-duration analysis on the correct column name from the same K435001010 discharge series to obtain the Q95 percentile framework.", "expects": [{"check": "not_empty", "path": "percentiles"}]}}, {"step": "s4", "reason": "ValueError: No column 'discharge'; columns are ['datetime', 'value']", "fallback": {"tool": "baseflow", "arguments": {"from_step": "s2", "column": "value"}, "rationale": "The timeseries loaded in s2 uses 'value' as its discharge column name, so rerunning baseflow with the correct column should succeed since the record at K435001010 (62.7 years) is sufficient for baseflow separation.", "expects": []}}]
 steps:
   - tool: "drought_indices"
     id: "s1"
-    rationale: "SPEI at 3- and 12-month accumulation from the ERA5 cell substitutes for a missing local rain gauge and gives the current deficit class, worst month, and drought events."
+    rationale: "SPEI-3 and SPEI-12 must come from ERA5 reanalysis climate since no precipitation gauge exists at the site, per the brief's stated constraint."
     method: "spei_reanalysis"
     arguments:
       lat: 47.9
       lon: 1.9
-      years: 40
       timescales: [3, 12]
+      years: 40
     expects:
       - {"check": "min_years", "path": "years", "value": 30}
       - {"check": "not_empty", "path": "indices"}
       - {"check": "not_empty", "path": "current.spei"}
-    outputs: [{"kind": "figure", "id": "s1_drought_strip", "caption": "SPEI-3 and SPEI-12 drought strip for the Orleans ERA5 cell"}, {"kind": "table", "id": "s1_indices_monthly", "caption": "Monthly SPI/SPEI values and drought event table"}]
-  - tool: "get_timeseries"
-    id: "s2"
-    rationale: "The full daily discharge series at the primary gauge is the shared input for the flow-duration, baseflow, and trend computations."
-    arguments:
-      source: "hubeau_hydrometrie"
-      station_id: "K435001010"
-      variable: "discharge"
-      resample: "D"
-      years: 62.7
-    expects:
-      - {"check": "not_empty", "path": "points"}
-      - {"check": "min_years", "path": "years", "value": 20}
-      - {"check": "unit_present", "path": "unit"}
-    fallback: {"step": {"tool": "low_flow_context", "arguments": {"source": "hubeau_hydrometrie", "station_id": "K435001010", "years": 62.7}, "rationale": "Use the low-flow context tool on the same primary gauge (Loire a Orleans - Pont Royal, K435001010) since its 62.7 year record satisfies the min_years gate and the sufficiency check already flags low_flow_frequency as defensible for this station.", "expects": []}}
-    outputs: [{"kind": "table", "id": "s2_series", "caption": "Daily discharge series, K435001010, 1962-present"}]
-  - tool: "flow_duration"
-    id: "s3"
-    rationale: "The flow-duration curve gives the percentile framework (including Q95) needed to place the current flow within the historical distribution."
-    method: "flow_duration"
-    arguments:
-      from_step: "s2"
-      column: "discharge"
-      percentiles: [5, 10, 25, 50, 75, 90, 95, 99]
-    expects:
-      - {"check": "not_empty", "path": "percentiles"}
-    fallback: {"step": {"tool": "flow_duration", "arguments": {"from_step": "s2", "column": "value", "percentiles": [5, 10, 25, 50, 75, 90, 95, 99]}, "rationale": "The upstream timeseries only has a 'value' column (not 'discharge'), so re-run the flow-duration analysis on the correct column name from the same K435001010 discharge series to obtain the Q95 percentile framework.", "expects": [{"check": "not_empty", "path": "percentiles"}]}}
-    depends_on: ["s2"]
-    outputs: [{"kind": "figure", "id": "s3_fdc", "caption": "Flow-duration curve, K435001010"}, {"kind": "table", "id": "s3_fdc_table", "caption": "FDC percentile table"}]
-  - tool: "baseflow"
-    id: "s4"
-    rationale: "Baseflow separation on the same daily series yields the baseflow index that describes how much of the low flow is groundwater-fed."
-    method: "baseflow_separation"
-    arguments:
-      from_step: "s2"
-      column: "discharge"
-    fallback: {"step": {"tool": "baseflow", "arguments": {"from_step": "s2", "column": "value"}, "rationale": "The timeseries loaded in s2 uses 'value' as its discharge column name, so rerunning baseflow with the correct column should succeed since the record at K435001010 (62.7 years) is sufficient for baseflow separation.", "expects": []}}
-    depends_on: ["s2"]
-    outputs: [{"kind": "figure", "id": "s4_baseflow_split", "caption": "Baseflow-quickflow split of the daily hydrograph"}, {"kind": "table", "id": "s4_bfi", "caption": "Baseflow index summary"}]
-  - tool: "analyze_station"
-    id: "s5"
-    rationale: "A direct station analysis supplies the Mann-Kendall trend statistic on the low-flow series over the 62.7-year record."
-    method: "trend_mann_kendall"
-    arguments:
-      source: "hubeau_hydrometrie"
-      station_id: "K435001010"
-      variable: "discharge"
-      years: 62.7
-    expects:
-      - {"check": "sampling_density", "path": "sampling", "value": "daily"}
-      - {"check": "min_years", "path": "years", "value": 20}
-      - {"check": "not_empty", "path": "trend"}
-      - {"check": "unit_present", "path": "unit"}
-    outputs: [{"kind": "table", "id": "s5_trend", "caption": "Mann-Kendall trend statistic and p-value for low flows"}]
+    outputs: [{"kind": "figure", "id": "s1_drought_strip", "caption": "SPEI-3/SPEI-12 drought strip for the Orleans ERA5 cell"}, {"kind": "table", "id": "s1_indices_monthly", "caption": "monthly SPEI-3/SPEI-12 indices"}, {"kind": "table", "id": "s1_drought_events", "caption": "identified drought events and severity"}]
   - tool: "low_flow_context"
-    id: "s6"
-    rationale: "This gives Q95/Q50/Q10, 7Q10, and the return period of the current deficit, placing the last 30 and 90 days in historical context."
+    id: "s2"
+    rationale: "The Loire's own low-flow signal (Q95, baseflow index, current percentile) is best read at the nearest discharge gauge, 0.4 km from the site with 62.7 years of daily record."
     method: "low_flow_frequency"
     arguments:
       source: "hubeau_hydrometrie"
       station_id: "K435001010"
-      years: 62.7
     expects:
       - {"check": "min_years", "path": "years", "value": 20}
-    outputs: [{"kind": "table", "id": "s6_low_flow_stats", "caption": "Low-flow statistics and current status, K435001010"}]
+    outputs: [{"kind": "figure", "id": "s2_fdc", "caption": "flow duration curve with Q95/Q50/Q10 marked"}, {"kind": "table", "id": "s2_low_flow_stats", "caption": "low-flow statistics including baseflow index and current percentile position"}]
   - tool: "analyze_station"
-    id: "s7"
-    rationale: "The nearby Quai du Roi gauge, 1.9 km downstream with an independent 46.7-year record, cross-checks the Q95 and flow-duration signal from the primary gauge."
-    method: "flow_duration"
+    id: "s3"
+    rationale: "The long-term Mann-Kendall trend needs the full multi-decadal discharge record at the same gauge to detect a monotonic low-flow drift distinct from the current SPEI episode."
+    method: "trend_mann_kendall"
     arguments:
       source: "hubeau_hydrometrie"
-      station_id: "K435001020"
+      station_id: "K435001010"
+      years: 62.7
       variable: "discharge"
-      years: 46.7
     expects:
+      - {"check": "min_years", "path": "years", "value": 30}
       - {"check": "sampling_density", "path": "sampling", "value": "daily"}
-      - {"check": "min_years", "path": "years", "value": 20}
+      - {"check": "not_empty", "path": "trend"}
       - {"check": "unit_present", "path": "unit"}
-    outputs: [{"kind": "table", "id": "s7_fdc_check", "caption": "Flow-duration cross-check at Quai du Roi (K435001020)"}]
+    outputs: [{"kind": "table", "id": "s3_trend", "caption": "Mann-Kendall trend statistic and p-value for daily discharge"}]
 results:
   s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "39.9 years of record, 30 needed"}, {"check": "not_empty", "passed": true, "detail": "'indices' is present"}, {"check": "not_empty", "passed": true, "detail": "'current.spei' is present"}], "summary": "years=39.9, start=1986-10-01, end=2026-08-01", "fallback_used": false, "sha256": "77b860465071a8bd"}
-  s2: {"ok": true, "gates": [{"check": "not_empty", "passed": true, "detail": "'points' is present"}, {"check": "min_years", "passed": false, "detail": "no record length at 'years'"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}], "summary": "source=hubeau_hydrometrie, station_id=K435001010, variable=discharge, unit=m3/s, start=1964-09-14, end=2026-09-13", "fallback_used": true, "sha256": "3d064467f7ed8a5b", "fallback": {"tool": "low_flow_context", "arguments": {"source": "hubeau_hydrometrie", "station_id": "K435001010", "years": 62.7}, "ok": true, "gates": [], "summary": "source=hubeau_hydrometrie, station_id=K435001010, variable=discharge, unit=m3/s, years=62.0, start=1964-09-14, end=2026-09-13"}}
-  s5: {"ok": true, "gates": [{"check": "sampling_density", "passed": true, "detail": "21840 observations in 62.0 years: 352.26 a year, about daily; daily claimed"}, {"check": "min_years", "passed": true, "detail": "62 years of record, 20 needed"}, {"check": "not_empty", "passed": true, "detail": "'trend' is present"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}], "summary": "source=hubeau_hydrometrie, station_id=K435001010, name=La Loire \u00e0 Orl\u00e9ans - Pont Royal, variable=discharge, unit=m3/s, years=62.0, start=1964-09-14, end=2026-09-13", "fallback_used": false, "sha256": "8c8ec81dee7c03db"}
-  s6: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "62 years of record, 20 needed"}], "summary": "source=hubeau_hydrometrie, station_id=K435001010, name=La Loire \u00e0 Orl\u00e9ans - Pont Royal, variable=discharge, unit=m3/s, years=62.0, start=1964-09-14, end=2026-09-13", "fallback_used": false, "sha256": "00fb3cf6f3a7b8c9"}
-  s7: {"ok": true, "gates": [{"check": "sampling_density", "passed": true, "detail": "6917 observations in 25.7 years: 269.14 a year, about daily; daily claimed"}, {"check": "min_years", "passed": true, "detail": "25.7 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}], "summary": "source=hubeau_hydrometrie, station_id=K435001020, name=La Loire \u00e0 Orl\u00e9ans - Quai du Roi, variable=discharge, unit=m3/s, years=25.7, start=2001-01-01, end=2026-09-13", "fallback_used": false, "sha256": "d4c7488efe93019d"}
-  s3: {"ok": false, "gates": [{"check": "not_empty", "passed": false, "detail": "nothing at 'percentiles'"}], "summary": "ValueError: No column 'discharge'; columns are ['datetime', 'value']", "fallback_used": true, "error": "ValueError: No column 'discharge'; columns are ['datetime', 'value']", "failed_reason": "gate failed: not_empty (nothing at 'percentiles'); the fallback flow_duration failed too: ValueError: flow_duration needs a table of data.", "fallback": {"tool": "flow_duration", "arguments": {"from_step": "s2", "column": "value", "percentiles": [5, 10, 25, 50, 75, 90, 95, 99]}, "ok": false, "gates": [{"check": "not_empty", "passed": false, "detail": "nothing at 'percentiles'"}], "summary": "ValueError: flow_duration needs a table of data."}}
-  s4: {"ok": false, "gates": [], "summary": "ValueError: No column 'discharge'; columns are ['datetime', 'value']", "fallback_used": false, "error": "ValueError: No column 'discharge'; columns are ['datetime', 'value']"}
+  s2: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "62.7 years of record, 20 needed"}], "summary": "source=hubeau_hydrometrie, station_id=K435001010, variable=discharge, unit=m3/s, years=62.7, start=1964-01-01, end=2026-09-13", "fallback_used": false, "sha256": "3f634b0f5bdf396d"}
+  s3: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "62 years of record, 30 needed"}, {"check": "sampling_density", "passed": true, "detail": "21840 observations in 62.0 years: 352.26 a year, about daily; daily claimed"}, {"check": "not_empty", "passed": true, "detail": "'trend' is present"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}], "summary": "source=hubeau_hydrometrie, station_id=K435001010, variable=discharge, unit=m3/s, years=62.0, start=1964-09-14, end=2026-09-13", "fallback_used": false, "sha256": "8c8ec81dee7c03db"}

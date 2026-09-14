@@ -10,11 +10,11 @@
  },
  "problem": "A stream in the Sintra hills near Lisbon with no gauge: can it supply a village with 4 ML/day run of river, and how reliably?",
  "intake": {
-  "demand_m3s": 0.0463,
   "demand_ml_day": 4.0,
   "use": "municipal",
   "share": 0.1,
-  "storage": false
+  "storage": false,
+  "demand_m3s": null
  },
  "upload": null,
  "status": "done",
@@ -22,30 +22,30 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T17:05:25+00:00",
- "seconds": 780.6,
+ "recorded": "2026-09-14T22:08:16+00:00",
+ "seconds": 399.1,
  "tokens": {
-  "prompt": 102737,
-  "completion": 39815,
-  "calls": 7,
+  "prompt": 53158,
+  "completion": 24828,
+  "calls": 8,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3031,
-    "completion_tokens": 1217,
-    "cost_usd": 0.018232
+    "completion_tokens": 1252,
+    "cost_usd": 0.018582
    },
    "methodologist": {
     "calls": 2,
-    "prompt_tokens": 15130,
-    "completion_tokens": 6068,
-    "cost_usd": 0.09094
+    "prompt_tokens": 14732,
+    "completion_tokens": 5594,
+    "cost_usd": 0.085404
    },
    "analyst": {
     "calls": 1,
-    "prompt_tokens": 4216,
-    "completion_tokens": 249,
-    "cost_usd": 0.010922
+    "prompt_tokens": 5511,
+    "completion_tokens": 220,
+    "cost_usd": 0.013222
    },
    "interpreter": {
     "calls": 0,
@@ -54,21 +54,21 @@
     "cost_usd": 0.0
    },
    "author": {
-    "calls": 1,
-    "prompt_tokens": 28754,
-    "completion_tokens": 9093,
-    "cost_usd": 0.148438
+    "calls": 2,
+    "prompt_tokens": 16907,
+    "completion_tokens": 9470,
+    "cost_usd": 0.128514
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 51606,
-    "completion_tokens": 23188,
-    "cost_usd": 0.335092
+    "prompt_tokens": 12977,
+    "completion_tokens": 8292,
+    "cost_usd": 0.108874
    }
   },
-  "total": 142552
+  "total": 77986
  },
- "usd": 0.9054,
+ "usd": 0.5319,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -78,19 +78,21 @@
  "plan_author": "methodologist",
  "steps": 4,
  "gates": {
-  "passed": 8,
-  "total": 10
+  "passed": 1,
+  "total": 2
  },
  "checks": {
-  "passed": 7,
-  "total": 7
+  "passed": 5,
+  "total": 5
  },
- "replans": 1,
+ "replans": 0,
  "stop_reason": null,
- "headline": "Notice: the Critic's fix requests on decision, methodology, recommendations, results-s4 were not all resolved; read the report with the list of what this study does not establish.",
+ "headline": "Notice: the Critic's fix requests on methodology, recommendations, summary were not all resolved; read the report with the list of what this study does not establish.",
  "not_established": [
-  "Step s4, gate not_empty: nothing at 'fdc'",
-  "Step s4.fallback, gate min_donors: no donor count at 'k'"
+  "Step s1, gate max_area_km2: no area at 'sub_basin.up_area'",
+  "Step s2 (similar_basins) did not run: depends on s1 (failed its gate), so it was not run",
+  "Step s3 (regionalize_signatures) did not run: depends on s2 (skipped), so it was not run",
+  "Step s4 (supply_reliability) did not run: depends on s3 (skipped), so it was not run"
  ],
  "figures": [
   {
@@ -99,37 +101,13 @@
    "step": "s1",
    "caption": "The site, in longitude and latitude (no basemap); no catalogue station was listed with it.",
    "bytes": 28446
-  },
-  {
-   "name": "s2_donors_map.png",
-   "id": "fig-s2-donors_map",
-   "step": "s2",
-   "caption": "The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.",
-   "bytes": 49511
-  },
-  {
-   "name": "s3_signatures_band.png",
-   "id": "fig-s3-signatures_band",
-   "step": "s3",
-   "caption": "Flow signatures transferred to the site from 10 donor catchments, with the one-standard-deviation band across donors as error bars and the leave-one-out skill (NSE) where published.",
-   "bytes": 93143
-  },
-  {
-   "name": "s4.fallback_donors_map.png",
-   "id": "fig-s4.fallback-donors_map",
-   "step": "s4.fallback",
-   "caption": "The site and the 5 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.",
-   "bytes": 43436
   }
  ],
  "files": [
   "workspace.json",
   "report.md",
   "study.yaml",
-  "figures/s1_site_map.png",
-  "figures/s2_donors_map.png",
-  "figures/s3_signatures_band.png",
-  "figures/s4.fallback_donors_map.png"
+  "figures/s1_site_map.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"

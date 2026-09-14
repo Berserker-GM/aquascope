@@ -23,53 +23,47 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T17:34:35+00:00",
- "seconds": 705.8,
+ "recorded": "2026-09-14T22:40:05+00:00",
+ "seconds": 504.7,
  "tokens": {
-  "prompt": 87253,
-  "completion": 38225,
-  "calls": 8,
+  "prompt": 87693,
+  "completion": 42805,
+  "calls": 7,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 3427,
-    "completion_tokens": 1917,
-    "cost_usd": 0.026024
+    "completion_tokens": 1464,
+    "cost_usd": 0.021494
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 14133,
-    "completion_tokens": 5111,
-    "cost_usd": 0.079376
-   },
-   "analyst": {
-    "calls": 1,
-    "prompt_tokens": 3726,
-    "completion_tokens": 376,
-    "cost_usd": 0.011212
+    "prompt_tokens": 14152,
+    "completion_tokens": 4017,
+    "cost_usd": 0.068474
    },
    "interpreter": {
     "calls": 1,
-    "prompt_tokens": 10596,
-    "completion_tokens": 5862,
-    "cost_usd": 0.079812
+    "prompt_tokens": 11781,
+    "completion_tokens": 8718,
+    "cost_usd": 0.110742
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 32507,
-    "completion_tokens": 11865,
-    "cost_usd": 0.183664
+    "prompt_tokens": 33906,
+    "completion_tokens": 8945,
+    "cost_usd": 0.157262
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 22864,
-    "completion_tokens": 13094,
-    "cost_usd": 0.176668
+    "prompt_tokens": 24427,
+    "completion_tokens": 19661,
+    "cost_usd": 0.245464
    }
   },
-  "total": 125478
+  "total": 130498
  },
- "usd": 0.8351,
+ "usd": 0.9052,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -77,26 +71,27 @@
  "playbook": "irrigation_feasibility",
  "branch": null,
  "plan_author": "methodologist",
- "steps": 4,
+ "steps": 3,
  "gates": {
-  "passed": 4,
-  "total": 7
+  "passed": 8,
+  "total": 8
  },
  "checks": {
-  "passed": 9,
-  "total": 9
+  "passed": 10,
+  "total": 10
  },
- "replans": 1,
+ "replans": 0,
  "stop_reason": null,
- "headline": "Notice: the Critic's fix requests on limitations, results-s1, summary were not all resolved; read the report with the list of what this study does not establish.",
- "not_established": [
-  "Step s1, gate not_empty: the step returned an error: ERA5 climate unavailable: All 3 attempts failed for https://archive-api.open-meteo.com/v1/era5",
-  "Step s1, gate not_empty: the step returned an error: ERA5 climate unavailable: All 3 attempts failed for https://archive-api.open-meteo.com/v1/era5",
-  "Step s1, gate not_empty: the step returned an error: ERA5 climate unavailable: All 3 attempts failed for https://archive-api.open-meteo.com/v1/era5",
-  "Step s1 (crop_water_demand) did not run: ERA5 climate unavailable: All 3 attempts failed for https://archive-api.open-meteo.com/v1/era5",
-  "Step s3 (supply_reliability) did not run: depends on s1 (failed), so it was not run"
- ],
+ "headline": "Notice: the Critic's fix requests on site_data were not all resolved; read the report with the list of what this study does not establish.",
+ "not_established": [],
  "figures": [
+  {
+   "name": "s1_demand_monthly.png",
+   "id": "fig-s1-demand_monthly",
+   "step": "s1",
+   "caption": "Crop evapotranspiration, effective rain and net and gross irrigation per season for maize on 40.0 ha planted on the first of month 4; the mean gross depth is 534.8 mm over the season.",
+   "bytes": 47354
+  },
   {
    "name": "s2_fdc.png",
    "id": "fig-s2-fdc",
@@ -105,19 +100,20 @@
    "bytes": 65807
   },
   {
-   "name": "s4_site_map.png",
-   "id": "fig-s4-site_map",
-   "step": "s4",
-   "caption": "The site, in longitude and latitude (no basemap); no catalogue station was listed with it.",
-   "bytes": 27246
+   "name": "s3_reliability_curve.png",
+   "id": "fig-s3-reliability_curve",
+   "step": "s3",
+   "caption": "The flow-duration curve at La Garonne à Portet-sur-Garonne (hubeau_hydrometrie O200001001) with the flow the demand needs (red), the reserve left in the river (orange) and Q95 (dashed); the demand is met on 97% of days.",
+   "bytes": 68885
   }
  ],
  "files": [
   "workspace.json",
   "report.md",
   "study.yaml",
+  "figures/s1_demand_monthly.png",
   "figures/s2_fdc.png",
-  "figures/s4_site_map.png"
+  "figures/s3_reliability_curve.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"

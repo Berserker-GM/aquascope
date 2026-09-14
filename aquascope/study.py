@@ -686,6 +686,24 @@ def _frame_from(payload: Any) -> Any:
 _RESULT_REF = re.compile(r"\{\{\s*result\.([A-Za-z0-9_]+)\.([A-Za-z0-9_.\[\]=-]+)\s*\}\}")
 
 
+def _referenced_steps(step: Step) -> list[str]:
+    """The step ids whose results this step reads: ``from_step`` and every ``{{ result.<id>.<path> }}``."""
+    out: list[str] = []
+    src = (step.arguments or {}).get("from_step")
+    if src:
+        out.append(str(src))
+    stack: list[Any] = [step.arguments, step.expects]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, str):
+            out.extend(m.group(1) for m in _RESULT_REF.finditer(item))
+        elif isinstance(item, dict):
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return out
+
+
 def _established(rec: dict[str, Any] | None) -> bool:
     """Whether a step's result may be built on: the tool ran and every gate passed, or its fallback did."""
     if not rec or rec.get("skipped") or not rec.get("ok"):
@@ -823,7 +841,13 @@ def run_study(
         step_id = step.id or f"s{i}"
         args_text = ", ".join(f"{k}={v!r}" for k, v in step.arguments.items())
 
-        missing = [d for d in step.depends_on if not _established(done.get(d))]
+        # A dependency blocks the step when it did not run or its tool failed, or when its gate failed and
+        # this step reads its result (from_step, a {{ result.<dep> }} reference). A framing step that merely
+        # failed a gate (a catchment lookup with no area) does not keep an independent step from running.
+        reads = set(_referenced_steps(step))
+        missing = [d for d in step.depends_on
+                   if (dep := done.get(d)) is None or dep.get("skipped") or not dep.get("ok")
+                   or (not _established(dep) and d in reads)]
         if missing:
             why = []
             for d in missing:

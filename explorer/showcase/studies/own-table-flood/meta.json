@@ -19,47 +19,53 @@
  "error": null,
  "model": "claude-sonnet-5",
  "provider": "anthropic",
- "recorded": "2026-09-14T17:22:50+00:00",
- "seconds": 380.2,
+ "recorded": "2026-09-14T22:31:40+00:00",
+ "seconds": 445.3,
  "tokens": {
-  "prompt": 53700,
-  "completion": 30477,
-  "calls": 7,
+  "prompt": 68092,
+  "completion": 37536,
+  "calls": 8,
   "by_role": {
    "consultant": {
     "calls": 1,
     "prompt_tokens": 2921,
-    "completion_tokens": 1176,
-    "cost_usd": 0.017602
+    "completion_tokens": 2439,
+    "cost_usd": 0.030232
    },
    "methodologist": {
     "calls": 1,
-    "prompt_tokens": 8528,
-    "completion_tokens": 3842,
-    "cost_usd": 0.055476
+    "prompt_tokens": 8569,
+    "completion_tokens": 2974,
+    "cost_usd": 0.046878
+   },
+   "analyst": {
+    "calls": 1,
+    "prompt_tokens": 3024,
+    "completion_tokens": 2646,
+    "cost_usd": 0.032508
    },
    "interpreter": {
     "calls": 1,
-    "prompt_tokens": 6064,
-    "completion_tokens": 5213,
-    "cost_usd": 0.064258
+    "prompt_tokens": 11526,
+    "completion_tokens": 7500,
+    "cost_usd": 0.098052
    },
    "author": {
     "calls": 2,
-    "prompt_tokens": 21010,
-    "completion_tokens": 10892,
-    "cost_usd": 0.15094
+    "prompt_tokens": 31116,
+    "completion_tokens": 8609,
+    "cost_usd": 0.148322
    },
    "critic": {
     "calls": 2,
-    "prompt_tokens": 15177,
-    "completion_tokens": 9354,
-    "cost_usd": 0.123894
+    "prompt_tokens": 10936,
+    "completion_tokens": 13368,
+    "cost_usd": 0.155552
    }
   },
-  "total": 84177
+  "total": 105628
  },
- "usd": 0.6183,
+ "usd": 0.7673,
  "usd_per_mtoken": [
   3.0,
   15.0
@@ -67,19 +73,22 @@
  "playbook": "flood_risk",
  "branch": null,
  "plan_author": "methodologist",
- "steps": 5,
+ "steps": 4,
  "gates": {
   "passed": 5,
-  "total": 5
+  "total": 7
  },
  "checks": {
   "passed": 8,
   "total": 8
  },
- "replans": 0,
+ "replans": 1,
  "stop_reason": null,
- "headline": "Notice: the Critic's fix requests on methodology, site_data, summary were not all resolved; read the report with the list of what this study does not establish.",
- "not_established": [],
+ "headline": "Notice: the Critic's fix requests on answer, decision, key_numbers were not all resolved; read the report with the list of what this study does not establish.",
+ "not_established": [
+  "Step s2, gate not_empty: nothing at 'quality'",
+  "Step s2.fallback, gate min_donors: no donor count at 'k'"
+ ],
  "figures": [
   {
    "name": "s1_series.png",
@@ -103,11 +112,11 @@
    "bytes": 67518
   },
   {
-   "name": "s5_fdc.png",
-   "id": "fig-s5-fdc",
-   "step": "s5",
-   "caption": "Flow-duration curve of discharge at the site at 40.20 N, 8.00 W from the ranked daily flows, with Q95, Q50 and Q10 marked (log scale).",
-   "bytes": 59105
+   "name": "s2.fallback_donors_map.png",
+   "id": "fig-s2.fallback-donors_map",
+   "step": "s2.fallback",
+   "caption": "The site and the 10 donor gauges the similarity search selected, in longitude and latitude (no basemap); labels are the station ids.",
+   "bytes": 53811
   }
  ],
  "files": [
@@ -117,7 +126,7 @@
   "figures/s1_series.png",
   "figures/s3_frequency_curve.png",
   "figures/s4_frequency_curve.png",
-  "figures/s5_fdc.png"
+  "figures/s2.fallback_donors_map.png"
  ],
  "trimmed": [],
  "aquascope_version": "0.16.0"
