@@ -1,0 +1,44 @@
+# HydroGym report-quality reference (#382); the authoring rules are in _authoring.yaml.
+# The recorded study's independent GloFAS cross-check failed (step s4, gate not_empty on 'climate'; the
+# regionalize_signatures fallback then failed too). A faithful report says so in its limitations and quotes no
+# cross-check number it does not have; the recorded one does both correctly.
+id: kingston-flood
+study: kingston-flood
+title: Design Q100 at a 143-year gauge with a failed GloFAS cross-check
+rationale: >-
+  The at-site GEV and Log-Pearson III fits stand on their own 143-year record and should be quoted; the planned
+  independent cross-check never ran (GloFAS, then its regionalisation fallback, both failed), and a faithful
+  report must name that gap in its limitations rather than let the at-site number stand as if it were confirmed,
+  and must not quote a GloFAS or regionalised number it never obtained.
+tags: [failed_step, flood_risk]
+must_say:
+  - kind: number
+    value: 652.5
+    tol: 0.02
+    unit: m3/s
+    label: the GEV (L-moments) Q100
+  - kind: number
+    value: 624.0
+    tol: 0.02
+    unit: m3/s
+    label: the Log-Pearson III Q100
+  - kind: number
+    value: 142.9
+    tol: 0.01
+    unit: years
+    label: the record length
+  - kind: phrase
+    any: ["Mann-Kendall"]
+    label: the trend pre-test is named
+  - kind: failed_step_named
+    step: s4
+    section: limitations
+    label: the failed GloFAS cross-check is named in the limitations
+must_not_say:
+  - kind: no_number_near
+    keyword: GloFAS
+    label: no fabricated GloFAS cross-check number
+decision:
+  value: 650.0
+  unit: m3/s
+  tolerance: 0.05
