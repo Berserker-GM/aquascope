@@ -518,6 +518,21 @@ def fetch_series(
             )
         else:
             note = f"OpenHi.net (ITIA/NTUA) telemetry, 15-minute where the station reports it; {asked}."
+    elif source == "poland_imgw":
+        # The archive is one zip per hydrological month (to 2022) or year, so
+        # the window is pushed down to pick files; the collector caches every
+        # zip on disk and every parsed file in memory for the rest of the run.
+        c = build_collector("poland_imgw")
+        s, var, unit = None, "", ""
+        for want in (variable,) if variable else ("discharge", "water_level"):
+            recs = c.collect(variable=want, station_ids=[station_id], start=start, end=end)
+            s, var, unit = _records_to_series(recs)
+            if s is not None:
+                break
+        note = (
+            "IMGW-PIB daily archive, hydrological-year files (November to October, published once the "
+            f"year has ended, so the record stops at the last October; today's reading is in the live API); {asked}."
+        )
     elif source == "taiwan_cwa":
         # CODIS answers one calendar year per request and each takes several
         # seconds at the source, so the full record is never asked for here:

@@ -248,6 +248,25 @@ SOURCES: dict[str, SourceMeta] = {
         attribution="OpenHi.net, Open Hydrosystem Information Network (ITIA, NTUA), CC BY-SA 4.0",
         browser_reachable=False,  # CORS only for localhost; the Explorer serves the archive mirror (#408)
     ),
+    "poland_imgw": _s(
+        key="poland_imgw", label="Poland IMGW-PIB", region="Poland",
+        description=(
+            "Daily river stage and discharge from 1951 (hydrological-year archive) plus the live "
+            "network state with alarm and warning stages"
+        ),
+        agency="IMGW-PIB, Instytut Meteorologii i Gospodarki Wodnej", country="POL",
+        homepage="https://danepubliczne.imgw.pl/",
+        variables=("discharge", "water_level", "water_quality"),
+        supports_bbox=True,
+        supports_station_lookup=True,
+        output_model="StreamflowReading | WaterLevelReading | WaterQualitySample",
+        license="IMGW-PIB-open-data", redistributable=True,
+        attribution=(
+            "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy; "
+            "dane IMGW-PIB zostały przetworzone (source: IMGW-PIB, data processed)"
+        ),
+        browser_reachable=False,  # the live API allows CORS, the archive zips do not; the Explorer serves the mirror
+    ),
     "eu_wfd": _s(
         key="eu_wfd", label="EU Water Framework Directive", region="Europe",
         description="EEA DiscoData ecological and chemical status of European water bodies",
@@ -544,6 +563,7 @@ def build_collector(source_key: str, api_key: str | None = None, **ctor_kwargs):
         "ireland_opw": lambda: c.IrelandOPWCollector(),
         "greece_hydroscope": lambda: c.GreeceHydroscopeCollector(),
         "greece_openhi": lambda: c.GreeceOpenhiCollector(),
+        "poland_imgw": lambda: c.PolandIMGWCollector(),
         "pegelonline": lambda: c.PegelonlineCollector(),
         "camels_cl": lambda: c.CAMELSCLCollector(),
         "camels_br": lambda: c.CAMELSBRCollector(),
