@@ -1643,8 +1643,31 @@ def cmd_studio(args: argparse.Namespace) -> None:
             logger.error("studio needs the problem in plain language.")
             sys.exit(1)
         reply = studio.say(args.query) if args.query else studio.say("just go")
-        while reply.kind == "questions":
+    elif ws.status == "waiting":
+        reply = studio._request_reply()
+    if reply is not None and reply.kind in ("questions", "data_request"):
+        while reply.kind in ("questions", "data_request"):
             print(reply.text)
+            if reply.kind == "data_request":
+                if args.continue_without or not interactive:
+                    print("  Continuing without it (--continue-without or no terminal).", file=sys.stderr)
+                    reply = studio.say("continue without")
+                    continue
+                answer = ask("Path to a table (CSV, Excel, JSON), or 'continue' to go on without: ")
+                if answer is None:
+                    checkpoint()
+                    return
+                path = Path(answer.strip())
+                if path.exists():
+                    try:
+                        from aquascope.ingest import read_table
+
+                        reply = studio.add_table(path.name, read_table(str(path)))
+                    except (OSError, ValueError) as exc:
+                        print(f"  cannot read {path}: {exc}", file=sys.stderr)
+                else:
+                    reply = studio.say(answer)
+                continue
             if not interactive:
                 print("  Proceeding on the defaults (--yes or no terminal).", file=sys.stderr)
                 reply = studio.say("just go")
@@ -1654,7 +1677,7 @@ def cmd_studio(args: argparse.Namespace) -> None:
                 checkpoint()
                 return
             reply = studio.say(answer)
-    elif ws.status == "review":
+    if ws.status == "review" and reply is None:
         reply = studio._plan_reply()
     elif ws.status == "done":
         reply = studio._report_reply()
@@ -2791,6 +2814,8 @@ def main() -> None:
                                "footer says so (models in the price table only)")
     p_studio.add_argument("--out", "-o", default=None, help="The bundle's directory (default ./studio-<id>/)")
     p_studio.add_argument("--yes", "-y", action="store_true", help="Answer the defaults, approve the plan, export")
+    p_studio.add_argument("--continue-without", action="store_true",
+                          help="When the crew asks for data you do not have, go on at the lower grade it names")
     p_studio.add_argument("--resume", default=None, metavar="WORKSPACE.JSON", help="Resume a saved workspace")
     p_studio.add_argument("--quiet", "-q", action="store_true", help="Do not print the timeline as it happens")
 

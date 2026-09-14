@@ -39,6 +39,16 @@ contract; this page is the user's guide.
    Specialist fallback once (the playbook's
    branch, or a Specialist's proposal validated against the catalogue).
    Figures and tables are made per step as results land.
+   **Waiting for data.** When a playbook's own rule would decline for data
+   the user could bring (abstraction records to attribute a groundwater
+   decline, a reservoir's capacity and rule, your own water-quality samples,
+   a discharge record where no gauge reaches), the crew asks instead: what
+   it needs, why, and what it changes. Drop the table in (the page, `--data`
+   or a path at the prompt in the terminal, `tables` over MCP) and the plan
+   is written again on it, or say "continue without" and the study goes on
+   at the lower grade the request named (`--continue-without` in the
+   terminal). A table can arrive at any point: at review it is inventoried
+   and planned on, after the report it runs as a follow-up change.
 6. **Interpret.** The Interpreter reads the results, the gates and the brief's
    decision and writes findings, not prose: claims that each point at the
    result they come from (`s3.ffa.fits.gev_lmoments.q.5`), whether the

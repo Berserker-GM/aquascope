@@ -1,6 +1,6 @@
 """The Coordinator: the state machine over the workspace, and the API every face is thin over.
 
-    intake -> scouting -> planning -> review -> running -> interpreting -> critique -> authoring -> done
+    intake -> scouting -> planning -> [waiting] -> review -> running -> interpreting -> critique -> authoring -> done
                                         |                                          |
                                      declined                                  follow-up
 
@@ -57,7 +57,7 @@ _APPROVE = re.compile(r"^\s*(approve|approved|run( it| this| the plan)?|go|yes|y
 
 @dataclass
 class Reply:
-    """What a face gets back: ``kind`` is questions, plan, report, answer or declined."""
+    """What a face gets back: ``kind`` is questions, data_request, plan, report, answer or declined."""
 
     kind: str
     text: str
@@ -214,6 +214,8 @@ class Studio:
             return self.follow_up(text)
         if ws.status in ("running", "critique", "authoring"):
             return Reply("answer", "The crew is running; the report comes next.", {"status": ws.status})
+        if ws.status == "waiting":
+            return self._answer_request(text)
         if ws.status == "review":
             if _APPROVE.match(text or ""):
                 return self.approve()
@@ -232,6 +234,62 @@ class Studio:
         if not ws.brief.ready:
             return self._questions_reply(msg.text)
         return self._scout_and_plan()
+
+    def _request_reply(self) -> Reply:
+        from aquascope.studio.roles.methodologist import request_text
+
+        request = dict(self.ws.pending_request or {})
+        return Reply("data_request", request_text(request) if request else "The crew is waiting for data.",
+                     {"request": request, "brief": self.ws.brief.to_dict(), "status": self.ws.status})
+
+    def _answer_request(self, text: str) -> Reply:
+        """A reply while the study waits for data: "continue without" plans at the lower grade the request
+        named (or declines when it allows no continuation); anything else repeats the request. A table
+        arrives through :meth:`add_table`, which plans again on its own."""
+        from aquascope.studio.requests import continue_without, is_continue
+
+        ws = self.ws
+        request = dict(ws.pending_request or {})
+        ws.say("user", text)
+        if not is_continue(text):
+            return self._request_reply()
+        if not continue_without(ws, request):
+            ws.pending_request = None
+            return self._decline(str(request.get("reason") or f"{request.get('what')} was not provided"),
+                                 role="methodologist")
+        ws.pending_request = None
+        ws.brief.intake["_no_request"] = True
+        try:
+            return self._plan()
+        finally:
+            ws.brief.intake.pop("_no_request", None)
+
+    def add_table(self, name: str, frame_or_csv: Any) -> Reply:
+        """A table of the user's at any point of the study. At intake it is kept for the brief; while the study
+        waits for data or sits at review it is inventoried and the plan is written again; after the report it
+        is a follow-up change ("use the new table"), run and re-authored. The reply is the next one the study
+        would give."""
+        from aquascope.studio.roles.scout import scout
+
+        ws = self.ws
+        dataset_id = name if str(name).startswith("upload:") else f"upload:{name}"
+        ws.add_table(dataset_id, frame_or_csv)
+        if not isinstance(frame_or_csv, str):
+            self._frames[dataset_id] = frame_or_csv
+        ws.event("coordinator", "table", f"{dataset_id} added at {ws.status}")
+        if ws.status in ("waiting", "review"):
+            ws.pending_request = None
+            ws.set_status("scouting")
+            try:
+                scout(ws)
+            except Exception as exc:  # noqa: BLE001
+                ws.event("scout", "error", f"{type(exc).__name__}: {exc}")
+                return self._decline(f"the Scout could not read the table: {exc}", role="scout")
+            return self._plan()
+        if ws.status == "done":
+            return self.follow_up(f"use the new table {dataset_id} and redo the steps it serves")
+        return Reply("answer", f"{dataset_id} is attached; the crew will use it.", {"table": dataset_id,
+                                                                                   "status": ws.status})
 
     def _scout_and_plan(self) -> Reply:
         from aquascope.studio.roles.scout import scout
@@ -256,6 +314,8 @@ class Studio:
             ws.event("methodologist", "error", f"{type(exc).__name__}: {exc}")
             return self._decline(f"the Methodologist failed: {exc}", role="methodologist")
         if study is None:
+            if ws.status == "waiting":
+                return self._request_reply()
             if ws.status != "declined":
                 return self._decline(ws.declined_reason or "no plan", role="methodologist")
             return Reply("declined", f"Declined: {ws.declined_reason}", {"reason": ws.declined_reason})

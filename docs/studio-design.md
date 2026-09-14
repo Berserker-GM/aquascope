@@ -59,7 +59,8 @@ One serialisable object every role reads and writes:
 | `events` | everyone | the timeline (`role, step, event, detail, at`) |
 | `ledger` | Model | calls and tokens per role |
 | `tables` | Coordinator | the user's uploads as CSV text, so they round-trip |
-| `status` | Coordinator | intake, scouting, planning, review, running, critique, authoring, done, declined |
+| `status` | Coordinator | intake, scouting, planning, waiting, review, running, critique, authoring, done, declined |
+| `pending_request` | Methodologist | while `waiting`: what the crew asks for, why, the effect, `continue_without` (the intake to apply, or None when the decline stands), `grade_without` |
 
 `to_dict` / `from_dict` (bytes as base64), `to_json` / `from_json`. The
 browser holds the dict between worker calls, the CLI writes
@@ -115,6 +116,16 @@ out (`aquascope.studio.model.Model.call_json`).
 Reading between the roles: compact JSON of exactly what the role needs
 (`aquascope.studio.model.compact`), never the whole workspace, never a
 transcript.
+
+## Data requests (`aquascope/studio/requests.py`)
+
+A playbook decline whose reason is data the user could bring becomes a request (a small rule table keyed by
+playbook, matched on the decline sentence and the intake): the study parks at `waiting` with
+`ws.pending_request`, the reply kind is `data_request`, and `Studio.say("continue without")` applies the
+rule's `continue_without` intake and plans again (or declines when the rule allows no continuation);
+`Studio.add_table(name, frame_or_csv)` takes a table at any status: kept at intake, inventoried and planned
+on at `waiting` or `review`, a follow-up change after the report. The Interpreter's post-run
+`data_requests` are the other half: what the run itself could not establish and what would firm it up.
 
 ## The Coordinator's API (`aquascope.studio.Studio`)
 

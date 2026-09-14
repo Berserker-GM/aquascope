@@ -571,10 +571,37 @@ def _playbook_rule_decline(ws: Workspace) -> str | None:
 
 
 def _decline(ws: Workspace, reason: str) -> None:
+    """Decline, unless the reason is data the user could bring: then the study waits for it (#419)."""
+    from aquascope.studio.requests import data_request_for
+
+    request = data_request_for(ws, reason)
+    if request is not None and not ws.brief.intake.get("_no_request"):
+        _wait(ws, request)
+        return
     ws.declined_reason = reason
     ws.set_status("declined")
     ws.event("methodologist", "declined", reason)
     ws.say("methodologist", f"Declined: {reason}", kind="declined", payload={"reason": reason})
+
+
+def _wait(ws: Workspace, request: dict[str, Any]) -> None:
+    """Park the study at ``waiting`` with the request the Consultant relays to the user."""
+    ws.pending_request = request
+    ws.set_status("waiting")
+    ws.event("methodologist", "data_request", str(request.get("what")))
+    text = request_text(request)
+    ws.say("consultant", text, kind="data_request", payload=request)
+
+
+def request_text(request: dict[str, Any]) -> str:
+    """The request as the Consultant says it."""
+    lines = [f"Before this can be planned, the crew needs {request.get('what')}.",
+             f"Why: {request.get('why')}.", f"What it changes: {request.get('effect')}."]
+    if request.get("can_continue"):
+        lines.append("Drop the table in, or say \"continue without\" to go on at the lower grade.")
+    else:
+        lines.append("Drop the table in; without it the study cannot answer this brief.")
+    return " ".join(lines)
 
 
 def _announce(ws: Workspace, study: Study) -> None:
