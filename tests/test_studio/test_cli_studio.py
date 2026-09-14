@@ -50,7 +50,8 @@ def test_without_a_terminal_the_plan_waits_and_the_workspace_resumes(monkeypatch
     with patched():
         cli.main()
     printed = capsys.readouterr().out
-    assert "Bundle written to" in printed and json.loads((out / "workspace.json").read_text(encoding="utf-8"))["status"] == "done"
+    workspace = json.loads((out / "workspace.json").read_text(encoding="utf-8"))
+    assert "Bundle written to" in printed and workspace["status"] == "done"
 
 
 def test_interactive_answers_edits_and_follows_up(monkeypatch, capsys, tmp_path, no_deliverables):

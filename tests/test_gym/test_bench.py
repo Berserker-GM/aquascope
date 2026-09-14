@@ -83,7 +83,8 @@ def test_the_tree_scores_every_task_on_its_own_keys(suite, tmp_path):
     assert events[0].startswith("[1/9] flood_risk-") and "correct" in events[1]
     md = gb.leaderboard(results, out=tmp_path / "board.md", title="smoke")
     assert md.startswith("## smoke") and "| tree | none | 9 (6 + 3) | 100 % |" in md and "100 %" in md
-    assert "at_site" in md and gb.PRICES_NOTE in md and (tmp_path / "board.md").read_text(encoding="utf-8").startswith("## smoke")
+    assert "at_site" in md and gb.PRICES_NOTE in md
+    assert (tmp_path / "board.md").read_text(encoding="utf-8").startswith("## smoke")
 
 
 def test_a_scripted_team_run_is_scored_and_its_tokens_counted(suite):

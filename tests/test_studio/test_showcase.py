@@ -171,7 +171,8 @@ def test_the_budget_stops_the_run(tmp_path):
     written = record([CASE, OTHER], tmp_path, studio_factory=_factory(), max_usd=0.2, on_event=lines.append)
     assert [m["id"] for m in written] == ["kingston-flood"]
     assert any("budget reached" in line and "own-table-flood" in line for line in lines)
-    assert [s["id"] for s in json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))["studies"]] == ["kingston-flood"]
+    studies = json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))["studies"]
+    assert [s["id"] for s in studies] == ["kingston-flood"]
 
 
 def test_an_oversized_workspace_is_trimmed_and_says_so(tmp_path):

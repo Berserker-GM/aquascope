@@ -75,7 +75,10 @@ def test_ingest_gaps_and_warnings(tmp_path):
     idx = pd.date_range("2010-01-01", periods=1000, freq="D")
     keep = [d for i, d in enumerate(idx) if not (200 <= i < 450)]  # a 250-day hole
     p = tmp_path / "gappy.csv"
-    p.write_text("date,discharge_m3s\n" + "\n".join(f"{d.date()},{5 + (i % 3)}" for i, d in enumerate(keep)), encoding="utf-8")
+    p.write_text(
+        "date,discharge_m3s\n" + "\n".join(f"{d.date()},{5 + (i % 3)}" for i, d in enumerate(keep)),
+        encoding="utf-8",
+    )
     r = ing.ingest(p)
     assert r["qa"]["gaps"][0]["days"] == 250
     assert any("coverage" in w for w in r["qa"]["warnings"])

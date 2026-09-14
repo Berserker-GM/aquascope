@@ -322,7 +322,8 @@ def test_the_cli_plans_verbs_and_the_bench(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "bench", "--agent", "tree", "--limit", "4", "--out",
                                       str(out_file), "--quiet"])
     cli.main()
-    assert "aquascope gym bench: tree" in capsys.readouterr().out and len(out_file.read_text(encoding="utf-8").splitlines()) == 4
+    assert "aquascope gym bench: tree" in capsys.readouterr().out
+    assert len(out_file.read_text(encoding="utf-8").splitlines()) == 4
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "leaderboard", str(out_file), "--out",
                                       str(tmp_path / "lb.md")])
     cli.main()
