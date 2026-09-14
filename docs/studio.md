@@ -257,6 +257,18 @@ board above the input shows one thing at a time:
    re-authored, and the board refreshes. **New study** clears the board for
    another study at the same place.
 
+The Done board opens with a grade badge (established, indicative, screening
+or not established, each explained on hover) and the decision block above the
+answer: what the value holds if, what would change it and what the crew would
+ask for, then the findings, collapsed. When a playbook's own rule would
+decline for data you could bring, the board shows a waiting card instead:
+what the crew needs, why, and a **Continue without** button where the study
+can still answer at the lower grade the request names. A CSV or XLSX can be
+dropped at intake, waiting, review or done alike, not only before a study
+starts: once one exists, a table is attached to it directly, and the crew
+plans again on it at waiting or review, or runs it as a follow-up once the
+report is in.
+
 The tiers are Ask's. Keyless by default, which is a complete study: the
 playbook tree plans, the gates check, templates write. When Ask holds a key,
 one line offers it for the prose and the composed methodology.
