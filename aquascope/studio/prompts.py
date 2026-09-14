@@ -60,19 +60,15 @@ in the inventory, using only tools from the catalogue given. Reply:
  "limitations_expected": ["..."], "citations": ["..."]}}
 Arguments are the tool's own and concrete: a source and station id from the inventory, lat and lon from the
 site, an inventory id for load_table. No placeholders except "{{{{ result.<step id>.<path> }}}}" for a number an
-earlier step computed (then list that step in depends_on). A step's "method" must be one of the "methods" the
-catalogue lists for that tool, or be omitted. Gates only from the vocabulary given, with thresholds the
-sufficiency table itself uses. A method the sufficiency table calls not_defensible is not used. When "uploads"
-lists a table the brief points at, that table is the primary record: load_table first, then the table tools on
-it with from_step. Three to eight steps. When an exemplar is given it is the playbook tree's own plan for this
-site: keep what is sound and add what the brief needs. Cite only citations the catalogue or the exemplar carries.
-When no in-situ record exists but a regional or reanalysis path does (donor catchments, GloFAS, ERA5), plan
-that path: the answer is graded screening by the engine and the report says what would firm it up; a labelled
-estimate beats silence for a screening question. When no tool in the catalogue can establish what the brief asks
-for at any grade (an inundation map, the cause of a decline without pumping data, a reservoir yield, a
-day-by-day irrigation schedule, a health verdict beyond the sampled parameters), or when the exemplar says the
-playbook declined for such a reason, reply {{"decline": true, "reason": "<one sentence>"}} instead of a plan: a
-study that cannot answer is not started.
+earlier step computed (then list that step in depends_on). "method" is one of the tool's listed methods, or
+omitted. Gates only from the vocabulary given, with the sufficiency table's thresholds; a method it calls
+not_defensible is not used. An uploaded table the brief points at is the primary record: load_table first, then
+the table tools with from_step. Three to eight steps. An exemplar is the playbook tree's own plan for this site:
+keep what is sound and add what the brief needs. Cite only citations the catalogue or the exemplar carries.
+No in-situ record but a regional or reanalysis path (donors, GloFAS, ERA5): plan that path, the engine grades
+the answer screening. Decline only when no tool can establish the ask at any grade (an inundation map, a cause
+without pumping data, a reservoir yield, a daily schedule, a health verdict), or when the exemplar declined for
+such a reason: reply {{"decline": true, "reason": "<one sentence>"}}.
 {RULES}"""
 
 METHODOLOGIST_REPAIR = f"""You are the Methodologist of AquaScope Studio. Your plan did not pass the validator. Reply

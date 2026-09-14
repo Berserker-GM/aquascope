@@ -1,0 +1,48 @@
+# HydroGym report-quality reference (#382); the authoring rules are in _authoring.yaml.
+# The Garonne's 30-year annual-mean trend is not significant (Mann-Kendall p = 0.302, tau = -0.138): the honest
+# reading is no trend, not a direction. The recorded report's own limitations section calls it a "(statistically
+# insignificant) downward trend" anyway, a direction claim p = 0.302 does not support; its own Critic pass flagged
+# the wording as misleading and it shipped unfixed. This reference exists to catch exactly that.
+id: toulouse-irrigation
+study: toulouse-irrigation
+title: A p = 0.302 trend must not be called "downward"
+rationale: >-
+  Mann-Kendall on the Garonne's 30-year annual mean flow returns p = 0.302: not significant at any conventional
+  level, so neither an increasing nor a decreasing trend is established. The recorded report's own numbers are
+  right (564.4 mm gross demand, 96.5% of growing-season days met, verdict "mostly reliable"), but its limitations
+  sentence calls the statistically insignificant trend "downward" regardless, a direction the test itself does
+  not support and which the study's own Critic pass already flagged as risking "readers taking away a
+  directional signal that the test did not establish", unfixed in the shipped report. A faithful report of this
+  case gets the numbers right and does not make that claim.
+tags: [direction_inversion, irrigation_feasibility]
+must_say:
+  - kind: number
+    value: 564.4
+    tol: 0.02
+    unit: mm
+    label: the gross seasonal irrigation depth
+  - kind: number
+    value: 96.5
+    tol: 0.02
+    unit: "%"
+    label: the share of growing-season days the demand is met
+  - kind: phrase
+    any: ["mostly reliable"]
+    label: the reliability verdict is stated
+  - kind: phrase
+    any: ["planning estimate", "indicative"]
+    label: the FAO-56/ERA5 demand is flagged as a planning estimate, not a measurement
+  - kind: number
+    value: 0.302
+    tol: 0.02
+    label: the trend test's own p-value
+must_not_say:
+  - kind: phrase
+    any: ["downward trend", "declining trend", "decreasing trend", "upward trend", "increasing trend",
+          "rising trend", "falling trend"]
+    label: no directional trend claim for a p = 0.302 (not significant) test
+decision:
+  value: 96.5
+  unit: "%"
+  tolerance: 0.02
+  grade: indicative

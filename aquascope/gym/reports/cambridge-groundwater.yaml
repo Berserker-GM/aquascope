@@ -1,0 +1,45 @@
+# HydroGym report-quality reference (#382); the authoring rules are in _authoring.yaml.
+# The recorded study finds an *increasing* trend (Sen's slope +0.1659 mAOD/yr, n = 227, 48.7 years); the brief
+# asked whether levels are declining, and the honest answer is no. A faithful report must not turn "the question
+# was decline" into a claim of decline, and must flag that daily resolution was assumed for a record whose
+# actual sampling interval the catalogue does not state.
+id: cambridge-groundwater
+study: cambridge-groundwater
+title: An increasing Chalk record answers a decline question with "no"
+rationale: >-
+  n = 227 over 48.7 years gives a significant increasing trend (Mann-Kendall tau = 0.86, p = 0.0, Sen's slope
+  +0.1659 mAOD/yr): the public-supply decline question the brief poses is answered "no, if anything rising".
+  A report that instead asserts a decline (from the word "decline" in its own brief, or from the failed
+  last-10-year window alone) would be wrong twice over: about the direction, and about calling an unfitted
+  10-year gate a finding. The catalogue does not state the record's sampling interval, so the daily assumption
+  the study makes must be flagged, not silently relied on.
+tags: [direction_inversion, cause_attribution]
+must_say:
+  - kind: number
+    value: 227
+    tol: 0.001
+    label: the sample count (n = 227)
+  - kind: number
+    value: 48.7
+    tol: 0.01
+    unit: years
+    label: the record length
+  - kind: phrase
+    any: ["increasing trend", "not a decline", "no declining trend", "no evidence of decline"]
+    label: the record's actual direction is stated
+  - kind: phrase
+    any: ["assumed daily", "resolution is assumed"]
+    section: limitations
+    label: the assumed-daily resolution is flagged in the limitations
+  - kind: phrase
+    any: ["abstraction records"]
+    label: the cause question names the data it would need (abstraction records)
+must_not_say:
+  - kind: phrase
+    any: ["shows a decline", "confirms a decline", "the water table is declining", "levels are falling",
+          "groundwater levels have declined", "indicates a decline", "the levels are declining"]
+    label: no claim that levels are actually declining
+decision:
+  value: 0.1659
+  unit: mAOD/yr
+  tolerance: 0.05
