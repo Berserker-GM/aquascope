@@ -250,7 +250,10 @@ SOURCES: dict[str, SourceMeta] = {
     ),
     "poland_imgw": _s(
         key="poland_imgw", label="Poland IMGW-PIB", region="Poland",
-        description="Daily river stage and discharge from 1951 (hydrological-year archive) plus the live network state with alarm and warning stages",
+        description=(
+            "Daily river stage and discharge from 1951 (hydrological-year archive) plus the live "
+            "network state with alarm and warning stages"
+        ),
         agency="IMGW-PIB, Instytut Meteorologii i Gospodarki Wodnej", country="POL",
         homepage="https://danepubliczne.imgw.pl/",
         variables=("discharge", "water_level", "water_quality"),
