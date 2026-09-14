@@ -39,15 +39,20 @@ from aquascope.registry import SOURCES
 
 logger = logging.getLogger(__name__)
 
-# Sources with long daily records reachable through aquascope.explore.fetch_series
+# Sources with long records reachable through aquascope.explore.fetch_series
 # and terms that allow mirroring. Value: the variables harvested, first one is
-# the default. Units in the files: discharge m3/s, water_level m,
-# groundwater_level m (UK EA: metres above Ordnance Datum), precipitation mm/day.
+# the default. Files are daily: sub-daily telemetry is folded per day (mean;
+# rainfall summed, see _daily_agg). Units in the files: discharge m3/s,
+# water_level m, groundwater_level m (UK EA: metres above Ordnance Datum),
+# precipitation mm/day.
 HARVESTABLE: dict[str, tuple[str, ...]] = {
     "usgs": ("discharge", "water_level"),
     "uk_ea": ("discharge", "water_level", "precipitation", "groundwater_level"),
     "hubeau_hydrometrie": ("discharge",),
     "taiwan_cwa": ("precipitation",),
+    # 65 stations of 15-minute telemetry, CC BY-SA 4.0. Mirrored because the
+    # browser cannot call system.openhi.net (CORS for localhost only, #408).
+    "greece_openhi": ("discharge", "water_level", "precipitation"),
 }
 
 ARCHIVE_UNITS = {"discharge": "m3/s", "water_level": "m", "groundwater_level": "m", "precipitation": "mm"}
@@ -129,8 +134,21 @@ def save_manifest(out_dir: Path, manifest: dict[str, Any]) -> Path:
     return p
 
 
-def series_to_csv_gz(s: pd.Series) -> bytes:
-    daily = s.resample("D").mean().dropna()
+def _daily_agg(variable: str, s: pd.Series) -> str:
+    """How sub-daily values fold into a day: rainfall totals sum, everything else averages.
+
+    Rainfall that already arrives daily keeps the mean path so a missing day
+    stays missing instead of becoming a zero total.
+    """
+    if variable != "precipitation" or len(s) < 2:
+        return "mean"
+    step = pd.Series(s.index).diff().dropna().median()
+    return "sum" if step < pd.Timedelta(days=1) else "mean"
+
+
+def series_to_csv_gz(s: pd.Series, agg: str = "mean") -> bytes:
+    """Gzipped daily CSV. ``agg`` is ``"mean"`` (flows, levels) or ``"sum"`` (sub-daily rainfall totals)."""
+    daily = s.resample("D").sum(min_count=1).dropna() if agg == "sum" else s.resample("D").mean().dropna()
     buf = io.StringIO()
     buf.write("date,value\n")
     for d, v in daily.items():
@@ -235,7 +253,7 @@ def _harvest_one(
                 "n": 0, "harvested_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "empty": True,
             }
             continue
-        payload = series_to_csv_gz(s)
+        payload = series_to_csv_gz(s, agg=_daily_agg(var, s))
         path = obs_path(out, var, key, sid)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(payload)

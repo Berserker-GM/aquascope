@@ -22,6 +22,7 @@ from typing import Any
 import pandas as pd
 
 from aquascope.registry import SOURCES, build_collector
+from aquascope.utils.http_client import IS_EMSCRIPTEN
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,39 @@ FULL_RECORD_YEARS = 150
 #: CWA CODIS answers one calendar year per request and each takes several
 #: seconds at the source, so that fetch is capped rather than asked in full.
 CWA_MAX_YEARS = 10
+
+
+class BrowserUnreachableError(RuntimeError):
+    """The agency cannot be called from a browser page and the archive holds no mirror for the station.
+
+    Raised only under Emscripten, in the Explorer's worker. Both Greek APIs
+    answer ``Access-Control-Allow-Origin: http://localhost:3000`` and
+    Hydroscope is plain http, so an XHR from the Explorer's origin is refused
+    before any data moves. The collectors then see a failed request as an
+    empty one and the station card said "no observations" (#408). This is
+    the honest message instead, and the agency is never called.
+    """
+
+
+def _browser_unreachable_message(source: str, station_id: str) -> str:
+    from aquascope.archive.observations import harvestable_variables
+
+    meta = SOURCES[source]
+    if harvestable_variables(source):
+        archive = (
+            "The AquaScope archive has no mirrored file for this station yet; "
+            "the weekly harvest fills the mirror in over time."
+        )
+    else:
+        archive = (
+            f"Its observations are not mirrored in the AquaScope archive because {meta.label} "
+            f"publishes no terms that allow redistribution (licence: {meta.license})."
+        )
+    return (
+        f"{meta.agency} cannot be reached from a browser: its API does not accept cross-origin "
+        f"requests from web pages. {archive} The Python package reads it directly: "
+        f"pip install aquascope, then aquascope.explore.fetch_series({source!r}, {station_id!r})."
+    )
 
 METHODS: dict[str, dict[str, str]] = {
     "gev_lmoments": {
@@ -400,6 +434,9 @@ def fetch_series(
             ) + _record_note(archived, window)
             return _fetched(archived, var, ARCHIVE_UNITS.get(var, ""), note, window)
 
+    if IS_EMSCRIPTEN and not SOURCES[source].browser_reachable:
+        raise BrowserUnreachableError(_browser_unreachable_message(source, station_id))
+
     if source == "usgs":
         # Pass the catalog id as-is ("USGS-01646500" or another agency's "CA574-09527500");
         # the collector maps it onto NWIS (number + agencyCd) or the OGC monitoring_location_id.
@@ -746,7 +783,15 @@ def analyze_station(
     what was requested and what came back; ``requested`` carries the window.
     """
     meta = SOURCES[source]
-    fetched = fetch_series(source, station_id, years=years, variable=variable, period_start=period_start)
+    try:
+        fetched = fetch_series(source, station_id, years=years, variable=variable, period_start=period_start)
+    except BrowserUnreachableError as exc:
+        # Not an empty record: the page cannot ask. Say so, and never "no observations" (#408).
+        return {
+            "source": source, "station_id": station_id, "agency": meta.agency,
+            "license": meta.license, "attribution": meta.attribution,
+            "fetch_note": "", "requested": None, "n": 0, "error": str(exc), "browser_unreachable": True,
+        }
     if store is not None:
         store["series"] = fetched["series"]
         store["source"], store["station_id"] = source, station_id
