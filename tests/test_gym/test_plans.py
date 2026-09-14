@@ -385,7 +385,7 @@ def test_rescore_reads_the_stored_plans_again_without_running_the_agent(tmp_path
     by_case = {r.case_id: r.score for r in again}
     assert by_case["flood_inundation_declined_potomac"] == 1.0
     # the composed plan carries the two regional steps, which the easier reference counts as extraneous
-    assert by_case["offtree_atsite_vs_regional_potomac"] == pytest.approx(0.95, abs=0.01)
+    assert by_case["offtree_atsite_vs_regional_potomac"] == pytest.approx(0.94, abs=0.01)
     assert again[0].explain and all(r.decline_correct for r in again)
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "plans", "rescore", str(out)])
     cli.main()

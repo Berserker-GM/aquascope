@@ -883,7 +883,14 @@ def run_study(
                 payload, ok, error = None, False, f"from_step {src}: {exc}"
         if args is not None:
             payload, ok, error = _run_tool(func, args)
-        gates = evaluate(step.expects, payload)
+        expects = step.expects
+        try:
+            expects = _resolve_results(step.expects, done)
+        except ValueError as exc:
+            # A gate whose reference did not resolve fails with the reason, the step itself still ran.
+            expects = [dict(g, reference=None, unresolved=str(exc)) if isinstance(g, dict) and any(
+                isinstance(v, str) and _RESULT_REF.search(v) for v in g.values()) else g for g in step.expects]
+        gates = evaluate(expects, payload)
         rec = _record(step, step_id, payload, ok, error, gates)
         say({"role": "runner", "step": step_id, "event": "done" if ok else "error",
              "detail": error or _summarise(payload)})

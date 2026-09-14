@@ -102,7 +102,8 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
                     "low_flow_frequency"],
         "tables": ["series", "summary", "annual_maxima", "return_levels", "fdc_percentiles", "trend"],
         "figures": ["series", "annual_maxima", "frequency_curve", "fdc", "trend"],
-        "gates": [{"check": "min_years", "path": "years"}, {"check": "not_empty", "path": "trend"},
+        "gates": [{"check": "sampling_density", "path": "sampling"},
+                  {"check": "min_years", "path": "years"}, {"check": "not_empty", "path": "trend"},
                   {"check": "unit_present", "path": "unit"},
                   {"check": "max_return_period_factor", "path": "years"}],
     },
@@ -112,7 +113,9 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
         "tables": ["return_levels", "annual_maxima", "fit_spread"], "figures": ["frequency_curve", "annual_maxima"],
         "gates": [{"check": "max_return_period_factor", "path": "years"},
                   {"check": "ci_finite", "path": "ffa.fits.gev_bootstrap.ci"},
-                  {"check": "spread_within", "path": "ffa.fits.gev_lmoments.q, ffa.fits.lp3.q"}],
+                  {"check": "spread_within", "path": "ffa.fits.gev_lmoments.q, ffa.fits.lp3.q"},
+                  {"check": "fit_envelopes_max", "path": "ffa"},
+                  {"check": "trend_on_series", "path": "ffa.amax_trend"}],
     },
     "water_quality_samples": {
         "kind": "station", "yields": ["samples"], "tables": ["samples", "sample_counts"],
@@ -122,7 +125,8 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
     "anywhere": {
         "kind": "site", "yields": ["climate", "glofas"], "methods": ["glofas_cross_check", "spei_reanalysis"],
         "tables": ["monthly_climate", "glofas_summary"], "figures": ["monthly_climate", "glofas_series"],
-        "gates": [{"check": "not_empty", "path": "climate"}],
+        "gates": [{"check": "not_empty", "path": "climate"},
+                  {"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T"}],
     },
     "similar_basins": {
         "kind": "site", "yields": ["donors"], "methods": ["similar_basins"],

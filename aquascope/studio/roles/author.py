@@ -429,6 +429,13 @@ def _answer_from(prose: str, key: list[dict[str, Any]], quantities: list[str] | 
             best, best_score = para, score
     if best is not None:
         sentences = [s for s in _SENTENCE.split(best.strip()) if s]
+        # The sentences that speak of the brief's quantities lead (the 100-year flow before the record's mean),
+        # so the answer opens with the number asked for; the order among equals is the paragraph's own.
+        def asked(sentence: str) -> int:
+            low = sentence.lower()
+            return sum(1 for w in words if re.search(rf"\b{re.escape(w)}", low))
+
+        sentences = sorted(sentences, key=lambda sentence: -asked(sentence))
         return " ".join(sentences[:4])
     if key:
         kn = key[0]

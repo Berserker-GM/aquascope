@@ -102,6 +102,12 @@ results:                           # written by the runner, one per step
 Gates live in `aquascope/gates.py`: `evaluate(expects, payload) -> list[dict]`.
 Check vocabulary v1: `min_years`, `max_return_period_factor`, `ci_finite`,
 `spread_within`, `nse_min` (validation split), `kge_min`, `not_empty`,
+`fit_envelopes_max` (the fit at the record maximum's own return period against the
+observed maximum), `sampling_density` (observations a year against the resolution
+claimed), `trend_on_series` (the Mann-Kendall on the series the test names, the
+annual maxima for a flood fit), `cross_check_ratio` (a cross-check against a
+reference number, which may be an earlier step's result: `{{ result.s3.<path> }}`
+in a gate is resolved by the runner),
 `unit_present`, `max_area_km2`, `min_donors`, `status_is` (for sufficiency
 rows). Each check has a `path` (dotted, into the tool payload) and a
 `value`. Version-1 studies (a list of steps, no `version`) keep running.

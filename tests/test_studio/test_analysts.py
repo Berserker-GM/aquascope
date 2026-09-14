@@ -58,9 +58,9 @@ def test_the_run_writes_results_gates_and_the_study_and_skips_figures_without_th
     with patched(RECON, tools=fake_tools(calls)):
         run = analysts.run(ws, None)
     assert run.ok and ws.run["ok"] and ws.run["stopped_at"] is None and ws.run["replans"] == 0
-    assert [r["id"] for r in ws.run["results"]] == ["s1", "s2", "s3"] and len(ws.run["gates"]) == 7
+    assert [r["id"] for r in ws.run["results"]] == ["s1", "s2", "s3", "s4"] and len(ws.run["gates"]) == 12
     assert ws.run["failed_gates"] == [] and ws.study["results"]["s3"]["ok"]
-    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     kinds = [(e["role"], e["event"]) for e in ws.events]
     assert ("analyst", "figures_skipped") in kinds and ("runner", "done") in kinds and ("reviewer", "gate") in kinds
     assert ("analyst", "gates") in kinds and ws.artifacts == []
@@ -92,10 +92,11 @@ def test_figures_and_tables_are_made_per_step_when_the_makers_exist(monkeypatch)
     streamed: list = []
     with patched(RECON):
         analysts.run(ws, None, on_artifact=streamed.append)
-    assert [m[1] for m in made if m[0] == "fig"] == ["s1", "s2", "s3"] and made[2][3] == "m3/s"
+    assert [m[1] for m in made if m[0] == "fig"] == ["s1", "s2", "s3", "s4"] and made[2][3] == "m3/s"
     assert made[2][4] == {"lat": 51.415, "lon": -0.308}
     ids = sorted(a.id for a in ws.artifacts)
-    assert ids == ["s1_series", "s1_table", "s2_series", "s2_table", "s3_table"], "a maker's error skips one figure"
+    assert ids == ["s1_series", "s1_table", "s2_series", "s2_table", "s3_table", "s4_series", "s4_table"], \
+        "a maker's error skips one figure"
     assert [a.id for a in streamed] == [a.id for a in ws.artifacts]
     assert ws.artifact("s1_table").data == b"abc" and ws.artifact("s2_series").step == "s2"
     assert any(e["event"] == "figures_skipped" and e["step"] == "s3" and "matplotlib" in e["detail"]
@@ -115,7 +116,8 @@ def test_a_failed_gate_runs_the_playbooks_fallback_then_the_specialists_proposal
         run = analysts.run(ws, None)
     assert not run.ok and run.stop_reason is None and ws.run["stopped_at"] is None
     failed_steps = ws.run["failed_steps"]
-    assert [f["id"] for f in failed_steps] == ["s3"] and "spread_within" in failed_steps[0]["reason"]
+    assert [f["id"] for f in failed_steps if not f["skipped"]] == ["s3"]
+    assert "spread_within" in failed_steps[0]["reason"] and failed_steps[1]["id"] == "s4", "s4 waits on s3"
     assert ws.run["summary"]["failed"] == 1 and ws.run["summary"]["planned"] == len(ws.run["results"])
     assert ws.run["results"][2]["fallback_used"] and ws.run["results"][2]["fallback"]["tool"] == "similar_basins"
     assert ws.run["replans"] == 0, "keyless: no specialist"
@@ -130,14 +132,16 @@ def test_a_failed_gate_runs_the_playbooks_fallback_then_the_specialists_proposal
     with patched(RECON, tools=fake_tools(calls2, flood_frequency=wide, analyze_station=wide,
                                          similar_basins={"k": 1, "stations": []})):
         run2 = analysts.run(ws2, model)
-    assert run2.ok and run2.stop_reason is None and ws2.run["replans"] == 1
+    assert not run2.ok and run2.stop_reason is None and ws2.run["replans"] == 1
+    assert [f["id"] for f in run2.failed_steps] == ["s4"], "the cross-check cannot compare with a replaced fit"
     assert ws2.study["plan"]["replans"][0]["fallback"]["tool"] == "anywhere"
     assert ws2.study["steps"][2]["fallback"]["step"]["tool"] == "anywhere"
     r3 = ws2.run["results"][2]
     assert r3["fallback"]["tool"] == "anywhere" and r3["fallback"]["ok"] and r3["fallback"]["gates_passed"]
     assert [c[0] for c in calls2] == ["describe_catchment", "analyze_station", "flood_frequency", "similar_basins",
-                                      "flood_frequency", "anywhere"], "passed steps are reused"
-    assert ws2.ledger["analyst"]["calls"] == 1 and client.requests[0]["context"]["failed_step"]["id"] == "s3"
+                                      "flood_frequency", "anywhere", "anywhere"], "passed steps are reused"
+    assert ws2.ledger["analyst"]["calls"] == 2, "one proposal for s3, one (empty) for the cross-check s4"
+    assert client.requests[0]["context"]["failed_step"]["id"] == "s3"
     assert any(e["event"] == "replan" and e["role"] == "analyst" for e in ws2.events)
 
 
@@ -152,7 +156,7 @@ def test_a_proposal_that_fails_the_validator_is_refused(no_deliverables):
                                          similar_basins={"k": 1, "stations": []})):
         run = analysts.run(ws, model)
     assert not run.ok and run.stop_reason is None and ws.run["replans"] == 0, "a refused proposal is not a replan"
-    assert [f["id"] for f in run.failed_steps] == ["s3"], "the step stays not established"
+    assert [f["id"] for f in run.failed_steps if not f["skipped"]] == ["s3"], "the step stays not established"
     assert any(e["event"] == "no_fallback" and "bogus" in e["detail"] for e in ws.events)
 
 
@@ -180,10 +184,11 @@ def test_prior_results_are_reused_unless_the_gates_changed(no_deliverables):
     with patched(RECON, tools=fake_tools(calls)):
         analysts.run(ws, None)
         prior = analysts.prior_run(ws)
-        assert prior is not None and len(prior.results) == 3
+        assert prior is not None and len(prior.results) == 4
         methodologist.change(ws, None, "T = 50", intake={"return_period": 50})
         analysts.run(ws, None, prior=prior)
-    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "flood_frequency"]
+    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere",
+                                     "flood_frequency", "anywhere"]
     gate = next(g for g in ws.run["gates"] if g["check"] == "max_return_period_factor")
     assert "T = 50 years" in gate["detail"]
 

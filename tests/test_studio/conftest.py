@@ -60,7 +60,12 @@ SIGNATURES = {"latitude": 51.415, "longitude": -0.308, "method": "similarity", "
 ANYWHERE = {"latitude": 51.415, "longitude": -0.308, "start": "2006-01-01", "end": "2026-01-01",
             "climate": {"precipitation_mm_per_year": 700.0, "et0_mm_per_year": 600.0, "aridity_index": 1.17,
                         "aridity_class": "humid"},
-            "glofas": {"stats": {"mean": 60.0}}, "attribution": "Open-Meteo"}
+            "glofas": {"stats": {"mean": 60.0},
+                       "ffa": {"return_periods": [2, 5, 10, 25, 50, 100],
+                               "fits": {"gev_lmoments": {"q": [260, 340, 395, 460, 505, 560],
+                                                         "q_by_T": {"2": 260, "5": 340, "10": 395, "25": 460,
+                                                                    "50": 505, "100": 560}}}}},
+            "attribution": "Open-Meteo"}
 
 SUPPLY = {"mode": "gauged", "source": "uk_ea", "station_id": "3400TH", "years": 39.9, "start": "1986-08-17",
           "end": "2026-08-15", "unit": "m3/s", "fdc": {"q95": 12.3, "q50": 38.7, "q10": 141.0}, "bfi": 0.71,

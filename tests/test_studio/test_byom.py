@@ -118,7 +118,7 @@ def test_a_proposed_plan_with_nothing_valid_falls_back_to_the_tree(studio_factor
     assert r.kind == "report" and r.payload["plan_used"] == "tree" and r.payload["plan_errors"]
     assert ws.study["plan"]["author"] == "playbook" and ws.study["plan"]["branch"] == "at_site"
     assert ws.study["plan"]["proposal"]["used"] == "tree" and ws.study["plan"]["proposal"]["source"] == "gemma"
-    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     assert any(e["event"] == "fallback" and "gemma" in e["detail"] for e in ws.events)
     s2, _ = studio_factory()
     s2.say(PROBLEM)
@@ -315,12 +315,12 @@ def test_follow_ups_add_steps_without_a_model(studio_factory):
     n = len(calls)
     r = s.follow_up("add the flow duration curve and a trend test")
     assert r.kind == "report" and [st["id"] + ":" + st["tool"] for st in ws.study["steps"]] == [
-        "s1:describe_catchment", "s2:analyze_station", "s3:flood_frequency", "s4:low_flow_context",
-        "s5:analyze_station"]
-    assert ws.study["steps"][4]["method"] == "trend_mann_kendall" and ws.study["plan"]["added"] == ["s4", "s5"]
+        "s1:describe_catchment", "s2:analyze_station", "s3:flood_frequency", "s4:anywhere", "s5:low_flow_context",
+        "s6:analyze_station"]
+    assert ws.study["steps"][5]["method"] == "trend_mann_kendall" and ws.study["plan"]["added"] == ["s5", "s6"]
     assert [c[0] for c in calls[n:]] == ["low_flow_context", "analyze_station"], "the earlier steps are reused"
-    assert ws.follow_ups[-1]["kind"] == "change" and ws.follow_ups[-1]["steps"][-1] == "s5"
-    assert len(ws.study["plan"]["methodology"]) == 5
+    assert ws.follow_ups[-1]["kind"] == "change" and ws.follow_ups[-1]["steps"][-1] == "s6"
+    assert len(ws.study["plan"]["methodology"]) == 6
     assert any(k["label"] == "Baseflow index" for k in ws.report["key_numbers"])
     r = s.follow_up("compare with the donors")
     assert [st["tool"] for st in ws.study["steps"]][-2:] == ["similar_basins", "regionalize_signatures"]
@@ -333,7 +333,7 @@ def test_follow_ups_add_steps_without_a_model(studio_factory):
     r = s.follow_up("and the baseflow, plus the GloFAS cross-check")
     assert [st["tool"] for st in ws.study["steps"]][-2:] == ["low_flow_context", "anywhere"]
     assert ws.study["steps"][-2]["method"] == "baseflow_separation"
-    assert [st["id"] for st in ws.study["steps"]] == [f"s{i}" for i in range(1, 12)]
+    assert [st["id"] for st in ws.study["steps"]] == [f"s{i}" for i in range(1, 13)]
     assert ws.status == "done" and ws.run["ok"]
 
 
@@ -347,12 +347,12 @@ def test_a_return_period_change_carries_the_added_steps_and_unknown_requests_are
     r = s.follow_up("redo it with a 50-year return period")
     assert r.kind == "report" and ws.brief.intake["return_period"] == 50
     assert [st["tool"] for st in ws.study["steps"]] == ["describe_catchment", "analyze_station", "flood_frequency",
-                                                        "low_flow_context"]
-    assert ws.study["plan"]["added"] == ["s4"] and [c[0] for c in calls[n:]] == ["flood_frequency"]
+                                                        "anywhere", "low_flow_context"]
+    assert ws.study["plan"]["added"] == ["s5"] and [c[0] for c in calls[n:]] == ["flood_frequency", "anywhere"]
     r = s.follow_up("add a rainfall-runoff model instead")
     assert r.kind == "answer" and "cannot add that without a model" in r.text and "another gauge" in r.text
     assert ws.follow_ups[-1]["kind"] == "change" and ws.status == "done"
-    assert len(ws.study["steps"]) == 4, "the plan is untouched"
+    assert len(ws.study["steps"]) == 5, "the plan is untouched"
     s2, _ = studio_factory()
     s2.say(PROBLEM)
     s2.approve()

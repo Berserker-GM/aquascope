@@ -21,8 +21,8 @@ def test_keyless_end_to_end_say_plan_approve_report_export(studio_factory, tmp_p
     assert calls == [], "nothing runs before the approval"
     r2 = s.approve()
     ws = s.workspace
-    assert r2.kind == "report" and ws.status == "done" and r2.text.startswith("The record at Kingston")
-    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert r2.kind == "report" and ws.status == "done" and r2.text.startswith("The 100-year return level")
+    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     report = r2.payload["report"]
     assert [x["id"] for x in report["sections"]][:5] == ["summary", "problem", "site_data", "methodology", "results-s1"]
     assert any(k["label"].startswith("100-year return level") and k["value"] == 520 for k in report["key_numbers"])
@@ -78,7 +78,7 @@ def test_the_brief_can_change_at_review_and_edits_are_revalidated(studio_factory
     bad = s.approve(edits={"s2": {"arguments": {"nope": 1}}})
     assert bad.kind == "plan" and bad.payload["errors"] and s.workspace.status == "review"
     good = s.approve(edits={"s1": None, "s3": {"arguments": {"bootstrap_ci": False}}})
-    assert good.kind == "report" and [c[0] for c in calls] == ["analyze_station", "flood_frequency"]
+    assert good.kind == "report" and [c[0] for c in calls] == ["analyze_station", "flood_frequency", "anywhere"]
     assert calls[1][1] == {"source": "uk_ea", "station_id": "3400TH", "bootstrap_ci": False}
     assert s.workspace.study["plan"]["edited"] is True
 
@@ -86,7 +86,7 @@ def test_the_brief_can_change_at_review_and_edits_are_revalidated(studio_factory
 def test_say_approve_word_at_review_runs(studio_factory):
     s, calls = studio_factory()
     s.say(PROBLEM)
-    assert s.say("approve").kind == "report" and len(calls) == 3
+    assert s.say("approve").kind == "report" and len(calls) == 4
 
 
 def test_follow_up_question_and_change(studio_factory):
@@ -95,11 +95,12 @@ def test_follow_up_question_and_change(studio_factory):
     s.approve()
     q = s.follow_up("how sure can we be?")
     assert q.kind == "question" or q.kind == "answer"
-    assert "520" in q.text and s.workspace.follow_ups[-1]["kind"] == "question" and len(calls) == 3
+    assert "520" in q.text and s.workspace.follow_ups[-1]["kind"] == "question" and len(calls) == 4
     c = s.follow_up("redo it with a 50-year return period")
     assert c.kind == "report" and s.workspace.status == "done"
     assert s.workspace.brief.intake["return_period"] == 50 and s.workspace.follow_ups[-1]["kind"] == "change"
-    assert [x[0] for x in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "flood_frequency"]
+    assert [x[0] for x in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere",
+                                     "flood_frequency", "anywhere"]
     assert any("50-year" in k["label"] for k in c.payload["report"]["key_numbers"])
     assert "T = 50" in next(g["detail"] for g in s.workspace.run["gates"] if g["check"] == "max_return_period_factor")
     assert s.say("and a 20-year return period?").kind == "report", "say() after the report is a follow-up"
@@ -118,7 +119,7 @@ def test_checkpoint_and_resume_mid_way(studio_factory):
     with patched(tools=fake_tools(calls2)):
         s2 = Studio.from_dict(json.loads(text), tools=fake_tools(calls2))
         r = s2.approve()
-    assert r.kind == "report" and calls == [] and len(calls2) == 3
+    assert r.kind == "report" and calls == [] and len(calls2) == 4
     assert s2.workspace.id == s.workspace.id and s2.workspace.brief.problem == PROBLEM
     with patched(tools=fake_tools(calls2)):
         s3 = Studio.from_dict(s2.to_dict(with_artifacts=False), tools=fake_tools(calls2))

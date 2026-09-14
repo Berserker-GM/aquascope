@@ -214,7 +214,7 @@ def test_station_view_passes_an_error_straight_through() -> None:
 
 def test_solve_tools_plan_then_run_with_no_model():
     import aquascope.explore
-    from tests.test_ai_engine.test_team import CATCHMENT, FLOW, RECON
+    from tests.test_ai_engine.test_team import CATCHMENT, FLOW, GLOFAS, RECON
 
     listed = m.list_playbooks()
     assert listed["n"] == 7 and {p["id"] for p in listed["playbooks"]} == {
@@ -222,12 +222,12 @@ def test_solve_tools_plan_then_run_with_no_model():
         "irrigation_feasibility", "water_quality"}
     assert "error" in m.describe_playbook("nope") and m.describe_playbook("flood_risk")["id"] == "flood_risk"
     tools = {"describe_catchment": lambda **kw: CATCHMENT, "analyze_station": lambda **kw: FLOW,
-             "flood_frequency": lambda **kw: FLOW}
+             "flood_frequency": lambda **kw: FLOW, "anywhere": lambda **kw: {"glofas": GLOFAS}}
     with patch.object(aquascope.explore, "assess_site", create=True, return_value=RECON), \
          patch("aquascope.study._tools", return_value=tools):
         plan = m.solve_plan("Design flow for a road crossing, 100-year return period", 51.415, -0.308)
         assert not plan["declined"] and plan["playbook"] == "flood_risk" and plan["branch"] == "at_site"
-        assert plan["n_steps"] == 3 and plan["study"]["version"] == 2 and plan["recon"]["donors"] == 8
+        assert plan["n_steps"] == 4 and plan["study"]["version"] == 2 and plan["recon"]["donors"] == 8
         edited = dict(plan["study"])
         edited["steps"] = [s for s in edited["steps"] if s["id"] != "s1"]
         run = m.solve_run(edited)

@@ -76,7 +76,7 @@ def test_the_files_stay_within_the_yaml_subset_the_browser_reads():
 
 @pytest.mark.parametrize("pid, site, intake, branch, tools", [
     ("flood_risk", LONG, {"return_period": 100}, "at_site",
-     ["describe_catchment", "analyze_station", "flood_frequency"]),
+     ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]),
     ("flood_risk", SHORT, {"return_period": 100}, "short_record",
      ["describe_catchment", "analyze_station", "similar_basins", "regionalize_signatures", "anywhere"]),
     ("flood_risk", UNGAUGED, {"return_period": 100}, "regional",
@@ -231,14 +231,22 @@ def test_a_gauged_branch_without_its_station_is_an_authoring_error():
 def test_the_study_a_playbook_emits_runs_with_no_model():
     study = pbk.plan("flood_risk", LONG, {"return_period": 100})
     payload = {"source": "uk_ea", "station_id": "3400TH", "unit": "m3/s", "years": 39.9, "trend": {"p_value": 0.3},
+               "sampling": {"n": 14555, "span_years": 39.9, "per_year": 364.8, "inferred_resolution": "daily"},
                "ffa": {"return_periods": [2, 5, 10, 25, 50, 100],
-                       "fits": {"gev_lmoments": {"q": [1, 2, 3, 4, 5, 6]}, "lp3": {"q": [1, 2, 3, 4, 5, 6.5]},
+                       "record_max": {"value": 5.5, "year": 2000, "empirical_return_period": 40.0, "n_years": 39},
+                       "amax_trend": {"on": "annual maxima", "p_value": 0.5, "tau": 0.0},
+                       "fits": {"gev_lmoments": {"q": [1, 2, 3, 4, 5, 6], "at_record_max": 4.8,
+                                                 "q_by_T": {"100": 6}},
+                                "lp3": {"q": [1, 2, 3, 4, 5, 6.5], "at_record_max": 4.9},
                                 "gev_bootstrap": {"q": [1, 2, 3, 4, 5, 6], "ci": [[5, 7]] * 6}}}}
+    glofas = {"climate": {"aridity_index": 1.0},
+              "glofas": {"ffa": {"return_periods": [100], "fits": {"gev_lmoments": {"q_by_T": {"100": 6.6}}}}}}
     tools = {"describe_catchment": lambda **kw: {"sub_basin": {"hybas_id": 1}, "attributes": {}},
-             "analyze_station": lambda **kw: payload, "flood_frequency": lambda **kw: payload}
+             "analyze_station": lambda **kw: payload, "flood_frequency": lambda **kw: payload,
+             "anywhere": lambda **kw: glofas}
     with patch("aquascope.study._tools", return_value=tools):
         run = run_study(study)
-    assert run.ok and all(g["passed"] for g in run.gates) and len(run.gates) == 7
+    assert run.ok and all(g["passed"] for g in run.gates) and len(run.gates) == 12
     assert "gate spread_within: passed" in run.to_markdown()
 
 
@@ -431,6 +439,21 @@ FLOW = {"source": "uk_ea", "station_id": "3400TH", "name": "Kingston", "unit": "
         "start": "1986-08-17", "end": "2026-08-15", "years": 39.9, "stats": {"mean": 65.2, "min": 3.1, "max": 520.0},
         "fdc": {"q95": 12.3, "q50": 43.0, "q10": 148.0}}
 
+# The reviewer's-eye fields the flood payload carries since #416: the sampling block, the record maximum with the
+# fit evaluated at its own return period, the quantiles by return period and the trend on the annual maxima.
+FLOW["sampling"] = {"n": 14555, "span_years": 39.9, "per_year": 364.8, "inferred_resolution": "daily"}
+FLOW.setdefault("ffa", {"n_years": 39, "return_periods": [2, 5, 10, 25, 50, 100],
+                        "fits": {"gev_lmoments": {"q": [250, 330, 380, 440, 480, 520]},
+                                 "lp3": {"q": [252, 335, 388, 452, 500, 548]}}})
+FLOW["ffa"]["record_max"] = {"value": 520.0, "year": 2014, "empirical_return_period": 40.0, "n_years": 39}
+FLOW["ffa"]["amax_trend"] = {"on": "annual maxima", "p_value": 0.37, "tau": 0.08, "trend": "no trend",
+                             "sens_slope_per_year": 0.4, "n_years": 39}
+for _fit in FLOW["ffa"]["fits"].values():
+    if isinstance(_fit, dict) and _fit.get("q"):
+        _fit["q_by_T"] = {f"{t:g}": v for t, v in zip(FLOW["ffa"]["return_periods"], _fit["q"])}
+        _fit["at_record_max"] = round(_fit["q"][3] + 0.6 * (_fit["q"][4] - _fit["q"][3]), 1)
+
+
 
 def _solve(text, recon_value, tools, **kw):
     calls = []
@@ -614,14 +637,14 @@ def test_a_compound_flood_brief_gets_the_regional_estimate_as_required_steps():
 
     ref, recon = _gym_case("offtree_atsite_vs_regional_potomac")
     alone = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief, compose=False)
-    assert [s.tool for s in alone.steps] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert [s.tool for s in alone.steps] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief)
     tools = [s.tool for s in study.steps]
-    assert tools == ["describe_catchment", "analyze_station", "flood_frequency", "similar_basins",
+    assert tools == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere", "similar_basins",
                      "regionalize_signatures"], "the ungauged regional branch adds its two estimate steps once"
-    assert [s.id for s in study.steps] == ["s1", "s2", "s3", "s4", "s5"]
+    assert [s.id for s in study.steps] == ["s1", "s2", "s3", "s4", "s5", "s6"]
     comp = study.plan["companions"]
-    assert comp == [{"playbook": "ungauged_flow", "branch": "regional", "steps": ["s4", "s5"],
+    assert comp == [{"playbook": "ungauged_flow", "branch": "regional", "steps": ["s5", "s6"],
                      "rationale": comp[0]["rationale"]}]
     assert study.plan["compound"] and "side by side" in study.plan["rationale"]
     assert study.plan["playbook"] == "flood_risk" and study.plan["branch"] == "at_site"
@@ -657,7 +680,7 @@ def test_a_companion_that_cannot_plan_here_leaves_a_note_and_the_primary_plan_st
     ref, recon = _gym_case("flood_at_site_potomac")
     text = ref.brief + " Also, is the water table under the site falling, and how fast? Use the borehole."
     study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=text)
-    assert [s.tool for s in study.steps][:3] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert [s.tool for s in study.steps][:4] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     notes = study.plan.get("notes") or []
     comp = study.plan.get("companions") or []
     assert comp or any("groundwater decline" in n for n in notes), "the branch was added or the reason is noted"

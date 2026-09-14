@@ -664,6 +664,7 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
     }
     if not len(s):
         return out
+    out["sampling"] = _sampling(int(len(s)), float(out["years"]))
 
     # hydrograph: daily means, capped at ~25k points for the browser
     daily = s.resample("D").mean().dropna()
@@ -688,19 +689,32 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
 
         if len(am) >= MIN_YEARS_FOR_FFA:
             ffa: dict[str, Any] = {"n_years": int(len(am)), "return_periods": rps, "fits": {}}
+            # The record maximum and its Weibull plotting position, T = (n + 1) / 1: the fits are also evaluated
+            # there, so a gate can say whether the largest observed event sits inside the fit (#416).
+            n_am = int(len(am))
+            t_max = float(n_am + 1)
+            i_max = int(am.values.argmax())
+            ffa["record_max"] = {"value": _clean(float(am.values[i_max])), "year": int(am.index[i_max].year),
+                                 "empirical_return_period": t_max, "n_years": n_am,
+                                 "plotting_position": "Weibull, T = (n + 1) / rank"}
+            rps_plus = [*rps, t_max] if t_max not in rps else list(rps)
             try:
-                g = fit_gev_lmoments(am, return_periods=rps)
+                g = fit_gev_lmoments(am, return_periods=rps_plus)
                 ffa["fits"]["gev_lmoments"] = {
                     "q": [_clean(float(g.return_periods[rp])) for rp in rps],
+                    "q_by_T": {f"{rp:g}": _clean(float(g.return_periods[rp])) for rp in rps},
+                    "at_record_max": _clean(float(g.return_periods[t_max])),
                     "params": [_clean(float(p)) for p in g.params],
                 }
                 out["methods"].append(METHODS["gev_lmoments"])
             except Exception as exc:  # noqa: BLE001
                 ffa["fits"]["gev_lmoments"] = {"error": str(exc)}
             try:
-                lp3 = fit_lp3(am, return_periods=rps, ci_level=0.90)
+                lp3 = fit_lp3(am, return_periods=rps_plus, ci_level=0.90)
                 ffa["fits"]["lp3"] = {
                     "q": [_clean(float(lp3.return_periods[rp])) for rp in rps],
+                    "q_by_T": {f"{rp:g}": _clean(float(lp3.return_periods[rp])) for rp in rps},
+                    "at_record_max": _clean(float(lp3.return_periods[t_max])),
                     "ci": [[_clean(float(a)), _clean(float(b))] for a, b in
                            (lp3.confidence_intervals.get(rp, (float("nan"), float("nan"))) for rp in rps)],
                     "params": [_clean(float(p)) for p in lp3.params],
@@ -708,6 +722,24 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
                 out["methods"].append(METHODS["lp3"])
             except Exception as exc:  # noqa: BLE001
                 ffa["fits"]["lp3"] = {"error": str(exc)}
+            # A stationary fit assumes the maxima have no trend; the pre-test on annual means says nothing
+            # about that, so the maxima get their own Mann-Kendall (#416).
+            if n_am >= 8:
+                try:
+                    from aquascope.analysis.trends import mann_kendall, sens_slope
+
+                    mk_am = mann_kendall(am.values)
+                    sl_am = sens_slope(am.values)
+                    ffa["amax_trend"] = {
+                        "on": "annual maxima",
+                        "p_value": _clean(float(mk_am.p_value)),
+                        "tau": _clean(float(mk_am.tau)),
+                        "trend": str(mk_am.trend),
+                        "sens_slope_per_year": _clean(float(sl_am.slope)),
+                        "n_years": int(mk_am.n_samples),
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    logger.info("amax trend skipped: %s", exc)
             out["ffa"] = ffa
         else:
             out["notes"].append(
@@ -740,6 +772,25 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
         except Exception as exc:  # noqa: BLE001
             logger.info("trend skipped: %s", exc)
     return out
+
+
+#: Observations a year that a resolution label implies, and the floor a record must reach to be called that
+#: (about 55 %, so gaps do not turn a daily record into a weekly one).
+RESOLUTION_PER_YEAR: dict[str, float] = {"daily": 365.0, "weekly": 52.0, "monthly": 12.0, "quarterly": 4.0,
+                                          "annual": 1.0}
+
+
+def _sampling(n: int, years: float) -> dict[str, Any]:
+    """How densely a record is sampled: observations, span, observations a year, and the resolution that rate
+    implies. A payload carries it so a gate (``sampling_density``) can refuse "assumed daily" over five a year."""
+    per_year = (n / years) if years and years > 0 else float(n)
+    inferred = "sparse"
+    for label in ("daily", "weekly", "monthly", "quarterly", "annual"):
+        if per_year >= 0.55 * RESOLUTION_PER_YEAR[label]:
+            inferred = label
+            break
+    return {"n": int(n), "span_years": _clean(float(years)), "per_year": _clean(round(float(per_year), 2)),
+            "inferred_resolution": inferred}
 
 
 def _return_periods(return_periods: Any) -> list[Any]:
