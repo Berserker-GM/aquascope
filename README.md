@@ -51,8 +51,11 @@ Press **Ask ✨** to type a question in plain language (bring your own key, Groq
 tools, aquascope runs them in your browser, and the answer ends with the data used and the methods with citations.
 Press **Study** (or "Study this place" on any gauge or point) to hand a whole problem to a crew of roles: it writes the
 brief with you, inventories the data in reach and the table you drop in, proposes a methodology you approve, runs it with
-a check after every step, and hands back a zip with a Word report, an Excel workbook, PNG and SVG figures, a notebook that
-re-runs the study and the study.yaml. Keyless it still does all of that from the playbooks, and with the on-device
+a check after every step (a failed check fails that step, the rest still runs), reads the results the way an engineer
+would (findings that each point at the number they rest on, a decision with its band and a grade, what would change it,
+the data it would ask for), asks for data instead of declining when a table of yours would unlock the question, and
+hands back a zip with a Word report, an Excel workbook, PNG and SVG figures, a notebook that re-runs the study and the
+study.yaml. Keyless it still does all of that from the playbooks, and with the on-device
 model Ask already loads it plans and writes on your machine; your own key puts a model behind every role. Twelve
 recorded studies on the board show what a full run looks like and re-run live in your browser ([docs](docs/studio.md)).
 Not a Python user? The same files open in [R, QGIS, DuckDB and Julia](docs/readers.md) in place; `integrations/qgis/` has a
@@ -68,7 +71,7 @@ MCP client) `find_stations`, `get_timeseries`, `analyze_station` and `flood_freq
 - 📈 **Run hydrological analyses** — Bulletin 17C flood frequency (GEV / LP3 / Gumbel / non-stationary GEV / EMA), baseflow separation, rating curves, 22 hydrological signatures.
 - 🌾 **Plan agricultural water** — FAO-56 Penman-Monteith ET₀, crop water requirements for 26 crops, irrigation scheduling, soil water balance with auto-irrigation.
 - 🤖 **Ask the AI engine** — describe your goal in plain English and get a recommended methodology, scored against your dataset profile and auto-executed. LLM enhancement via OpenAI, Groq (free), HuggingFace (free), or local Ollama.
-- 🧑‍🔬 **Hand a study to the crew** — `aquascope studio "PROBLEM" --lat --lon`: a Consultant, a Scout, a Methodologist, Analysts, a Critic and an Author over one workspace, the plan shown before it runs, every step gated, and the bundle (Word, Excel, figures, notebook, study.yaml) at the end. Also in the Explorer and over MCP.
+- 🧑‍🔬 **Hand a study to the crew** — `aquascope studio "PROBLEM" --lat --lon`: a Consultant, a Scout, a Methodologist, Analysts, an Interpreter, a Critic and an Author over one workspace, the plan shown before it runs, every step gated (a failed gate fails its step, not the study), every answer graded (established, indicative, screening, not established) with findings that point at the result they rest on, a request for the data that would unlock a question instead of a decline, and the bundle (Word, Excel, figures, notebook, findings.json, study.yaml) at the end. Also in the Explorer and over MCP.
 - 📊 **Visualise + report** — 16 plot types, Q-Q / P-P diagnostics, Markdown / HTML reports with embedded figures, threshold alerts (WHO / EPA / EU WFD).
 - 🗺️ **Spatial hydrology** — DEM processing, D8 flow direction, watershed delineation, Strahler ordering.
 
