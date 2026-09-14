@@ -252,9 +252,14 @@ def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool, str
 
     if name == "spread_within":
         paths = list(gate.get("paths") or ([path] if path else []))
+        if len(paths) == 1 and "," in str(paths[0]):
+            # a model often writes the two paths in one string, as the catalogue lists them
+            paths = [p.strip() for p in str(paths[0]).split(",") if p.strip()]
         limit = _number(value)
-        if len(paths) < 2 or limit is None:
-            return False, "spread_within needs two or more paths and a value"
+        if limit is None:
+            limit = 0.25  # the tolerance the flood playbook uses when a plan names none
+        if len(paths) < 2:
+            return False, "spread_within needs two or more paths (paths: [...], or one string with a comma)"
         nums: list[float] = []
         notes: list[str] = []
         for p in paths:

@@ -20,6 +20,7 @@ accepted. Importing this module imports no plotting or document library.
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
@@ -113,7 +114,7 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
         "tables": ["return_levels", "annual_maxima", "fit_spread"], "figures": ["frequency_curve", "annual_maxima"],
         "gates": [{"check": "max_return_period_factor", "path": "years"},
                   {"check": "ci_finite", "path": "ffa.fits.gev_bootstrap.ci"},
-                  {"check": "spread_within", "path": "ffa.fits.gev_lmoments.q, ffa.fits.lp3.q"},
+                  {"check": "spread_within", "paths": ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"], "value": 0.25},
                   {"check": "fit_envelopes_max", "path": "ffa"},
                   {"check": "trend_on_series", "path": "ffa.amax_trend"}],
     },
@@ -126,7 +127,9 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
         "kind": "site", "yields": ["climate", "glofas"], "methods": ["glofas_cross_check", "spei_reanalysis"],
         "tables": ["monthly_climate", "glofas_summary"], "figures": ["monthly_climate", "glofas_series"],
         "gates": [{"check": "not_empty", "path": "climate"},
-                  {"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T"}],
+                  {"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T",
+                   "reference": "{{ result.<the flood_frequency step>.ffa.fits.gev_lmoments.q_by_T }}",
+                   "value": 0.5}],
     },
     "similar_basins": {
         "kind": "site", "yields": ["donors"], "methods": ["similar_basins"],
@@ -509,4 +512,51 @@ def validate_plan(steps: list[dict[str, Any]], *, sufficiency: list[dict[str, An
         errors += validate_step(step, known_ids=set(seen), sufficiency=sufficiency, repair=repair,
                                 stations=stations)
         seen.add(str(sid))
+    if repair:
+        repair_cross_checks(steps)
     return errors
+
+
+_PLACEHOLDER = re.compile(r"<[^>]+>")
+
+
+def repair_cross_checks(steps: list[dict[str, Any]]) -> list[str]:
+    """A ``cross_check_ratio`` gate needs a ``reference`` that points at an earlier step's result. A model
+    writes the catalogue's template (``{{ result.<the flood_frequency step>... }}``) or nothing: the
+    placeholder is filled with the latest earlier flood step, the return period is taken from that step's
+    own gate when the cross-check names none, and a cross-check with no flood step to compare with loses the
+    gate and keeps a note. Returns the notes."""
+    notes: list[str] = []
+    flood_ids: list[str] = []
+    for step in steps:
+        sid = str(step.get("id") or "")
+        for g in step.get("expects") or []:
+            if not isinstance(g, dict) or g.get("check") != "cross_check_ratio":
+                continue
+            ref = g.get("reference")
+            if isinstance(ref, str) and "{{" in ref and not _PLACEHOLDER.search(ref):
+                continue
+            if not flood_ids:
+                step["expects"] = [x for x in step["expects"] if x is not g]
+                note = f"step {sid}: cross_check_ratio dropped, no earlier flood_frequency step to compare with"
+                step.setdefault("notes", []).append(note)
+                notes.append(note)
+                continue
+            target = flood_ids[-1]
+            if isinstance(ref, str) and "{{" in ref:
+                g["reference"] = _PLACEHOLDER.sub(target, ref)
+            else:
+                g["reference"] = f"{{{{ result.{target}.ffa.fits.gev_lmoments.q_by_T }}}}"
+            if g.get("return_period") is None:
+                flood = next((st for st in steps if str(st.get("id")) == target), {})
+                rp = next((x.get("return_period") for x in flood.get("expects") or []
+                           if isinstance(x, dict) and x.get("return_period") is not None), None)
+                if rp is not None:
+                    g["return_period"] = rp
+            if not any(str(d) == target for d in step.get("depends_on") or []):
+                step["depends_on"] = [*(step.get("depends_on") or []), target]
+            notes.append(f"step {sid}: cross_check_ratio compares with {target}")
+        tool, method = str(step.get("tool")), str(step.get("method") or "")
+        if tool == "flood_frequency" or (tool == "analyze_station" and method == "at_site_flood_frequency"):
+            flood_ids.append(sid)
+    return notes

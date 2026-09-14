@@ -68,3 +68,35 @@ def test_the_recorded_kingston_fallback_of_2026_09_07_is_now_refused():
                                 "expects": [{"check": "not_empty", "path": "estimates"}]}}}
     errors = catalogue.validate_step(s4)
     assert any(e.startswith("fallback of step s4") and "is not one of" in e for e in errors)
+
+
+def test_a_spread_gate_written_as_one_comma_string_without_a_value_still_evaluates():
+    from aquascope.gates import evaluate
+
+    fits = {"gev_lmoments": {"q": [250, 520]}, "lp3": {"q": [252, 548]}}
+    payload = {"ffa": {"return_periods": [2, 100], "fits": fits}}
+    gate = {"check": "spread_within", "path": "ffa.fits.gev_lmoments.q, ffa.fits.lp3.q", "return_period": 100}
+    out = evaluate([gate], payload)[0]
+    assert out["passed"] and "spread 5%" in out["detail"] and "25% allowed" in out["detail"]
+    assert catalogue.get("flood_frequency").gates[2]["paths"] == ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"]
+
+
+def test_a_cross_check_gate_without_a_reference_is_pointed_at_the_flood_step_or_dropped():
+    steps = [
+        {"id": "s1", "tool": "flood_frequency", "arguments": {"source": "uk_ea", "station_id": "3400TH"},
+         "expects": [{"check": "max_return_period_factor", "path": "years", "value": 3, "return_period": 100}]},
+        {"id": "s2", "tool": "anywhere", "arguments": {"lat": 51.4, "lon": -0.3},
+         "expects": [{"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T", "value": 0.5}]},
+        {"id": "s3", "tool": "anywhere", "arguments": {"lat": 51.4, "lon": -0.3},
+         "expects": [{"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T",
+                      "reference": "{{ result.<the flood_frequency step>.ffa.fits.gev_lmoments.q_by_T }}"}]},
+    ]
+    assert catalogue.validate_plan(steps) == []
+    g2 = steps[1]["expects"][0]
+    assert g2["reference"] == "{{ result.s1.ffa.fits.gev_lmoments.q_by_T }}" and g2["return_period"] == 100
+    assert steps[1]["depends_on"] == ["s1"]
+    assert steps[2]["expects"][0]["reference"] == "{{ result.s1.ffa.fits.gev_lmoments.q_by_T }}"
+    alone = [{"id": "s1", "tool": "anywhere", "arguments": {"lat": 51.4, "lon": -0.3},
+              "expects": [{"check": "cross_check_ratio", "path": "glofas.ffa.fits.gev_lmoments.q_by_T"}]}]
+    assert catalogue.validate_plan(alone) == [] and alone[0]["expects"] == []
+    assert any("dropped" in n for n in alone[0]["notes"])
