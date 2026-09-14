@@ -180,32 +180,48 @@ def _branch_is_screening(ws: Workspace) -> bool:
                                in _SCREENING_METHODS for s in steps)
 
 
-#: Key numbers that frame a study rather than answer it: never the headline unless nothing else is there.
+#: Key numbers that frame a study rather than answer it: never the headline.
 _FRAMING_LABELS = re.compile(r"^(upstream area|record length|mean of the record|catchment area|area)\b|"
-                             r"interval|p-value|slope|^q\d|tau\b|^n\b|count", re.I)
+                             r"interval|\bcount\b|^donor|^n\b|p-value|\btau\b", re.I)
 _STOP_WORDS = frozenset({"the", "and", "with", "its", "for", "from", "over", "per", "record", "band", "its",
-                         "confidence", "interval", "year", "years", "a", "an", "of", "at", "in", "on", "to"})
+                         "confidence", "interval", "year", "years", "a", "an", "of", "at", "in", "on", "to",
+                         "gauge", "station", "river", "data", "series", "value", "values", "number"})
+#: What each problem kind's answer is called in the key numbers, so a brief with no usable quantity words still
+#: gets the right headline (a flood question gets a return level, never the record's mean; an irrigation
+#: question gets the demand or the reliability, never the flood fit the record also carries).
+_KIND_ANSWERS: dict[str, str] = {
+    "flood_risk": r"return level",
+    "ungauged_flow": r"q95|mean flow|q05|signature|flow",
+    "drought": r"spi|spei|sgi|drought|class",
+    "drought_status": r"spi|spei|sgi|drought|class",
+    "groundwater_decline": r"slope|trend|sgi|recharge|level",
+    "supply_reliability": r"reliab|days|years|deficit|demand",
+    "irrigation": r"demand|requirement|reliab|peak",
+    "irrigation_feasibility": r"demand|requirement|reliab|peak",
+    "water_quality": r"index|wqi|exceed|class",
+}
 
 
 def _headline(ws: Workspace, key: list[dict[str, Any]]) -> dict[str, Any] | None:
     """The key number that answers the brief: the one whose label shares the most words with the brief's
-    quantities (return period, index, reliability, demand), never a framing number when an answer exists."""
+    quantities, then the one the problem kind's answer is called, never a framing number (an area, a record
+    length, a count, an interval bound). None when nothing answers: the decision then says so rather than
+    quoting a number that is not an answer."""
     if not key:
         return None
+    candidates = [kn for kn in key if not _FRAMING_LABELS.search(str(kn.get("label") or ""))]
     words = {w for q in ws.brief.quantities for w in re.findall(r"[a-z0-9-]+", q.lower())
              if len(w) > 2 and w not in _STOP_WORDS}
-    best, best_score = None, 0
-    for kn in key:
+    kind_pattern = _KIND_ANSWERS.get(str(ws.brief.kind or ""), None) or _KIND_ANSWERS.get(str(ws.brief.playbook or ""))
+    best, best_score = None, 0.0
+    for kn in candidates:
         label = str(kn.get("label") or "").lower()
-        if _FRAMING_LABELS.search(label):
-            continue
-        score = sum(1 for w in words if re.search(rf"(?<![a-z0-9]){re.escape(w)}", label))
+        score = float(sum(1 for w in words if re.search(rf"(?<![a-z0-9]){re.escape(w)}", label)))
+        if kind_pattern and re.search(kind_pattern, label, re.I):
+            score += 0.5
         if score > best_score:
             best, best_score = kn, score
-    if best is not None:
-        return best
-    answers = [kn for kn in key if not _FRAMING_LABELS.search(str(kn.get("label") or ""))]
-    return answers[0] if answers else key[0]
+    return best
 
 
 def _primary_step(ws: Workspace, key: list[dict[str, Any]]) -> str | None:
