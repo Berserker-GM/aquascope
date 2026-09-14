@@ -34,7 +34,9 @@ contract; this page is the user's guide.
    (`s3.return_period=200`) or change the brief ("make it a 200-year return
    period") and get a new plan.
 5. **Run.** The Analysts run the steps in order with their gates; a failed
-   gate runs the fallback once, or the plan is replanned once (the playbook's
+   gate runs the fallback once; a step that still fails is recorded as not established and the rest of
+   the plan runs (its dependents are skipped with the reason); each failed step gets its replan or its
+   Specialist fallback once (the playbook's
    branch, or a Specialist's proposal validated against the catalogue).
    Figures and tables are made per step as results land.
 6. **Report.** The Author writes the report from the results; the Critic

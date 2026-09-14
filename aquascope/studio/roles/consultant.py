@@ -424,6 +424,9 @@ def _open(ws: Workspace, model: Model | None, text: str, tables: dict[str, Any] 
         b.intake.setdefault(k, v)
     b.playbook = playbook
     b.kind = known[playbook].problem if playbook else None
+    from aquascope.playbooks import companions
+
+    b.kinds = [k for k in [playbook, *[c for c, _ in companions(text, playbook)]] if k]
     b.source = "rules"
     ws.event("consultant", "keywords", f"rules pick {playbook or 'nothing'}" + (" (ambiguous)" if ambiguous else ""))
 

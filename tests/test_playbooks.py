@@ -578,3 +578,86 @@ def test_the_water_quality_playbook_follows_the_use_and_carries_its_guideline_ca
     unnamed = recon({"water_quality": 7.5}, [dict(WQ_STATION, name=None)])
     assert "listed at USGS-01646500 (usgs USGS-01646500" in pbk.plan("water_quality", unnamed).plan["rationale"]
     assert pbk.select_branch("water_quality", WQ_SITE, {"use": "irrigation"}).id == "irrigation"
+
+
+# ── compound briefs: the tree composes several branches (#383) ──
+
+
+def _gym_case(cid: str):
+    from aquascope.gym.plans import load_reference, recon_for
+
+    ref = load_reference(cid)
+    return ref, recon_for(ref)
+
+
+def test_companions_fire_only_on_a_compound_brief_that_names_another_playbook():
+    from aquascope import playbooks as pbk
+
+    two = ("For the bridge design I want two independent 100-year estimates: the at-site fit and a regional "
+           "estimate transferred from similar gauged catchments. Do they agree?")
+    assert pbk.companions(two, "flood_risk") == [("ungauged_flow", "regional")]
+    three = ("Is the area in drought, has the deficit reached the borehole, and where does the flow sit in its "
+             "record?")
+    assert pbk.companions(three, "drought_status") == [("groundwater_decline", None)]
+    # one question, one playbook: nothing to compose
+    assert pbk.companions("Give me the 100-year design flow with its uncertainty band.", "flood_risk") == []
+    # a compound cue without another playbook's intent named: nothing either
+    assert pbk.companions("Is it in drought, and how severe is this year against the record?", "drought_status") == []
+    # the primary is never its own companion
+    own = "Is the water table falling, and how fast? The borehole is close."
+    assert pbk.companions(own, "groundwater_decline") == []
+    assert pbk.companions("", "flood_risk") == [] and pbk.companions(None, None) == []
+
+
+def test_a_compound_flood_brief_gets_the_regional_estimate_as_required_steps():
+    from aquascope import playbooks as pbk
+
+    ref, recon = _gym_case("offtree_atsite_vs_regional_potomac")
+    alone = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief, compose=False)
+    assert [s.tool for s in alone.steps] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief)
+    tools = [s.tool for s in study.steps]
+    assert tools == ["describe_catchment", "analyze_station", "flood_frequency", "similar_basins",
+                     "regionalize_signatures"], "the ungauged regional branch adds its two estimate steps once"
+    assert [s.id for s in study.steps] == ["s1", "s2", "s3", "s4", "s5"]
+    comp = study.plan["companions"]
+    assert comp == [{"playbook": "ungauged_flow", "branch": "regional", "steps": ["s4", "s5"],
+                     "rationale": comp[0]["rationale"]}]
+    assert study.plan["compound"] and "side by side" in study.plan["rationale"]
+    assert study.plan["playbook"] == "flood_risk" and study.plan["branch"] == "at_site"
+    assert study.problem["params"]["return_period"] == 100
+
+
+def test_a_compound_drought_brief_adds_the_well_trend_and_not_the_helper_steps_of_a_dropped_duplicate():
+    from aquascope import playbooks as pbk
+
+    ref, recon = _gym_case("offtree_drought_well_river_tetbury")
+    study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief)
+    pairs = [(s.tool, s.method) for s in study.steps]
+    assert ("analyze_station", "groundwater_trend") in pairs
+    assert ("sgi_drought", "sgi") not in pairs, "the drought playbook already computes the SGI"
+    assert "get_timeseries" not in [s.tool for s in study.steps], "the series fetch only served the dropped step"
+
+
+def test_a_compound_irrigation_brief_reads_the_demand_the_crop_step_derives():
+    from aquascope import playbooks as pbk
+
+    ref, recon = _gym_case("offtree_supply_crop_vegre")
+    study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=ref.brief)
+    pairs = [(s.tool, s.method) for s in study.steps]
+    assert ("analyze_station", "flow_duration") in pairs, "the river's record in dry years, from the supply playbook"
+    assert pairs.count(("supply_reliability", "supply_reliability")) == 1
+    assert "demand_m3s" not in study.problem["params"], "a derived quantity is not a parameter"
+    assert not any("demand" in n for n in study.plan.get("notes") or [])
+
+
+def test_a_companion_that_cannot_plan_here_leaves_a_note_and_the_primary_plan_stands():
+    from aquascope import playbooks as pbk
+
+    ref, recon = _gym_case("flood_at_site_potomac")
+    text = ref.brief + " Also, is the water table under the site falling, and how fast? Use the borehole."
+    study = pbk.plan(ref.playbook, recon, dict(ref.intake), problem_text=text)
+    assert [s.tool for s in study.steps][:3] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    notes = study.plan.get("notes") or []
+    comp = study.plan.get("companions") or []
+    assert comp or any("groundwater decline" in n for n in notes), "the branch was added or the reason is noted"

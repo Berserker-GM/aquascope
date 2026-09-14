@@ -398,10 +398,23 @@ def _prune(steps: list[dict[str, Any]], ws: Workspace) -> tuple[list[dict[str, A
         if not errors:
             break
         bad: dict[str, str] = {}
+        only_fallback: dict[str, str] = {}
         for e in errors:
             m = _STEP_IN_ERROR.match(e)
-            if m:
+            if not m:
+                continue
+            if e.startswith("fallback of "):
+                only_fallback.setdefault(m.group(1), e)
+            else:
                 bad.setdefault(m.group(1), e)
+        # A step whose only fault is its fallback keeps its place and loses the fallback (#413).
+        stripped = {sid: e for sid, e in only_fallback.items() if sid not in bad}
+        for st in kept:
+            if str(st.get("id")) in stripped and st.get("fallback") is not None:
+                st.pop("fallback", None)
+                notes.append(f"step {st.get('id')}: fallback dropped: {stripped[str(st.get('id'))]}")
+        if stripped and not bad:
+            continue
         if not bad:
             return [], notes + errors
         notes += [f"step {sid} removed: {reason}" for sid, reason in bad.items()]

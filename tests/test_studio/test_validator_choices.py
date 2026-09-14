@@ -1,0 +1,76 @@
+"""The validator refuses a value a tool would refuse, and names the choices (#413)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from aquascope.studio import catalogue
+from aquascope.studio.workspace import Workspace
+
+KINGSTON = Path(__file__).resolve().parents[2] / "explorer" / "showcase" / "studies" / "kingston-flood" / "study.yaml"
+
+
+def test_an_invalid_choice_is_rejected_and_the_choices_are_named():
+    step = {"id": "s1", "tool": "regionalize_signatures",
+            "arguments": {"lat": 51.4, "lon": -0.3, "k": 10, "method": "regionalization"}}
+    errors = catalogue.validate_step(step)
+    assert errors and "similarity" in errors[0] and "regression" in errors[0] and "both" in errors[0]
+    assert step["arguments"]["method"] == "regionalization", "never substituted"
+    assert "notes" not in step
+
+
+def test_every_declared_choice_validates_and_a_reference_is_left_to_the_runner():
+    for entry in catalogue.entries().values():
+        for arg, schema in entry.arguments.items():
+            values = schema.get("enum") if isinstance(schema, dict) else None
+            if not values:
+                continue
+            for v in values:
+                args = {k: 1 for k in entry.required if k != "from_step"}
+                args[arg] = v
+                if "from_step" in entry.required:
+                    args["from_step"] = "s0"
+                errors = catalogue.validate_step({"id": "sx", "tool": entry.id, "arguments": args}, known_ids={"s0"})
+                assert not any(arg in e and "is not one of" in e for e in errors), (entry.id, arg, v, errors)
+    step = {"id": "s2", "tool": "regionalize_signatures",
+            "arguments": {"lat": 1, "lon": 2, "method": "{{ result.s1.method }}"}}
+    assert not [e for e in catalogue.validate_step(step, known_ids={"s1"}) if "is not one of" in e]
+
+
+def test_the_workbench_tools_declare_their_closed_sets():
+    assert catalogue.get("wqi").arguments["use"]["enum"] == ["drinking", "irrigation", "aquatic life"]
+    assert catalogue.get("baseflow").arguments["method"]["enum"] == ["lyne_hollick", "eckhardt", "ukih"]
+    assert catalogue.get("return_periods").arguments["distribution"]["enum"] == ["gev", "lp3", "gumbel"]
+    assert catalogue.get("irrigation").arguments["method"]["enum"] == ["single", "dual"]
+
+
+def test_a_step_whose_only_fault_is_its_fallback_keeps_its_place_without_the_fallback():
+    from aquascope.studio.roles.methodologist import _prune
+
+    ws = Workspace()
+    ws.site = {"lat": 51.415, "lon": -0.308}
+    steps = [
+        {"id": "s1", "tool": "describe_catchment", "arguments": {"lat": 51.415, "lon": -0.308}, "rationale": "r"},
+        {"id": "s2", "tool": "anywhere", "arguments": {"lat": 51.415, "lon": -0.308, "years": 100}, "rationale": "r",
+         "expects": [{"check": "not_empty", "path": "glofas"}],
+         "fallback": {"step": {"tool": "regionalize_signatures",
+                               "arguments": {"lat": 51.415, "lon": -0.308, "k": 10, "method": "regionalization"},
+                               "rationale": "r"}}},
+    ]
+    kept, notes = _prune(steps, ws)
+    assert [s["id"] for s in kept] == ["s1", "s2"] and "fallback" not in kept[1]
+    assert any("fallback dropped" in n and "regionalization" in n for n in notes)
+
+
+@pytest.mark.skipif(not KINGSTON.exists(), reason="the recorded studies are not checked out")
+def test_the_recorded_kingston_plan_no_longer_carries_the_bad_fallback_into_a_run():
+    from aquascope.study import load
+
+    study = load(KINGSTON)
+    s4 = next(s for s in study.steps if s.id == "s4")
+    fb = (s4.fallback or {}).get("step") or {}
+    errors = catalogue.validate_step({"id": "s4", "tool": s4.tool, "arguments": dict(s4.arguments),
+                                      "fallback": {"step": dict(fb)}})
+    assert any(e.startswith("fallback of step s4") and "is not one of" in e for e in errors)

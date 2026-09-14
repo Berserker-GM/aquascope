@@ -75,6 +75,9 @@ class Brief:
     #: The problem kind the registry knows (flood_risk, drought, ...) and the playbook it maps to, when one does.
     kind: str | None = None
     playbook: str | None = None
+    #: Every playbook the brief asks for, the primary first: a compound brief names more than one and the tree
+    #: composes their branches (#383).
+    kinds: list[str] = field(default_factory=list)
     #: The playbook's intake fields, when a playbook applies (return_period, timescales, crop, ...).
     intake: dict[str, Any] = field(default_factory=dict)
     #: What the Consultant assumed rather than asked.

@@ -238,15 +238,16 @@ def test_the_station_wrapper_and_the_gate_take_the_requested_return_period(monke
     assert ok["passed"], "a gate with no return period named is not applicable, not failed"
 
 
-def test_a_method_argument_the_tool_rejects_is_repaired() -> None:
+def test_a_method_argument_the_tool_rejects_is_rejected_with_the_choices_named() -> None:
     from aquascope.studio import catalogue
 
     steps = [{"id": "s1", "tool": "similar_basins", "arguments": {"lat": 51.4, "lon": -0.3, "k": 5,
                                                                     "method": "physio_climatic"}},
              {"id": "s2", "tool": "regionalize_signatures", "arguments": {"lat": 51.4, "lon": -0.3, "k": 5,
                                                                            "method": "regionalization"}}]
-    assert catalogue.validate_plan(steps) == []
-    assert steps[0]["arguments"]["method"] == "similarity" and steps[1]["arguments"]["method"] == "similarity"
-    assert any("physio_climatic" in n for n in steps[0]["notes"])
+    errors = catalogue.validate_plan(steps)
+    assert len(errors) == 2 and "'similarity', 'proximity', 'combined'" in errors[0] and "'both'" in errors[1]
+    assert steps[0]["arguments"]["method"] == "physio_climatic", "never substituted (#413)"
+    assert "notes" not in steps[0]
     bad = [{"id": "s1", "tool": "similar_basins", "arguments": {"lat": 1, "lon": 2, "method": "nope"}}]
     assert catalogue.validate_plan(bad, repair=False)

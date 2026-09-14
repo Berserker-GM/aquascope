@@ -238,7 +238,24 @@ def _schema_of_function(func: Callable[..., Any], *,
     return props, required
 
 
+def _choices() -> dict[str, dict[str, tuple[str, ...]]]:
+    """The closed sets of values the workbench tools accept, read from the constants the functions check
+    against, so the validator can refuse a value the tool would refuse (#413)."""
+    from aquascope import workbench
+
+    return {
+        "wqi": {"use": tuple(workbench.WQI_USES), "variant": tuple(workbench.WQI_VARIANTS)},
+        "baseflow": {"method": tuple(workbench.BASEFLOW_METHODS)},
+        "return_periods": {"distribution": tuple(workbench.DISTRIBUTIONS)},
+        "irrigation": {"method": ("single", "dual")},
+    }
+
+
+_CHOICES: dict[str, dict[str, tuple[str, ...]]] = {}
+
+
 def _build() -> dict[str, Entry]:
+    _CHOICES.update(_choices())
     from aquascope import workbench
     from aquascope.ai_engine.analyst import _tool_specs
     from aquascope.methods import METHODS
@@ -264,6 +281,9 @@ def _build() -> dict[str, Entry]:
             continue
         ann = _ANNOTATIONS.get(name, {})
         props, required = _schema_of_function(spec["func"])
+        for arg, values in _CHOICES.get(name, {}).items():
+            if arg in props and isinstance(props[arg], dict):
+                props[arg] = {**props[arg], "enum": list(values)}
         needs = spec.get("needs")
         if needs in ("frame", "weather"):
             props = {"from_step": {"type": "string", "description": "the id of the step whose payload is the table"},
@@ -379,7 +399,8 @@ def validate_step(step: dict[str, Any], *, known_ids: set[str] | None = None,
 
     Checks: the tool exists; the arguments are the tool's (``from_step`` allowed
     for table analyses, ``{{ result.<step>.<path> }}`` references only to known
-    ids); required arguments are present; ``depends_on`` names known ids; every
+    ids); an argument with a closed set of values holds one of them (never
+    substituted); required arguments are present; ``depends_on`` names known ids; every
     gate is a check in :data:`aquascope.gates.CHECKS`; a ``method`` is a registry
     id the tool can apply and, when ``sufficiency`` (from the reconnaissance) is
     given, one the registry does not call not defensible here.
@@ -409,14 +430,15 @@ def validate_step(step: dict[str, Any], *, known_ids: set[str] | None = None,
     for k, v in list(args.items()):
         schema = entry.arguments.get(k)
         allowed_values = schema.get("enum") if isinstance(schema, dict) else None
-        if allowed_values and isinstance(v, str) and v not in allowed_values:
-            if repair:
-                # A model often invents a label for a choice ("regionalization", "physio_climatic"); the tool
-                # would reject it at run time, so the first allowed value stands in and the step records it.
-                step.setdefault("notes", []).append(f"{k}={v!r} is not a choice of {tool}; used {allowed_values[0]!r}")
-                args[k] = allowed_values[0]
-            else:
-                errors.append(f"step {sid}: {tool} argument {k}={v!r} is not one of {allowed_values}")
+        if not allowed_values or (isinstance(v, str) and "{{" in v):
+            continue
+        # A model often invents a label for a choice ("regionalization", "physio_climatic"). The tool would
+        # reject it at run time, so the validator rejects it here and names the choices: the Methodologist's
+        # repair round takes the error, and a fallback with such a value is dropped rather than run (#413).
+        given = v if isinstance(v, list) else [v]
+        bad = [x for x in given if not isinstance(x, (int, float)) and x not in allowed_values]
+        if bad:
+            errors.append(f"step {sid}: {tool} argument {k}={v!r} is not one of {allowed_values}")
     if stations is not None and entry.kind == "station" and args.get("source") and args.get("station_id"):
         key = (str(args["source"]), str(args["station_id"]))
         if key not in stations and "{{" not in key[0] and "{{" not in key[1]:
@@ -455,8 +477,15 @@ def validate_step(step: dict[str, Any], *, known_ids: set[str] | None = None,
                 errors.append(f"step {sid}: the registry calls {method!r} not defensible here: {row.get('reason')}")
     fb = step.get("fallback")
     if isinstance(fb, dict) and isinstance(fb.get("step"), dict):
-        errors += [f"fallback of {e}" for e in validate_step(fb["step"], known_ids=ids, sufficiency=sufficiency,
+        # The fallback is checked under its step's id, so a fault in it reads "fallback of step s4: ..." and
+        # the Methodologist can drop the fallback alone (#413).
+        inner = {**fb["step"], "id": sid}
+        errors += [f"fallback of {e}" for e in validate_step(inner, known_ids=ids, sufficiency=sufficiency,
                                                              repair=repair, stations=stations)]
+        if repair:
+            for k in ("arguments", "expects", "notes"):
+                if k in inner:
+                    fb["step"][k] = inner[k]
     return errors
 
 
