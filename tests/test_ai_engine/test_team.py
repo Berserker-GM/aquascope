@@ -145,9 +145,11 @@ def test_without_a_model_a_failed_gate_and_failed_fallback_stop_and_are_reported
     wide = json.loads(json.dumps(FLOW))
     wide["ffa"]["fits"]["lp3"]["q"][5] = 900
     res = _run("Design flow, 100-year return period", tools=_tools(calls, flow=wide, donors_k=1))
-    assert not res.declined and not res.ok and res.run.stopped_at == "s3"
-    assert any("stopped at s3" in n for n in res.not_established)
-    assert "The study stopped at step s3" in res.answer and "**Stopped at s3:**" in res.to_markdown()
+    assert not res.declined and not res.ok and res.run.stopped_at is None
+    assert [f["id"] for f in res.run.failed_steps] == ["s3"] and "spread_within" in res.run.failed_steps[0]["reason"]
+    assert any("gate spread_within" in n for n in res.not_established)
+    assert "Step s3 (flood_frequency) did not establish its result" in res.answer
+    assert "**Steps:** 2 of 3 established, 1 failed." in res.to_markdown()
     assert res.cost == {}
 
 

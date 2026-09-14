@@ -137,8 +137,10 @@ def test_a_failing_run_still_ends_in_a_report(studio_factory):
     ws = s.workspace
     assert r.kind == "report" and ws.status == "done" and not ws.run["ok"]
     assert any("agency down" in n and "did not run" in n for n in r.payload["not_established"])
-    assert any("stopped at s2" in n for n in r.payload["not_established"])
-    assert ws.run["stopped_at"] == "s2" and len(ws.run["results"]) == 2 and not ws.run["results"][1]["ok"]
+    assert not any("stopped at" in n for n in r.payload["not_established"]), "a failed step no longer stops the study"
+    assert ws.run["stopped_at"] is None and not ws.run["results"][1]["ok"]
+    assert len(ws.run["results"]) == len(ws.study["steps"]), "every planned step ran or was skipped"
+    assert ws.run["summary"]["failed"] >= 1 and [f["id"] for f in ws.run["failed_steps"]][0] == "s2"
     assert "failed: RuntimeError: agency down" in r.payload["report"]["sections"][5]["text"]
 
 

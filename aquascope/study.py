@@ -288,11 +288,40 @@ class StudyRun:
     started: str = ""
     finished: str = ""
     ok: bool = True
-    #: Set when a failed gate stopped the run: the step id and the reason.
+    #: Set only when the run stopped for good: an explicit ``fallback: stop`` in the plan, or an error the
+    #: runner could not recover. A failed gate no longer stops the run; it fails the step (see ``failed_steps``).
     stopped_at: str | None = None
     stop_reason: str | None = None
-    #: A ``{"branch": ...}`` fallback the runner cannot take on its own (the team can).
+    #: A ``{"branch": ...}`` fallback the runner cannot take on its own (the team can). The first one asked for.
     replan: dict[str, Any] | None = None
+
+    @property
+    def failed_steps(self) -> list[dict[str, Any]]:
+        """The steps that did not establish their result: the tool failed, or a gate failed and no fallback
+        passed. Skipped steps (a dependency failed) are listed with ``skipped`` true. Each entry carries the
+        step id, its tool and the reason."""
+        out: list[dict[str, Any]] = []
+        for r in self.results:
+            if r.get("skipped"):
+                out.append({"id": r.get("id"), "tool": r.get("tool"), "reason": r.get("error") or "skipped",
+                            "skipped": True})
+            elif not r.get("ok"):
+                out.append({"id": r.get("id"), "tool": r.get("tool"), "reason": r.get("error") or "the tool failed",
+                            "skipped": False})
+            elif not _established(r):
+                out.append({"id": r.get("id"), "tool": r.get("tool"),
+                            "reason": r.get("failed_reason") or "a gate failed", "skipped": False})
+        return out
+
+    @property
+    def summary(self) -> dict[str, int]:
+        """How the plan fared: ``planned`` steps, how many ``ran`` (the tool was called), how many are ``ok``
+        (ran and every gate passed, or the fallback did), how many ``failed`` and how many were ``skipped``."""
+        planned = len(self.study.steps)
+        skipped = sum(1 for r in self.results if r.get("skipped"))
+        ran = sum(1 for r in self.results if not r.get("skipped"))
+        ok = sum(1 for r in self.results if not r.get("skipped") and r.get("ok") and _established(r))
+        return {"planned": planned, "ran": ran, "ok": ok, "failed": ran - ok, "skipped": skipped}
 
     @property
     def gates(self) -> list[dict[str, Any]]:
@@ -320,6 +349,8 @@ class StudyRun:
             "question": self.study.question,
             "stopped_at": self.stopped_at,
             "stop_reason": self.stop_reason,
+            "summary": self.summary,
+            "failed_steps": self.failed_steps,
             "steps": [
                 {
                     "id": r.get("id"),
@@ -364,6 +395,12 @@ class StudyRun:
                 for g in fb.get("gates") or []:
                     verdict = "passed" if g["passed"] else "FAILED"
                     lines.append(f"     - gate {g['check']}: {verdict}, {g.get('detail', '')}")
+        summ = self.summary
+        lines += ["", f"**Steps:** {summ['ok']} of {summ['planned']} established"
+                  + (f", {summ['failed']} failed" if summ['failed'] else "")
+                  + (f", {summ['skipped']} skipped" if summ['skipped'] else "") + "."]
+        for f in self.failed_steps:
+            lines.append(f"- {f['id']} ({f['tool']}): {'skipped, ' if f['skipped'] else ''}{f['reason']}")
         if self.stop_reason:
             lines += ["", f"**Stopped at {self.stopped_at}:** {self.stop_reason}"]
         for key, title in (("caveats", "Caveats"),):
@@ -649,6 +686,26 @@ def _frame_from(payload: Any) -> Any:
 _RESULT_REF = re.compile(r"\{\{\s*result\.([A-Za-z0-9_]+)\.([A-Za-z0-9_.\[\]=-]+)\s*\}\}")
 
 
+def _established(rec: dict[str, Any] | None) -> bool:
+    """Whether a step's result may be built on: the tool ran and every gate passed, or its fallback did."""
+    if not rec or rec.get("skipped") or not rec.get("ok"):
+        return False
+    if rec.get("gates_passed", True):
+        return True
+    fb = rec.get("fallback")
+    return bool(rec.get("fallback_used") and isinstance(fb, dict) and fb.get("ok") and fb.get("gates_passed"))
+
+
+def _usable_result(rec: dict[str, Any]) -> Any:
+    """The payload a later step may reference: the step's own when its gates passed, else its fallback's."""
+    if rec.get("gates_passed", True):
+        return rec.get("result")
+    fb = rec.get("fallback")
+    if isinstance(fb, dict) and fb.get("ok") and fb.get("gates_passed"):
+        return fb.get("result")
+    return rec.get("result")
+
+
 def _resolve_results(args: Any, done: dict[str, dict[str, Any]]) -> Any:
     """Fill ``{{ result.<step>.<path> }}`` in a step's arguments from the payloads of the steps already run.
 
@@ -664,7 +721,10 @@ def _resolve_results(args: Any, done: dict[str, dict[str, Any]]) -> Any:
             raise ValueError(f"result.{step_id}.{path}: step {step_id!r} has not run")
         if not rec.get("ok"):
             raise ValueError(f"result.{step_id}.{path}: step {step_id!r} failed, so its result cannot be used")
-        value = resolve_path(rec.get("result"), path)
+        if not _established(rec):
+            raise ValueError(f"result.{step_id}.{path}: step {step_id!r} failed its gate, so its result cannot be "
+                             "built on")
+        value = resolve_path(_usable_result(rec), path)
         if value is None:
             raise ValueError(f"result.{step_id}.{path}: nothing at {path!r} in the result of step {step_id!r}")
         return value
@@ -732,6 +792,13 @@ def run_study(
 ) -> StudyRun:
     """Run every step in order, evaluate its gates, and collect the results.
 
+    A failed gate is a verdict on its step, not on the study: the step is
+    recorded as not established (after its own ``fallback: {step: ...}`` was
+    tried), the steps that depend on it are skipped with the reason, and every
+    other step still runs. Only an explicit ``fallback: stop`` in the plan
+    ends the run early. ``run.failed_steps`` and ``run.summary`` say what
+    happened.
+
     No model, no network beyond the tools'. ``on_event`` receives dicts
     ``{"role", "step", "event", "detail"}`` as the run goes. ``prior`` is an
     earlier run of the same study whose successful, gate-passing steps are
@@ -756,9 +823,20 @@ def run_study(
         step_id = step.id or f"s{i}"
         args_text = ", ".join(f"{k}={v!r}" for k, v in step.arguments.items())
 
-        missing = [d for d in step.depends_on if d not in done or not done[d].get("ok")]
+        missing = [d for d in step.depends_on if not _established(done.get(d))]
         if missing:
-            detail = f"depends on {', '.join(missing)}, which did not succeed"
+            why = []
+            for d in missing:
+                dep = done.get(d)
+                if dep is None:
+                    why.append(f"{d} (not run)")
+                elif dep.get("skipped"):
+                    why.append(f"{d} (skipped)")
+                elif not dep.get("ok"):
+                    why.append(f"{d} (failed)")
+                else:
+                    why.append(f"{d} (failed its gate)")
+            detail = f"depends on {', '.join(why)}, so it was not run"
             say({"role": "runner", "step": step_id, "event": "skipped", "detail": detail})
             rec = _record(step, step_id, None, False, detail, [])
             rec["skipped"] = True
@@ -839,21 +917,27 @@ def run_study(
                 rec["fallback_used"] = True
                 rec["fallback"] = frec
                 if not fok or not frec["gates_passed"]:
-                    run.stopped_at, run.stop_reason = step_id, (
+                    rec["failed_reason"] = (
                         f"gate failed: {reason}; the fallback {fstep.tool} "
                         + ("failed too: " + (ferror or "") if not fok else "did not pass its own gates")
                     )
             elif isinstance(fb, dict) and fb.get("branch"):
-                run.replan = {"step": step_id, "branch": str(fb["branch"]), "reason": reason}
-                run.stopped_at, run.stop_reason = step_id, (
-                    f"gate failed: {reason}; the plan asks for a replan on branch {fb['branch']!r}"
-                )
+                rec["failed_reason"] = f"gate failed: {reason}; the plan asks for a replan on branch {fb['branch']!r}"
+                if run.replan is None:
+                    run.replan = {"step": step_id, "branch": str(fb["branch"]), "reason": reason}
+            elif fb == "stop":
+                rec["failed_reason"] = f"gate failed: {reason}"
+                run.stopped_at, run.stop_reason = step_id, f"gate failed: {reason}; the plan stops here"
             else:
-                run.stopped_at, run.stop_reason = step_id, f"gate failed: {reason}"
+                rec["failed_reason"] = f"gate failed: {reason}"
+            if rec.get("failed_reason") and not run.stop_reason:
+                say({"role": "runner", "step": step_id, "event": "failed", "detail": rec["failed_reason"]})
         run.results.append(rec)
         done[step_id] = rec
         if write_back:
             study.results[step_id] = _result_entry(rec)
+        if not _established(rec):
+            run.ok = False
         if run.stop_reason:
             run.ok = False
             say({"role": "runner", "step": step_id, "event": "stop", "detail": run.stop_reason})
@@ -876,6 +960,10 @@ def _result_entry(rec: dict[str, Any]) -> dict[str, Any]:
         out["sha256"] = rec["sha256"]
     if rec.get("error"):
         out["error"] = rec["error"]
+    if rec.get("failed_reason"):
+        out["failed_reason"] = rec["failed_reason"]
+    if rec.get("skipped"):
+        out["skipped"] = True
     fb = rec.get("fallback")
     if isinstance(fb, dict):
         out["fallback"] = {

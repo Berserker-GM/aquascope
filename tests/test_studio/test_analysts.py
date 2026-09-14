@@ -113,7 +113,10 @@ def test_a_failed_gate_runs_the_playbooks_fallback_then_the_specialists_proposal
     ws = _ws()
     with patched(RECON, tools=tools):
         run = analysts.run(ws, None)
-    assert run.stop_reason and "spread_within" in run.stop_reason and ws.run["stopped_at"] == "s3"
+    assert not run.ok and run.stop_reason is None and ws.run["stopped_at"] is None
+    failed_steps = ws.run["failed_steps"]
+    assert [f["id"] for f in failed_steps] == ["s3"] and "spread_within" in failed_steps[0]["reason"]
+    assert ws.run["summary"]["failed"] == 1 and ws.run["summary"]["planned"] == len(ws.run["results"])
     assert ws.run["results"][2]["fallback_used"] and ws.run["results"][2]["fallback"]["tool"] == "similar_basins"
     assert ws.run["replans"] == 0, "keyless: no specialist"
 
@@ -148,7 +151,8 @@ def test_a_proposal_that_fails_the_validator_is_refused(no_deliverables):
     with patched(RECON, tools=fake_tools([], flood_frequency=wide, analyze_station=wide,
                                          similar_basins={"k": 1, "stations": []})):
         run = analysts.run(ws, model)
-    assert run.stop_reason and ws.run["replans"] == 0, "a refused proposal is not a replan"
+    assert not run.ok and run.stop_reason is None and ws.run["replans"] == 0, "a refused proposal is not a replan"
+    assert [f["id"] for f in run.failed_steps] == ["s3"], "the step stays not established"
     assert any(e["event"] == "no_fallback" and "bogus" in e["detail"] for e in ws.events)
 
 

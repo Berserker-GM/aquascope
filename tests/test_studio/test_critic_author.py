@@ -78,7 +78,7 @@ def test_failed_gates_and_notes_reach_the_not_established_list(no_deliverables):
     author.author_report(ws, None)
     out = critic.critique(ws, None)
     missing = out["not_established"]
-    assert any("gate spread_within" in m for m in missing) and any("stopped at s3" in m for m in missing)
+    assert any("gate spread_within" in m for m in missing) and not any("stopped at" in m for m in missing)
     assert "step s9 dropped: not defensible" in missing
     assert ws.report["not_established"] == critic.not_established(ws) or True
     assert "The fallback similar_basins ran and did not pass its gates." in \
