@@ -1,6 +1,6 @@
 # Data Sources
 
-AquaScope ships **36 collectors** that normalise water data into typed Pydantic records. One API call per source, one schema across the toolkit.
+AquaScope ships **37 collectors** that normalise water data into typed Pydantic records. One API call per source, one schema across the toolkit.
 
 Most sources emit point observations and share the unified `water_data` schema (`WaterQualitySample`, `WaterLevelReading`, `ReservoirStatus`). Three aggregate/gridded sources use purpose-built record types that match their data shape: **FAO AQUASTAT** returns country-level `AquastatRecord`, **UN SDG 6** returns `SDG6Indicator`, and **FAO WaPOR** returns gridded `WaPORObservation`.
 
@@ -36,6 +36,7 @@ To request a new source, open an [issue](https://github.com/Rekin226/aquascope/i
 | [PEGELONLINE](https://www.pegelonline.wsv.de/webservice/dokuRestapi) | `pegelonline` | Germany | River water level, discharge | REST | ✅ |
 | [OpenHi.net](https://openhi.net) | `greece_openhi` | Greece | Live 15-min discharge, stage, rainfall, climate, water quality | Enhydris 3 REST | ✅ |
 | [Greece Hydroscope](https://hydroscope.gr) | `greece_hydroscope` | Greece | Daily river stage, monthly discharge, rainfall (1904-2019) | Enhydris REST | ✅ |
+| [IMGW-PIB](https://danepubliczne.imgw.pl) | `poland_imgw` | Poland | Daily stage and discharge from 1951, live network state with alarm and warning stages, water temperature | REST + zipped CSV archive | ✅ |
 | [Japan MLIT](https://www.mlit.go.jp) | `japan_mlit` | Japan | Hydrometeorology, river observations | REST | ✅ |
 | [Korea WAMIS](https://www.wamis.go.kr) | `korea_wamis` | Korea | Hydrology, dam operations | REST | ✅ |
 | [India WRIS](https://indiawris.gov.in) | `india_wris` | India | River water level | REST | ✅ |

@@ -53,6 +53,9 @@ HARVESTABLE: dict[str, tuple[str, ...]] = {
     # 65 stations of 15-minute telemetry, CC BY-SA 4.0. Mirrored because the
     # browser cannot call system.openhi.net (CORS for localhost only, #408).
     "greece_openhi": ("discharge", "water_level", "precipitation"),
+    # Daily from 1951 in hydrological-year zips the browser cannot fetch
+    # (no CORS on the archive host); open re-use with attribution (#391).
+    "poland_imgw": ("discharge", "water_level"),
 }
 
 ARCHIVE_UNITS = {"discharge": "m3/s", "water_level": "m", "groundwater_level": "m", "precipitation": "mm"}

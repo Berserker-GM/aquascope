@@ -20,6 +20,7 @@ from aquascope.collectors.japan_mlit import JapanMLITCollector
 from aquascope.collectors.korea_wamis import KoreaWAMISCollector
 from aquascope.collectors.noaa_nwps import NOAANWPSCollector
 from aquascope.collectors.openmeteo import OpenMeteoCollector
+from aquascope.collectors.poland_imgw import PolandIMGWCollector
 from aquascope.collectors.pegelonline import PegelonlineCollector
 from aquascope.collectors.sdg6 import SDG6Collector
 from aquascope.collectors.south_africa_dws import SouthAfricaDWSCollector
@@ -59,6 +60,7 @@ __all__ = [
     "KoreaWAMISCollector",
     "NOAANWPSCollector",
     "OpenMeteoCollector",
+    "PolandIMGWCollector",
     "PegelonlineCollector",
     "SDG6Collector",
     "SouthAfricaDWSCollector",

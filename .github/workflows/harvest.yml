@@ -117,6 +117,9 @@ jobs:
           aquascope harvest obs --out archive --variable discharge --source greece_openhi --max-stations 65
           aquascope harvest obs --out archive --variable water_level --source greece_openhi --max-stations 65
           aquascope harvest obs --out archive --variable precipitation --source greece_openhi --max-stations 65
+          # Poland IMGW-PIB: ~900 gauges, daily from 1951; one download of the archive serves every station (#391).
+          aquascope harvest obs --out archive --variable discharge --source poland_imgw --max-stations $B
+          aquascope harvest obs --out archive --variable water_level --source poland_imgw --max-stations $((B / 2))
           echo "exit=$?" >> "$GITHUB_OUTPUT"
           set -e
 
