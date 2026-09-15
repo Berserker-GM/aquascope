@@ -121,6 +121,28 @@ def table_artifact(ws: Workspace, artifact_id: str) -> Artifact | None:
     return a if a is not None and a.kind == "table" else None
 
 
+#: Tables that are data, not evidence a reader checks in a document: the raw record and the raw samples. They
+#: stay in the workbook and the notebook; the prose documents name where they live instead (#415).
+BULK_TABLES = frozenset({"series", "samples"})
+
+
+def prose_table(ws: Workspace, artifact_id: str) -> tuple[Artifact | None, str | None]:
+    """The table to print in a document, or None with the one-line pointer to print instead when the table is
+    bulk data (the workbook sheet that carries it)."""
+    a = table_artifact(ws, artifact_id)
+    if a is None:
+        return None, None
+    name = str((a.meta or {}).get("name") or "")
+    if name in BULK_TABLES:
+        sheet = f"{a.step}_{name}" if a.step else name
+        rows = (a.meta or {}).get("rows")
+        what = "The record" if name == "series" else "The samples"
+        return None, (f"{what} ({rows} rows) is in the workbook (`workbook.xlsx`, sheet `{sheet}`) and the "
+                      f"notebook, not printed here." if rows else
+                      f"{what} is in the workbook (`workbook.xlsx`, sheet `{sheet}`) and the notebook.")
+    return a, None
+
+
 def steps_of(ws: Workspace) -> list[dict[str, Any]]:
     return [dict(s) for s in (ws.study or {}).get("steps") or [] if isinstance(s, dict)]
 

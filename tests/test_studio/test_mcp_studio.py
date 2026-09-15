@@ -12,10 +12,10 @@ def test_studio_tools_round_trip(tmp_path, no_deliverables):
     with patched():
         start = m.studio_start(PROBLEM, 51.415, -0.308, intake={"return_period": 50})
         assert start["reply"]["kind"] == "plan" and start["status"] == "review"
-        assert start["summary"]["steps"] == 3 and start["workspace"]["brief"]["intake"]["return_period"] == 50
+        assert start["summary"]["steps"] == 4 and start["workspace"]["brief"]["intake"]["return_period"] == 50
         done = m.studio_approve(start["workspace"], edits={"s1": None})
         assert done["reply"]["kind"] == "report" and done["status"] == "done"
-        assert done["workspace"]["study"]["plan"]["edited"] and len(done["workspace"]["run"]["results"]) == 2
+        assert done["workspace"]["study"]["plan"]["edited"] and len(done["workspace"]["run"]["results"]) == 3
         assert "50-year" in str(done["reply"]["payload"]["report"]["key_numbers"])
         q = m.studio_follow_up(done["workspace"], "what is the 50-year flow?")
         assert q["reply"]["kind"] == "answer" and "m3/s" in q["reply"]["text"]

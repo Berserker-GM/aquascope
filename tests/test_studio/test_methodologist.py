@@ -62,7 +62,7 @@ def test_the_tree_plans_keyless_as_version_3():
     assert study is not None and study.version == 3 and study.author == "playbook"
     plan = study.plan
     assert plan["author"] == "playbook" and plan["playbook"] == "flood_risk" and plan["branch"] == "at_site"
-    assert plan["objective"] == PROBLEM and len(plan["methodology"]) == 3
+    assert plan["objective"] == PROBLEM and len(plan["methodology"]) == 4
     assert plan["assumptions"] == ["the gauge is representative"] and plan["caveats"] and plan["citations"]
     assert all(s.outputs for s in study.steps) and study.steps[2].outputs[0] == {
         "kind": "figure", "id": "s3_frequency_curve", "caption": "frequency curve from flood_frequency"}
@@ -177,7 +177,7 @@ def test_revise_applies_overrides_moves_gate_keys_and_refuses_bad_edits():
     methodologist.plan(ws, None)
     study = methodologist.revise(ws, None, {"s3": {"arguments": {"bootstrap_ci": False, "return_period": 200}},
                                             "s1": None})
-    assert [s.id for s in study.steps] == ["s2", "s3"] and study.plan["edited"] is True
+    assert [s.id for s in study.steps] == ["s2", "s3", "s4"] and study.plan["edited"] is True
     s3 = study.step_by_id("s3")
     assert s3.arguments["bootstrap_ci"] is False and "return_period" not in s3.arguments
     assert {g["return_period"] for g in s3.expects if "return_period" in g} == {200}
@@ -213,7 +213,7 @@ def test_plan_text_is_a_numbered_checklist():
     ws = _ws()
     methodologist.plan(ws, None)
     text = methodologist.plan_text(ws.study)
-    assert text.startswith("Plan (playbook, playbook flood_risk, branch at_site, 3 step(s))")
+    assert text.startswith("Plan (playbook, playbook flood_risk, branch at_site, 4 step(s))")
     assert "2. [s2] analyze_station(source='uk_ea', station_id='3400TH')  method trend_mann_kendall" in text
     assert "gate max_return_period_factor 3 on years" in text and "fallback: similar_basins" in text
     assert "caveat(s) will be printed verbatim" in text

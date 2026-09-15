@@ -25,7 +25,7 @@ from aquascope.studio.workspace import MEDIA_TYPES, Artifact, Workspace
 logger = logging.getLogger(__name__)
 
 #: The formats :func:`build` knows, in the order they are made. ``zip`` is the bundle of all the others.
-FORMATS = ("md", "html", "docx", "xlsx", "ipynb", "yaml", "json", "zip")
+FORMATS = ("md", "html", "docx", "xlsx", "ipynb", "yaml", "findings", "json", "zip")
 
 _SPEC: dict[str, tuple[str, str, str, str]] = {
     # format: (artifact id, kind, file name, media type key)
@@ -35,6 +35,7 @@ _SPEC: dict[str, tuple[str, str, str, str]] = {
     "xlsx": ("workbook", "workbook", "workbook.xlsx", "xlsx"),
     "ipynb": ("notebook", "notebook", "study.ipynb", "ipynb"),
     "yaml": ("study", "study", "study.yaml", "yaml"),
+    "findings": ("findings", "data", "findings.json", "json"),
     "json": ("workspace", "data", "workspace.json", "json"),
     "zip": ("bundle", "bundle", "bundle.zip", "zip"),
 }
@@ -46,6 +47,8 @@ _CAPTIONS = {
     "xlsx": "The workbook: README, inventory, plan, gates, every table, the figure index, the ledger.",
     "ipynb": "The notebook that re-runs the study and redraws the figures.",
     "yaml": "The study file: aquascope run study.yaml replays it with no model.",
+    "findings": "The Interpreter's findings: every claim with the result path it rests on, the decision block "
+                "with its grade, the data the crew would ask for.",
     "json": "The workspace without the artifact bytes (resume with aquascope studio --resume).",
     "zip": "Everything above and every figure and table, with a README.",
 }
@@ -123,6 +126,10 @@ def build(ws: Workspace, *, formats: list[str] | tuple[str, ...] | None = None) 
         add("ipynb", notebook_json(ws))
     if "yaml" in wanted:
         add("yaml", c.study_yaml(ws) or None)
+    if "findings" in wanted and ws.findings:
+        import json as _json
+
+        add("findings", _json.dumps(ws.findings, ensure_ascii=False, indent=1, default=str))
     if "json" in wanted:
         add("json", ws.to_json(with_artifacts=False, indent=1))
     if "zip" in wanted:
