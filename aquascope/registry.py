@@ -69,6 +69,11 @@ class SourceMeta:
     license: str = "unknown"
     redistributable: bool = False
     attribution: str = ""
+    #: Whether a web page can call the agency's API directly: CORS open to any
+    #: origin, and served over https. False when the API whitelists only its
+    #: own origin or is plain http; the Explorer then serves the archive mirror
+    #: or says plainly that the record is package-only (#408).
+    browser_reachable: bool = True
 
     def __post_init__(self) -> None:
         unknown = [v for v in self.variables if v not in VARIABLES]
@@ -228,6 +233,7 @@ SOURCES: dict[str, SourceMeta] = {
         output_model="WaterLevelReading | StreamflowReading | ClimateReading",
         license="unknown", redistributable=False,
         attribution="Hydroscope, the Greek National Databank for Hydrological and Meteorological Information",
+        browser_reachable=False,  # plain http, and CORS only for localhost (#408)
     ),
     "greece_openhi": _s(
         key="greece_openhi", label="Greece OpenHi.net", region="Greece",
@@ -240,6 +246,26 @@ SOURCES: dict[str, SourceMeta] = {
         output_model="StreamflowReading | WaterLevelReading | ClimateReading | WaterQualitySample",
         license="CC-BY-SA-4.0", redistributable=True,
         attribution="OpenHi.net, Open Hydrosystem Information Network (ITIA, NTUA), CC BY-SA 4.0",
+        browser_reachable=False,  # CORS only for localhost; the Explorer serves the archive mirror (#408)
+    ),
+    "poland_imgw": _s(
+        key="poland_imgw", label="Poland IMGW-PIB", region="Poland",
+        description=(
+            "Daily river stage and discharge from 1951 (hydrological-year archive) plus the live "
+            "network state with alarm and warning stages"
+        ),
+        agency="IMGW-PIB, Instytut Meteorologii i Gospodarki Wodnej", country="POL",
+        homepage="https://danepubliczne.imgw.pl/",
+        variables=("discharge", "water_level", "water_quality"),
+        supports_bbox=True,
+        supports_station_lookup=True,
+        output_model="StreamflowReading | WaterLevelReading | WaterQualitySample",
+        license="IMGW-PIB-open-data", redistributable=True,
+        attribution=(
+            "Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy; "
+            "dane IMGW-PIB zostały przetworzone (source: IMGW-PIB, data processed)"
+        ),
+        browser_reachable=False,  # the live API allows CORS, the archive zips do not; the Explorer serves the mirror
     ),
     "eu_wfd": _s(
         key="eu_wfd", label="EU Water Framework Directive", region="Europe",
@@ -537,6 +563,7 @@ def build_collector(source_key: str, api_key: str | None = None, **ctor_kwargs):
         "ireland_opw": lambda: c.IrelandOPWCollector(),
         "greece_hydroscope": lambda: c.GreeceHydroscopeCollector(),
         "greece_openhi": lambda: c.GreeceOpenhiCollector(),
+        "poland_imgw": lambda: c.PolandIMGWCollector(),
         "pegelonline": lambda: c.PegelonlineCollector(),
         "camels_cl": lambda: c.CAMELSCLCollector(),
         "camels_br": lambda: c.CAMELSBRCollector(),

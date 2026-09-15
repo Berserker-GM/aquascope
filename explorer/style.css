@@ -828,6 +828,25 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
 .study-fig img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius-xs); background: #fff; min-height: 60px; }
 .study-fig figcaption { font-size: .72rem; color: var(--muted); line-height: 1.45; margin-top: .25rem; }
 
+/* the engineer's view, above the answer: the grade, the decision block and the findings (#417, #419) */
+.study-grade {
+  display: inline-block; font-size: .66rem; font-weight: 640; text-transform: uppercase; letter-spacing: .04em;
+  border: 1px solid var(--line); border-radius: 999px; padding: .12rem .55rem; color: var(--muted);
+  background: var(--bg-soft); cursor: help;
+}
+.study-grade.grade-established { color: var(--ok-ink); border-color: var(--ok-ink); }
+.study-grade.grade-indicative { color: var(--blue-dark); border-color: var(--blue); background: var(--blue-soft); }
+.study-grade.grade-screening { color: var(--warn-ink); border-color: var(--warn-ink); background: var(--warn-bg); }
+.study-grade.grade-not_established { color: var(--err-ink); border-color: var(--err-ink); background: var(--err-bg); }
+.study-decision { font-size: .8rem; line-height: 1.5; margin: .4rem 0; }
+.study-decision-answer { margin: 0 0 .3rem; font-weight: 620; }
+.study-decision ul { padding-left: 1.1rem; margin: .1rem 0 .4rem; color: var(--ink-2); }
+.study-findings { margin: 0 0 .6rem; font-size: .76rem; }
+.study-findings > summary { cursor: pointer; color: var(--blue); list-style: none; }
+.study-findings > summary::-webkit-details-marker { display: none; }
+.study-findings ul { list-style: none; padding: 0; margin: .3rem 0 0; display: flex; flex-direction: column; gap: .35rem; }
+.study-basis { font-size: .68rem; color: var(--muted); }
+
 /* the answer is the star; the numbers, the figures and the files follow it */
 .study-answer { margin-top: 0; outline: none; }
 .study-answer:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; border-radius: var(--radius-xs); }

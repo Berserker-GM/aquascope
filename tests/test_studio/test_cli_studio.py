@@ -22,12 +22,12 @@ def test_yes_runs_to_the_bundle(monkeypatch, capsys, tmp_path, no_deliverables):
     with patched():
         cli.main()
     printed = capsys.readouterr().out
-    assert "Plan (playbook, playbook flood_risk, branch at_site, 3 step(s))" in printed
+    assert "Plan (playbook, playbook flood_risk, branch at_site, 4 step(s))" in printed
     assert "The record at Kingston" in printed and "Bundle written to" in printed
     names = {p.name for p in out.iterdir()}
     assert {"report.md", "study.yaml", "report.json", "workspace.json"} <= names
-    assert "T = 50 years" in (out / "report.md").read_text()
-    ws = json.loads((out / "workspace.json").read_text())
+    assert "T = 50 years" in (out / "report.md").read_text(encoding="utf-8")
+    ws = json.loads((out / "workspace.json").read_text(encoding="utf-8"))
     assert ws["status"] == "done" and ws["brief"]["intake"]["return_period"] == 50
     # the study re-runs with no model
     monkeypatch.setattr(sys, "argv", ["aquascope", "run", str(out / "study.yaml"), "-q"])
@@ -44,13 +44,14 @@ def test_without_a_terminal_the_plan_waits_and_the_workspace_resumes(monkeypatch
         cli.main()
     captured = capsys.readouterr()
     assert "pass --yes" in captured.err and (out / "workspace.json").exists()
-    assert json.loads((out / "workspace.json").read_text())["status"] == "review"
+    assert json.loads((out / "workspace.json").read_text(encoding="utf-8"))["status"] == "review"
     monkeypatch.setattr(sys, "argv", ["aquascope", "studio", "--resume", str(out / "workspace.json"), "--yes", "-q",
                                       "--out", str(out)])
     with patched():
         cli.main()
     printed = capsys.readouterr().out
-    assert "Bundle written to" in printed and json.loads((out / "workspace.json").read_text())["status"] == "done"
+    workspace = json.loads((out / "workspace.json").read_text(encoding="utf-8"))
+    assert "Bundle written to" in printed and workspace["status"] == "done"
 
 
 def test_interactive_answers_edits_and_follows_up(monkeypatch, capsys, tmp_path, no_deliverables):
@@ -65,7 +66,7 @@ def test_interactive_answers_edits_and_follows_up(monkeypatch, capsys, tmp_path,
     printed = capsys.readouterr().out
     assert "1. Demand" in printed and "Plan (playbook, playbook supply_reliability" in printed
     assert "Bundle written to" in printed
-    ws = json.loads((out / "workspace.json").read_text())
+    ws = json.loads((out / "workspace.json").read_text(encoding="utf-8"))
     assert ws["status"] == "done" and ws["brief"]["intake"]["demand_m3s"] == 2.0
     assert next(s for s in ws["study"]["steps"] if s["id"] == "s2")["arguments"]["years"] == 20
     assert ws["follow_ups"][0]["kind"] == "question"
@@ -91,11 +92,11 @@ def test_data_files_become_uploads(monkeypatch, capsys, tmp_path, no_deliverable
     from tests.test_studio.conftest import SERIES_CSV
 
     csv = tmp_path / "flows.csv"
-    csv.write_text(SERIES_CSV)
+    csv.write_text(SERIES_CSV, encoding="utf-8")
     out = tmp_path / "d"
     _argv(monkeypatch, "--yes", "-q", "--out", str(out), "--data", str(csv))
     with patched():
         cli.main()
-    ws = json.loads((out / "workspace.json").read_text())
+    ws = json.loads((out / "workspace.json").read_text(encoding="utf-8"))
     assert "upload:flows.csv" in ws["tables"]
     assert any(d["id"] == "upload:flows.csv" and d["variable"] == "discharge" for d in ws["inventory"]["datasets"])
