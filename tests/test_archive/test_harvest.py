@@ -67,7 +67,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     assert (out / "README.md").exists()
 
     assert report.n_stations == 2 and report.n_ok == 2 and report.n_failed == 1
-    health = json.loads((out / "health.json").read_text())
+    health = json.loads((out / "health.json").read_text(encoding="utf-8"))
     by = {s["source"]: s for s in health["sources"]}
     assert by["uk_ea"]["ok"] is False and "503" in by["uk_ea"]["error"]
     assert by["ireland_opw"]["n_stations"] == 1 and by["ireland_opw"]["license"] == "CC-BY-4.0"
@@ -79,7 +79,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     # sorted by (source, station_id)
     assert table.column("source").to_pylist() == ["ireland_opw", "pegelonline"]
 
-    gj = json.loads((out / "stations.geojson").read_text())
+    gj = json.loads((out / "stations.geojson").read_text(encoding="utf-8"))
     assert gj["type"] == "FeatureCollection" and len(gj["features"]) == 2
     f0 = gj["features"][0]
     assert f0["geometry"]["coordinates"] == [-7.58, 54.84]
@@ -88,7 +88,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     assert "extra" not in gj["features"][1]["properties"]  # extras live in the parquet only
     assert gj["features"][1]["properties"]["period_start"] == "1990-01-01"
 
-    card = (out / "README.md").read_text()
+    card = (out / "README.md").read_text(encoding="utf-8")
     assert card.startswith("---\nlicense: other")
     assert "| `uk_ea` |" in card and "failed: RuntimeError: 503" in card
     assert "resolve/main/stations.parquet" in card
@@ -124,7 +124,7 @@ def test_empty_harvest_still_writes_valid_files(tmp_path):
 def test_dataset_card_lists_every_source(tmp_path):
     report = HarvestReport(run_at="2026-08-16T00:00:00+00:00", aquascope_version="x", n_stations=0, sources=[])
     path = write_dataset_card(tmp_path / "README.md", report, repo_id="me/ds")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert "hf://datasets/me/ds/stations.parquet" in text
     assert "aquascope harvest stations" in text
 

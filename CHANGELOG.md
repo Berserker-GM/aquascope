@@ -9,6 +9,7 @@ All notable changes to AquaScope are documented here.
 ### Changed
 
 ### Fixed
+- **Windows test collection fails on UTF-8 fixtures** (#398). Path.read_text() and Path.write_text() without an encoding use the platform preferred encoding (cp1252 on a default Windows install). Taiwan CWA fixtures include Chinese station names, so collection aborted with UnicodeDecodeError before any tests ran. Every read_text / write_text call under tests/ and aquascope/ now passes encoding="utf-8".
 
 ## [0.17.0] - 2026-09-15
 
