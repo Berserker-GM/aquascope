@@ -265,6 +265,13 @@ class SolveResult:
                     for g in fb.get("gates") or []:
                         verdict = "passed" if g["passed"] else "FAILED"
                         lines.append(f"     - gate {g['check']}: {verdict}, {g.get('detail', '')}")
+            if self.run:
+                summ = self.run.summary
+                lines.append(f"\n**Steps:** {summ['ok']} of {summ['planned']} established"
+                             + (f", {summ['failed']} failed" if summ["failed"] else "")
+                             + (f", {summ['skipped']} skipped" if summ["skipped"] else "") + ".")
+                for f in self.run.failed_steps:
+                    lines.append(f"- {f['id']} ({f['tool']}): {'skipped, ' if f['skipped'] else ''}{f['reason']}")
             if self.run and self.run.stop_reason:
                 lines.append(f"\n**Stopped at {self.run.stopped_at}:** {self.run.stop_reason}")
             lines.append("")
@@ -1040,6 +1047,12 @@ def _template_answer(study: Study, run: StudyRun | None) -> str:
             para(f"The fallback {fb.get('tool')} ran" + passed)
             if isinstance(fb.get("result"), dict):
                 add(_sentences_for(fb["tool"], fb["result"], study))
+    if run:
+        for f in run.failed_steps:
+            if f.get("skipped"):
+                para(f"Step {f['id']} ({f['tool']}) was not run: {f['reason']}.")
+            else:
+                para(f"Step {f['id']} ({f['tool']}) did not establish its result: {f['reason']}.")
     if run and run.stop_reason:
         para(f"The study stopped at step {run.stopped_at}: {run.stop_reason}.")
     if not lines:
@@ -1267,40 +1280,53 @@ def _execute(
 
     run = run_study(study, on_event=say, tools=tools)
     replans = 0
-    while run.stop_reason and replans < max_replans:
-        replans += 1
-        if run.replan:
+    # Recovery is per failed step: a branch replan or one Specialist fallback at most ``max_replans`` times
+    # each, then the step stays not established and the run goes on to the next one.
+    attempted: dict[str, int] = {}
+    while not run.stop_reason:
+        if run.replan and attempted.get(str(run.replan["step"]), 0) < max_replans:
+            sid = str(run.replan["step"])
+            attempted[sid] = attempted.get(sid, 0) + 1
             branch = run.replan["branch"]
             if pb is None:
-                say({"role": "specialist", "step": run.stopped_at, "event": "replan_declined",
+                say({"role": "specialist", "step": sid, "event": "replan_declined",
                      "detail": "no playbook to fill the branch from"})
-                break
+                run.replan = None
+                continue
             try:
                 new = pbk.plan(pb, recon, intake, branch=branch, problem_text=text)
             except pbk.Declined as exc:
-                say({"role": "specialist", "step": run.stopped_at, "event": "replan_declined", "detail": exc.reason})
-                break
-            new.plan["replanned_from"] = {"branch": study.plan.get("branch"), "step": run.stopped_at,
+                say({"role": "specialist", "step": sid, "event": "replan_declined", "detail": exc.reason})
+                run.replan = None
+                continue
+            new.plan["replanned_from"] = {"branch": study.plan.get("branch"), "step": sid,
                                           "reason": run.replan.get("reason")}
             if study.plan.get("tree_rationale"):
                 new.plan["rationale"] = study.plan["rationale"]
-            say({"role": "specialist", "step": run.stopped_at, "event": "replan",
-                 "detail": f"branch {branch} after {run.stop_reason}"})
+            say({"role": "specialist", "step": sid, "event": "replan",
+                 "detail": f"branch {branch} after {run.replan.get('reason')}"})
             study = new
+            replans += 1
             run = run_study(study, on_event=say, prior=run, tools=tools)
             continue
         if llm is None:
             break
-        failed = next((r for r in run.results if r.get("id") == run.stopped_at), None)
-        step = study.step_by_id(run.stopped_at or "")
-        if failed is None or step is None:
+        pending = [f for f in run.failed_steps if not f.get("skipped") and attempted.get(str(f["id"]), 0) < max_replans]
+        if not pending:
             break
+        target = str(pending[0]["id"])
+        attempted[target] = attempted.get(target, 0) + 1
+        failed = next((r for r in run.results if r.get("id") == target), None)
+        step = study.step_by_id(target)
+        if failed is None or step is None:
+            continue
         proposal = _json_block(llm.call("specialist", f"{SPECIALIST_PROMPTS.get(kind, SPECIALIST_PROMPTS['default'])}\n"
                                         f"{SPECIALIST_RULES}", {
             "problem": text, "playbook": kind, "branch": study.plan.get("branch"),
             "failed_step": {"id": step.id, "tool": step.tool, "arguments": step.arguments,
                             "rationale": step.rationale},
             "failed_gates": [g for g in failed.get("gates") or [] if not g.get("passed")],
+            "error": failed.get("error"),
             "result": _compact(failed.get("result")),
             "earlier_fallback": _compact(failed.get("fallback")) if failed.get("fallback") else None,
             "recon": _recon_summary(recon),
@@ -1311,14 +1337,16 @@ def _execute(
         if not proposal or not proposal.get("tool") or proposal["tool"] not in tool_names():
             say({"role": "specialist", "step": step.id, "event": "no_fallback",
                  "detail": (proposal or {}).get("rationale") or "the specialist proposed no usable fallback"})
-            break
+            continue
         fb_step = {"tool": str(proposal["tool"]), "arguments": dict(proposal.get("arguments") or {}),
                    "rationale": str(proposal.get("rationale") or "proposed by the specialist after the gate failed"),
                    "expects": [g for g in (proposal.get("expects") or []) if isinstance(g, dict)]}
         step.fallback = {"step": fb_step}
-        study.plan.setdefault("replans", []).append({"step": step.id, "reason": run.stop_reason, "fallback": fb_step})
+        study.plan.setdefault("replans", []).append({"step": step.id, "reason": pending[0]["reason"],
+                                                     "fallback": fb_step})
         say({"role": "specialist", "step": step.id, "event": "replan",
              "detail": f"fallback {fb_step['tool']}: {fb_step['rationale']}"})
+        replans += 1
         run = run_study(study, on_event=say, prior=run, tools=tools)
 
     # Reviewer: what the run established and what it did not.

@@ -219,3 +219,50 @@ def test_a_full_record_harvest_keeps_closed_stations_and_a_capped_one_skips_them
     assert [r["station_id"] for r in picked] == ["OLD", "NEW"]
     picked = obs._pick_stations(rows, manifest, "usgs", "discharge", 10, 30, None, years=40)
     assert [r["station_id"] for r in picked] == ["NEW"]
+
+
+def test_sub_daily_rainfall_folds_to_daily_totals_and_flow_to_means():
+    """OpenHi telemetry is 15-minute: a day of rainfall is its sum, a day of flow its mean (#408)."""
+    idx = pd.date_range("2024-01-01", periods=96 * 2, freq="15min")
+    rain = pd.Series(np.full(len(idx), 0.5), index=idx)
+    assert obs._daily_agg("precipitation", rain) == "sum"
+    daily = obs.read_csv_gz(obs.series_to_csv_gz(rain, agg="sum"))
+    assert list(daily.round(6)) == [48.0, 48.0]
+
+    flow = pd.Series(np.full(len(idx), 3.0), index=idx)
+    assert obs._daily_agg("discharge", flow) == "mean"
+    daily = obs.read_csv_gz(obs.series_to_csv_gz(flow, agg=obs._daily_agg("discharge", flow)))
+    assert list(daily) == [3.0, 3.0]
+
+    # Rainfall that already arrives daily keeps the mean path: a missing day
+    # stays missing rather than becoming a zero total.
+    daily_rain = pd.Series([1.0, 2.0], index=pd.to_datetime(["2024-01-01", "2024-01-03"]))
+    assert obs._daily_agg("precipitation", daily_rain) == "mean"
+    assert list(obs.read_csv_gz(obs.series_to_csv_gz(daily_rain))) == [1.0, 2.0]
+
+
+def test_harvest_sums_sub_daily_rainfall(tmp_path):
+    idx = pd.date_range("2024-01-01", periods=96, freq="15min")
+    fifteen_minute = pd.Series(np.full(96, 0.25), index=idx)
+
+    def fetch(source, sid, **kw):
+        return {"series": fifteen_minute, "variable": "precipitation", "unit": "mm", "note": "test"}
+
+    catalog = [{"source": "greece_openhi", "station_id": "8425", "variables": ["precipitation"], "period_end": None}]
+    with patch("aquascope.explore.fetch_series", side_effect=fetch):
+        report = obs.harvest_observations(
+            tmp_path, sources=["greece_openhi"], variable="precipitation", catalog=catalog, max_stations=1,
+        )
+    assert report.sources[0].harvested == 1
+    stored = obs.read_csv_gz(obs.obs_path(tmp_path, "precipitation", "greece_openhi", "8425").read_bytes())
+    assert list(stored) == [24.0]
+
+
+def test_openhi_is_harvestable_because_the_browser_cannot_call_it():
+    from aquascope.registry import SOURCES
+
+    meta = SOURCES["greece_openhi"]
+    assert "greece_openhi" in obs.HARVESTABLE
+    assert meta.redistributable and not meta.browser_reachable
+    assert set(obs.HARVESTABLE["greece_openhi"]) <= set(meta.variables)
+    assert all(SOURCES[k].redistributable for k in obs.HARVESTABLE)

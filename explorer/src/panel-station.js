@@ -104,8 +104,14 @@ async function requestAnalysis(r, my) {
     render(result, r);
   } catch (err) {
     if (my !== analysisRun) return;
+    const msg = String((err && err.message) || err);
+    // A refused cross-origin call reaches here as a bare NetworkError from the
+    // worker's XHR. Say what it means rather than echo it (#408).
+    const refused = /NetworkError|Failed to fetch|XMLHttpRequest|cross-origin|CORS/i.test(msg);
     setCard($("st-kpis-card"), "error", {
-      message: `Could not analyse this station: ${err.message}`,
+      message: refused
+        ? "This agency's API could not be reached from your browser: it does not allow cross-origin requests from web pages. The record is still reachable from the Python package (pip install aquascope)."
+        : `Could not analyse this station: ${msg}`,
       retry: () => requestAnalysis(r, my),
     });
   }

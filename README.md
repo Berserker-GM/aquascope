@@ -36,7 +36,7 @@
 
 ---
 
-AquaScope unifies **36 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top — from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements** — wrapped in an AI engine that scores **26 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,500+ tests.
+AquaScope unifies **37 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top — from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements** — wrapped in an AI engine that scores **26 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,500+ tests.
 
 ---
 
@@ -51,8 +51,11 @@ Press **Ask ✨** to type a question in plain language (bring your own key, Groq
 tools, aquascope runs them in your browser, and the answer ends with the data used and the methods with citations.
 Press **Study** (or "Study this place" on any gauge or point) to hand a whole problem to a crew of roles: it writes the
 brief with you, inventories the data in reach and the table you drop in, proposes a methodology you approve, runs it with
-a check after every step, and hands back a zip with a Word report, an Excel workbook, PNG and SVG figures, a notebook that
-re-runs the study and the study.yaml. Keyless it still does all of that from the playbooks, and with the on-device
+a check after every step (a failed check fails that step, the rest still runs), reads the results the way an engineer
+would (findings that each point at the number they rest on, a decision with its band and a grade, what would change it,
+the data it would ask for), asks for data instead of declining when a table of yours would unlock the question, and
+hands back a zip with a Word report, an Excel workbook, PNG and SVG figures, a notebook that re-runs the study and the
+study.yaml. Keyless it still does all of that from the playbooks, and with the on-device
 model Ask already loads it plans and writes on your machine; your own key puts a model behind every role. Twelve
 recorded studies on the board show what a full run looks like and re-run live in your browser ([docs](docs/studio.md)).
 Not a Python user? The same files open in [R, QGIS, DuckDB and Julia](docs/readers.md) in place; `integrations/qgis/` has a
@@ -64,11 +67,11 @@ MCP client) `find_stations`, `get_timeseries`, `analyze_station` and `flood_freq
 
 ## ✨ What you can do
 
-- 🌊 **Pull water data** from USGS, NOAA NWPS, Colorado DWR/CDSS, US Water Quality Portal, England's Environment Agency, France Hub'Eau, Germany PEGELONLINE, Ireland OPW, Greece Hydroscope and OpenHi.net, EU WFD, Taiwan MOENV/WRA/CWA/Civil IoT/DataGov, Japan MLIT, Korea WAMIS, India WRIS, South Africa DWS, Australia BOM, Brazil ANA Hidroweb, CAMELS-CL and CAMELS-BR, GRDC, GEMStat, Copernicus ERA5, OpenMeteo, FAO AQUASTAT, FAO WaPOR and UN SDG 6 — **one unified Python API**.
+- 🌊 **Pull water data** from USGS, NOAA NWPS, Colorado DWR/CDSS, US Water Quality Portal, England's Environment Agency, France Hub'Eau, Germany PEGELONLINE, Ireland OPW, Greece Hydroscope and OpenHi.net, Poland IMGW-PIB, EU WFD, Taiwan MOENV/WRA/CWA/Civil IoT/DataGov, Japan MLIT, Korea WAMIS, India WRIS, South Africa DWS, Australia BOM, Brazil ANA Hidroweb, CAMELS-CL and CAMELS-BR, GRDC, GEMStat, Copernicus ERA5, OpenMeteo, FAO AQUASTAT, FAO WaPOR and UN SDG 6 — **one unified Python API**.
 - 📈 **Run hydrological analyses** — Bulletin 17C flood frequency (GEV / LP3 / Gumbel / non-stationary GEV / EMA), baseflow separation, rating curves, 22 hydrological signatures.
 - 🌾 **Plan agricultural water** — FAO-56 Penman-Monteith ET₀, crop water requirements for 26 crops, irrigation scheduling, soil water balance with auto-irrigation.
 - 🤖 **Ask the AI engine** — describe your goal in plain English and get a recommended methodology, scored against your dataset profile and auto-executed. LLM enhancement via OpenAI, Groq (free), HuggingFace (free), or local Ollama.
-- 🧑‍🔬 **Hand a study to the crew** — `aquascope studio "PROBLEM" --lat --lon`: a Consultant, a Scout, a Methodologist, Analysts, a Critic and an Author over one workspace, the plan shown before it runs, every step gated, and the bundle (Word, Excel, figures, notebook, study.yaml) at the end. Also in the Explorer and over MCP.
+- 🧑‍🔬 **Hand a study to the crew** — `aquascope studio "PROBLEM" --lat --lon`: a Consultant, a Scout, a Methodologist, Analysts, an Interpreter, a Critic and an Author over one workspace, the plan shown before it runs, every step gated (a failed gate fails its step, not the study), every answer graded (established, indicative, screening, not established) with findings that point at the result they rest on, a request for the data that would unlock a question instead of a decline, and the bundle (Word, Excel, figures, notebook, findings.json, study.yaml) at the end. Also in the Explorer and over MCP.
 - 📊 **Visualise + report** — 16 plot types, Q-Q / P-P diagnostics, Markdown / HTML reports with embedded figures, threshold alerts (WHO / EPA / EU WFD).
 - 🗺️ **Spatial hydrology** — DEM processing, D8 flow direction, watershed delineation, Strahler ordering.
 
@@ -82,7 +85,7 @@ For the full capability list see [docs/features.md](docs/features.md).
 | Non-stationary GEV | ✅ | — | partial | — |
 | Baseflow separation (Lyne-Hollick, Eckhardt) | ✅ | — | — | — |
 | FAO-56 Penman-Monteith ET₀ + crop water | ✅ | — | — | — |
-| 36 unified data collectors | ✅ | — | — | per-source |
+| 37 unified data collectors | ✅ | — | — | per-source |
 | AI methodology recommender (OpenAI / Groq / HF / Ollama) | ✅ | — | — | — |
 | Interactive Streamlit dashboard | ✅ | — | — | — |
 | Free, MIT, Python-native | ✅ | partial | ✅ | varies |
@@ -149,7 +152,7 @@ print(sig.flashiness_index)    # Richards-Baker flashiness index
 
 22 signatures across magnitude, variability, timing, recession, and flashiness — see [docs/features.md](docs/features.md#hydrological-analysis).
 
-### 3. Collect data from any of the 36 sources
+### 3. Collect data from any of the 37 sources
 
 ```python
 from aquascope import find_stations
@@ -302,7 +305,7 @@ aquascope recommend --parameters DO,BOD5,COD --goal "pollution trend detection" 
 aquascope solve "Design flow for a road crossing, 100-year return period" --lat 51.415 --lon -0.308
 aquascope studio "Design flow for a road crossing, 100-year, and how sure can we be" --lat 51.415 --lon -0.308 --out kingston/   # the crew: brief, plan, run, bundle
 
-# Interactive Streamlit dashboard — multipage workspace with 36 live sources,
+# Interactive Streamlit dashboard — multipage workspace with 37 live sources,
 # smart auto-insights, and fully interactive Plotly charts
 aquascope dashboard
 
@@ -316,10 +319,10 @@ Run `aquascope --help` for the full command list.
 
 ## 🌍 Data sources at a glance
 
-36 data collectors spanning five regions (highlights below, full list in the [docs](docs/data_sources.md)):
+37 data collectors spanning five regions (highlights below, full list in the [docs](docs/data_sources.md)):
 
 - 🌎 **Americas** — USGS (streamflow + WQ), NOAA NWPS (US streamflow), Colorado DWR/CDSS, Water Quality Portal (400+ agencies), CAMELS-CL (Chile), CAMELS-BR and ANA Hidroweb (Brazil)
-- 🌍 **Europe** — EU Water Framework Directive, Copernicus ERA5, France Hub'Eau, Germany PEGELONLINE, England's Environment Agency, Ireland OPW, Greece Hydroscope (national archive) and OpenHi.net (live telemetry)
+- 🌍 **Europe** — EU Water Framework Directive, Copernicus ERA5, France Hub'Eau, Germany PEGELONLINE, England's Environment Agency, Ireland OPW, Greece Hydroscope (national archive) and OpenHi.net (live telemetry), Poland IMGW-PIB (daily archive from 1951 and the live network)
 - 🌍 **Africa** — South Africa DWS (verified discharge and water level)
 - 🌏 **Asia-Pacific** — Taiwan MOENV / WRA / CWA / Civil IoT / DataGov, Japan MLIT, Korea WAMIS, India WRIS, Australia BOM
 - 🌐 **Global** — GEMStat (170 countries), UN SDG 6, OpenMeteo, FAO AQUASTAT, FAO WaPOR, GRDC (river discharge)
@@ -342,13 +345,14 @@ Full details, endpoints, and API-key requirements: [docs/data_sources.md](docs/d
 | Resource | What it covers |
 | :--- | :--- |
 | [Features](docs/features.md) | Full capability list — hydrology, agriculture, ML, spatial, I/O |
-| [Data sources](docs/data_sources.md) | All 36 sources, endpoints, API-key requirements |
+| [Data sources](docs/data_sources.md) | All 37 sources, endpoints, API-key requirements |
 | [Theory guide](docs/theory.md) | Equations, DOI citations, decision trees for every method |
 | [Methodology matrix](docs/methodology_matrix.md) | When to use which method |
 | [Architecture](docs/guides/architecture.md) | How AquaScope is structured internally |
 | [FAQ](docs/faq.md) · [Troubleshooting](docs/troubleshooting.md) | Common questions and fixes |
 | [Use cases](docs/use_cases.md) | Real-world applications and case studies |
 | [HydroGym](docs/gym.md) | A gym-style calibration environment over real basins, with baselines and a leaderboard |
+| [HydroGym benchmark](docs/hydrogym.md) | Hydrology agents scored on real sites: task outcomes, plan quality against expert plans, and the report the user receives |
 | [Integration guides](docs/integration_guides/) | xarray, QGIS, R interoperability |
 | [Contributing](CONTRIBUTING.md) | How to add a data source, methodology, or test |
 
@@ -433,6 +437,8 @@ Thanks to these wonderful people who make AquaScope possible ([emoji key](CONTRI
     </tr>
     <tr>
       <td align="center" valign="top" width="20%"><a href="https://github.com/mohanasrujana"><img src="https://avatars.githubusercontent.com/u/59142214?v=4?s=100" width="100px;" alt="Satya Srujana Pilli"/><br /><sub><b>Satya Srujana Pilli</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/itsnevu"><img src="https://avatars.githubusercontent.com/u/129736887?v=4?s=100" width="100px;" alt="0x"/><br /><sub><b>0x</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=itsnevu" title="Code">💻</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://travelsafepilot.com"><img src="https://avatars.githubusercontent.com/u/241781992?v=4?s=100" width="100px;" alt="bazinga0027-gif"/><br /><sub><b>bazinga0027-gif</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Tests">⚠️</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>
@@ -454,7 +460,7 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.16.0},
+  version = {0.17.0},
   doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }
@@ -463,7 +469,7 @@ If you use AquaScope in your research, please cite:
 Machine-readable metadata lives in [CITATION.cff](CITATION.cff); GitHub's "Cite this
 repository" button renders it in APA and BibTeX. Every tagged release is archived on
 Zenodo; `10.5281/zenodo.21903143` is the concept DOI that always resolves to the latest
-version (v0.15.1 is [10.5281/zenodo.22637405](https://doi.org/10.5281/zenodo.22637405)).
+version (v0.17.0 is [10.5281/zenodo.22772303](https://doi.org/10.5281/zenodo.22772303)).
 
 ## 📄 License
 

@@ -449,3 +449,54 @@ def test_greek_sources_push_the_window_down_and_try_variables_in_order():
             analysis.fetch_series(source, "100200045", years=2, prefer_archive=False)
         assert [v for v, *_ in seen] == ["discharge", "water_level", "precipitation"], source
         assert all(ids == ["100200045"] and has_start and has_end for _, ids, has_start, has_end in seen), source
+
+
+class _AgencyMustNotBeCalled:
+    def __getattr__(self, name):  # pragma: no cover - only reached on failure
+        raise AssertionError("the agency must not be called from the browser")
+
+
+def test_browser_unreachable_source_says_so_instead_of_empty(monkeypatch):
+    """In the browser, a source the page cannot call is not an empty record (#408).
+
+    Hydroscope's API refuses cross-origin calls and is plain http, so the
+    worker's request died before any data moved and the card said "no
+    observations". The card must say what is wrong and where the record is.
+    """
+    monkeypatch.setattr(analysis, "IS_EMSCRIPTEN", True)
+    with patch.object(analysis, "build_collector", return_value=_AgencyMustNotBeCalled()), \
+         patch("aquascope.archive.observations.fetch_archived_series", return_value=None):
+        out = analysis.analyze_station("greece_hydroscope", "100010020")
+    assert out["n"] == 0 and out["browser_unreachable"] is True
+    assert "cannot be reached from a browser" in out["error"]
+    assert "pip install aquascope" in out["error"] and "100010020" in out["error"]
+    assert "not mirrored" in out["error"]  # Hydroscope has no licence, so no archive either
+
+    # A mirrored source that the archive has not reached yet says that instead.
+    with patch.object(analysis, "build_collector", return_value=_AgencyMustNotBeCalled()), \
+         patch("aquascope.archive.observations.fetch_archived_series", return_value=None):
+        out = analysis.analyze_station("greece_openhi", "8425")
+    assert out["browser_unreachable"] is True and "no mirrored file for this station yet" in out["error"]
+
+    # Outside the browser nothing changes: the agency is asked as before.
+    monkeypatch.setattr(analysis, "IS_EMSCRIPTEN", False)
+
+    class _Empty:
+        def collect(self, **kw):
+            return []
+
+    with patch.object(analysis, "build_collector", return_value=_Empty()):
+        out = analysis.fetch_series("greece_hydroscope", "100010020", years=1, prefer_archive=False)
+    assert out["series"] is None and "Hydroscope" in out["note"]
+
+
+def test_browser_unreachable_but_mirrored_source_reads_the_archive(monkeypatch):
+    """OpenHi is mirrored, so in the browser the Explorer serves the archive and never calls the agency (#408)."""
+    monkeypatch.setattr(analysis, "IS_EMSCRIPTEN", True)
+    s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2024-01-01", "2024-01-02"]), name="value")
+    with patch.object(analysis, "build_collector", return_value=_AgencyMustNotBeCalled()), \
+         patch("aquascope.archive.observations.fetch_archived_series", return_value=s) as archived:
+        out = analysis.fetch_series("greece_openhi", "8425")
+    assert out["series"] is not None and out["variable"] == "discharge"
+    assert "From the AquaScope archive" in out["note"]
+    assert archived.call_args[0][:3] == ("greece_openhi", "8425", "discharge")

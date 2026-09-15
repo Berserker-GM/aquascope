@@ -22,7 +22,7 @@ def test_yes_runs_to_the_bundle(monkeypatch, capsys, tmp_path, no_deliverables):
     with patched():
         cli.main()
     printed = capsys.readouterr().out
-    assert "Plan (playbook, playbook flood_risk, branch at_site, 3 step(s))" in printed
+    assert "Plan (playbook, playbook flood_risk, branch at_site, 4 step(s))" in printed
     assert "The record at Kingston" in printed and "Bundle written to" in printed
     names = {p.name for p in out.iterdir()}
     assert {"report.md", "study.yaml", "report.json", "workspace.json"} <= names

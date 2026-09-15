@@ -13,8 +13,10 @@ from tests.test_ai_engine.test_team import CATCHMENT, FLOW, RECON
 
 
 def _tools():
+    from tests.test_ai_engine.test_team import GLOFAS
+
     return {"describe_catchment": lambda **kw: CATCHMENT, "analyze_station": lambda **kw: FLOW,
-            "flood_frequency": lambda **kw: FLOW}
+            "flood_frequency": lambda **kw: FLOW, "anywhere": lambda **kw: {"glofas": GLOFAS}}
 
 
 def test_playbooks_list_and_show(monkeypatch, capsys):
@@ -46,7 +48,7 @@ def test_solve_prints_the_plan_runs_with_yes_and_writes_the_study(monkeypatch, c
          patch("aquascope.study._tools", return_value=_tools()):
         cli.main()
     printed = capsys.readouterr().out
-    assert "Plan: playbook flood_risk, branch at_site, 3 step(s)" in printed
+    assert "Plan: playbook flood_risk, branch at_site, 4 step(s)" in printed
     assert "gate max_return_period_factor 3 on years" in printed and "Report saved to" in printed
     assert "## Steps and gates" in out.read_text(encoding="utf-8") and "T = 50 years" in out.read_text(encoding="utf-8")
     text = study.read_text(encoding="utf-8")

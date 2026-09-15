@@ -60,6 +60,8 @@ without ever hammering an agency. What is mirrored:
 | `uk_ea` | discharge, water_level, precipitation, groundwater_level | Hydrology API daily mean flow; daily max level where no daily mean is published; daily rainfall totals; borehole levels in metres above Ordnance Datum (manual dips or logger) |
 | `hubeau_hydrometrie` | discharge | obs_elab QmnJ, the elaborated daily mean discharge |
 | `taiwan_cwa` | precipitation | CODIS daily rainfall |
+| `poland_imgw` | discharge, water_level | IMGW-PIB daily archive (hydrological-year zips, one per month to 2022 and one per year after; the current year is published once it ends). The archive host sends no CORS headers, so this mirror is what the Explorer serves (#391) |
+| `greece_openhi` | discharge, water_level, precipitation | 15-minute telemetry folded to daily means, rainfall to daily totals. The browser cannot call OpenHi directly (its API allows cross-origin requests from localhost only), so this mirror is what the Explorer serves (#408) |
 
 Read one station:
 

@@ -186,25 +186,40 @@ function boardStatus() {
   if (S.declined) return "declined";
   if (!S.ws) return "intake";
   const st = S.ws.status;
-  if (st === "declined" || st === "review" || st === "done") return st;
+  if (st === "declined" || st === "review" || st === "done" || st === "waiting") return st;
   if (["running", "critique", "authoring", "scouting", "planning"].includes(st)) return "running";
   return "intake";
+}
+
+// The file drop area once a study exists (any status but a running one, where it is not offered): the
+// tables already in the workspace (not S.files, which only stages tables before a study starts) and, at
+// waiting, review or done, a line saying what dropping one now does (#419).
+const DROP_NOTE = {
+  waiting: "A table dropped now is inventoried and the plan is written again.",
+  review: "A table dropped now is inventoried and the plan is written again.",
+  done: "A table dropped now runs as a follow-up.",
+};
+
+function fileDropHtml(status) {
+  const attached = Object.keys((S.ws && S.ws.tables) || {});
+  const note = DROP_NOTE[status];
+  return `<div class="study-data">` +
+    `<label class="link" for="study-file">Add a CSV or XLSX</label>` +
+    `<input type="file" id="study-file" accept=".csv,.txt,.xlsx,.xls,.json" multiple hidden>` +
+    (attached.length ? `<p class="study-line muted">with ${attached.map(escapeHtml).join(", ")}</p>` : "") +
+    (note ? `<p class="study-line muted">${escapeHtml(note)}</p>` : "") +
+    `</div>`;
 }
 
 function intakeHtml() {
   const w = S.ws ? S.site : where();
   const cfg = askModelConfig();
   const started = Boolean(S.ws);
-  const attached = [...S.files.map((f) => f.id), ...(S.useMyData && hasTable() ? [tableLabel()] : [])];
   let model;
   if (!cfg) model = `<p class="study-line muted">No key: the playbook tree plans, templates write.</p>`;
   else if (started) model = `<p class="study-line muted">${S.useKey ? escapeHtml(cfg.label) : "no model"}</p>`;
   else model = `<label class="study-line ask-context-toggle"><input type="checkbox" data-opt="key" ${S.useKey ? "checked" : ""}> use ${escapeHtml(cfg.label)} for the prose</label>`;
-  let data;
-  if (started) {
-    data = attached.length ? `<p class="study-line muted">with ${attached.map(escapeHtml).join(", ")}</p>` : "";
-  } else {
-    data = `<div class="study-data">` +
+  const data = started ? fileDropHtml("intake") : `<div class="study-data">` +
       `<label class="link" for="study-file">Add a CSV or XLSX</label>` +
       `<input type="file" id="study-file" accept=".csv,.txt,.xlsx,.xls,.json" multiple hidden>` +
       (hasTable()
@@ -214,7 +229,6 @@ function intakeHtml() {
         ? `<ul class="study-files">${S.files.map((f, i) => `<li>${escapeHtml(f.id)} <button type="button" class="study-x" data-remove="${i}" aria-label="Remove ${escapeHtml(f.id)}">×</button></li>`).join("")}</ul>`
         : "") +
       `</div>`;
-  }
   // A study saved in this browser at this place (or, with nothing picked, the last one anywhere).
   const resume = !started && S.resume
     ? `<p class="study-resume"><button type="button" class="chip" data-act="resume" title="${escapeHtml(`${S.resume.site.text}, ${agoWords(S.resume.at)}`)}">Resume the last study${w ? "" : ` at ${escapeHtml(S.resume.site.text)}`}</button></p>`
@@ -266,6 +280,17 @@ function shownSteps() {
   return ((S.ws && S.ws.study) || {}).steps || [];
 }
 
+// A compound brief: the companion playbook's steps, appended to the primary plan (#419).
+function companionsHtml(plan) {
+  const list = plan.companions;
+  if (!plan.compound || !Array.isArray(list) || !list.length) return "";
+  const bits = list.map((c) => {
+    const n = (c.steps || []).length;
+    return `${String(c.playbook || "").replace(/_/g, " ")} adds ${n} step${n === 1 ? "" : "s"}`;
+  });
+  return `<p class="study-line muted">This brief spans two playbooks: ${escapeHtml(bits.join("; "))}</p>`;
+}
+
 function planHtml() {
   const study = S.ws.study || {};
   const plan = S.proposal ? { ...study.plan, ...S.proposal.plan } : (study.plan || {});
@@ -273,11 +298,13 @@ function planHtml() {
   const notes = [...(plan.assumptions || []), ...(plan.caveats || [])];
   return `<article class="study-plan" tabindex="-1" aria-label="The plan">` +
     (plan.objective ? `<p class="study-objective">${escapeHtml(plan.objective)}</p>` : "") +
+    companionsHtml(plan) +
     `<ol class="study-steps">${steps.map(stepHtml).join("")}</ol>` +
     (notes.length
       ? `<details class="study-notes"><summary>${notes.length} note${notes.length === 1 ? "" : "s"}</summary><ul>${notes.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul></details>`
       : "") +
     (S.planLine ? `<p class="study-by muted">${escapeHtml(S.planLine)}</p>` : "") +
+    fileDropHtml("review") +
     `<div class="row-actions">` +
       `<button type="button" class="btn primary" data-act="approve">Approve</button>` +
       `<button type="button" class="btn" data-act="edit" aria-pressed="${S.editing}">${S.editing ? "Cancel edits" : "Edit"}</button>` +
@@ -315,6 +342,22 @@ function figHtml(f) {
   return `<figure class="study-fig">${img}${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
 }
 
+// Waiting for data (#419): what the crew needs, why, and what it changes; "Continue without" only when the
+// rule allows it, else a line saying the study cannot answer without the data. The file drop area is
+// offered here too, and dropping a table plans again on it (Studio.add_table).
+function waitingHtml() {
+  const req = S.ws.pending_request || {};
+  return `<div class="study-waiting">` +
+    (req.what ? `<p class="study-line">${escapeHtml(req.what)}</p>` : "") +
+    (req.why ? `<p class="study-line muted">Why: ${escapeHtml(req.why)}</p>` : "") +
+    (req.effect ? `<p class="study-line muted">What it changes: ${escapeHtml(req.effect)}</p>` : "") +
+    (req.can_continue
+      ? `<div class="row-actions"><button type="button" class="btn" data-act="continue">Continue without</button></div>`
+      : `<p class="study-line muted">Without it, the study cannot answer this brief.</p>`) +
+    fileDropHtml("waiting") +
+    `</div>`;
+}
+
 function runningHtml() {
   const figs = [...S.figures.values()].filter((f) => f.job === S.jobId);
   return `<div class="study-run">` +
@@ -341,6 +384,50 @@ function crewLine() {
   return [plan, S.proseLine].filter(Boolean).join(" · ");
 }
 
+// The engineer's view, above the answer: the grade (with what it means on a title), the decision (the
+// headline value, what has to hold, what would change it, what the crew would ask for) and the findings,
+// collapsed (#417, #419). Absent on an older report (a recording made before this shipped): every helper
+// below is a no-op then, so nothing new renders and nothing breaks (studio-recorded.js).
+const GRADE_TITLE = {
+  established: "established: at-site data, every gate passed",
+  indicative: "indicative: a fallback, a donor transfer or a marginal method",
+  screening: "screening: regional or reanalysis data only",
+  not_established: "not established: no number could be established for the decision",
+};
+
+function gradeBadgeHtml(grade) {
+  if (!grade) return "";
+  const word = String(grade).replace(/_/g, " ");
+  return `<p><span class="study-grade grade-${escapeHtml(String(grade))}" title="${escapeHtml(GRADE_TITLE[grade] || word)}">${escapeHtml(word)}</span></p>`;
+}
+
+function decisionHtml(report) {
+  const d = report.decision;
+  if (!d) return "";
+  const conditions = d.conditions || [];
+  const changes = d.what_would_change_it || [];
+  const requests = report.data_requests || [];
+  return `<div class="study-decision">` +
+    (d.answer ? `<p class="study-decision-answer">${escapeHtml(d.answer)}</p>` : "") +
+    (conditions.length
+      ? `<p class="study-line muted">Holds if:</p><ul>${conditions.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>` : "") +
+    (changes.length
+      ? `<p class="study-line muted">Would change it:</p><ul>${changes.map((c) => `<li>${escapeHtml(c)}</li>`).join("")}</ul>` : "") +
+    (requests.length
+      ? `<p class="study-line muted">The crew would ask for:</p><ul>${requests.map((r) =>
+        `<li>${escapeHtml(r.what || "")}${r.effect_on_grade ? `: ${escapeHtml(r.effect_on_grade)}` : ""}</li>`).join("")}</ul>` : "") +
+    `</div>`;
+}
+
+function findingsHtml(report) {
+  const findings = report.findings || [];
+  if (!findings.length) return "";
+  const rows = findings.map((f) => `<li>[${escapeHtml(String(f.grade || "").replace(/_/g, " "))}] ${escapeHtml(f.claim || "")}` +
+    ((f.basis || []).length ? `<br><code class="study-basis">${escapeHtml((f.basis || []).join(", "))}</code>` : "") +
+    `</li>`).join("");
+  return `<details class="study-findings"><summary>Findings</summary><ul>${rows}</ul></details>`;
+}
+
 function doneHtml() {
   const report = S.ws.report || {};
   const numbers = (report.key_numbers || []).slice(0, 12);
@@ -349,7 +436,10 @@ function doneHtml() {
   if (S.recorded) return recordedDoneHtml(report, numbers, not);
   const figs = artifacts.filter((a) => a.kind === "figure" && a.media_type === "image/png");
   const docs = DOCS.filter(([id]) => artifacts.some((a) => a.id === id));
-  return `<article class="study-answer ask-result" tabindex="-1" aria-label="The answer">${mdToHtml(report.answer || "No answer was produced.")}</article>` +
+  return gradeBadgeHtml(report.grade) +
+    decisionHtml(report) +
+    findingsHtml(report) +
+    `<article class="study-answer ask-result" tabindex="-1" aria-label="The answer">${mdToHtml(report.answer || "No answer was produced.")}</article>` +
     (numbers.length
       ? `<table class="ffa study-numbers"><tbody>${numbers.map((k) => `<tr><td>${escapeHtml(k.label)}</td><td>${escapeHtml(numValue(k))}</td></tr>`).join("")}</tbody></table>`
       : "") +
@@ -371,6 +461,9 @@ function doneHtml() {
 function recordedDoneHtml(report, numbers, not) {
   const rec = S.recorded;
   return recordedNoteHtml(rec.meta) +
+    gradeBadgeHtml(report.grade) +
+    decisionHtml(report) +
+    findingsHtml(report) +
     `<article class="study-answer ask-result" tabindex="-1" aria-label="The answer">${mdToHtml(report.answer || "No answer was produced.")}</article>` +
     (numbers.length
       ? `<table class="ffa study-numbers"><tbody>${numbers.map((k) => `<tr><td>${escapeHtml(k.label)}</td><td>${escapeHtml(numValue(k))}</td></tr>`).join("")}</tbody></table>`
@@ -391,7 +484,10 @@ function declinedHtml() {
     `<div class="row-actions"><button type="button" class="btn primary" data-act="again">Start again</button></div>`;
 }
 
-const BOARDS = { intake: intakeHtml, review: planHtml, running: runningHtml, done: doneHtml, declined: declinedHtml };
+const BOARDS = {
+  intake: intakeHtml, review: planHtml, waiting: waitingHtml, running: runningHtml, done: doneHtml,
+  declined: declinedHtml,
+};
 
 function renderBoard() {
   const status = boardStatus();
@@ -411,6 +507,7 @@ const PLACEHOLDER = {
   intake: "What do you need to know here?",
   questions: "Your answer",
   review: "Or say what to change",
+  waiting: "Say \"continue without\", or what you are attaching",
   done: "A question, or a change",
   declined: "Say it another way",
 };
@@ -769,7 +866,7 @@ async function callStudio(op, extra = {}) {
   S.declined = null;
   setBusy(true);
   try {
-    if (op === "approve" || op === "follow_up") {
+    if (op === "approve" || op === "follow_up" || op === "add_table") {
       await ensureCatalogInWorker();
       // A resumed study (a reload, a dropped workspace.json) has not read its site yet.
       if (S.site && !S.siteReady) await loadSiteInfo(S.site, my);
@@ -799,7 +896,7 @@ function send(given) {
   if (!S.ws) { start(text); return; }
   const st = S.ws.status;
   if (st === "done") callStudio("follow_up", { text });
-  else if (st === "intake" || st === "review") callStudio("say", { text });
+  else if (st === "intake" || st === "review" || st === "waiting") callStudio("say", { text });
   else if (st === "declined") { reset(); start(text); }
 }
 
@@ -1086,7 +1183,10 @@ function saveBytes(name, b64, type) {
 
 // A CSV goes in as it is; an Excel file is turned into CSV in the worker, so
 // every table travels in the workspace the same way and round-trips. A
-// workspace.json resumes the study it carries.
+// workspace.json resumes the study it carries. Before a study starts a table
+// only stages in S.files, sent along with "start"; once one exists, a table
+// is attached to it directly (Studio.add_table, #419) and the reply it comes
+// back with is applied like any other, so a plan or a report renders.
 async function addFiles(list) {
   for (const file of list) {
     const id = file.name.replace(/\s+/g, "_");
@@ -1098,13 +1198,20 @@ async function addFiles(list) {
         resumeWorkspace(obj);
         return;
       }
-      if (S.ws) continue;   // tables are attached before a study starts
+      let csv, tableId = id;
       if (/\.xlsx?$|\.xls$/i.test(file.name)) {
         note(`Reading ${file.name}…`);
         const res = await call("studio", { op: "table", name: file.name, data: toBase64(await file.arrayBuffer()) });
-        S.files.push({ id: id.replace(/\.xlsx?$|\.xls$/i, ".csv"), csv: res.csv });
+        csv = res.csv;
+        tableId = id.replace(/\.xlsx?$|\.xls$/i, ".csv");
       } else {
-        S.files.push({ id, csv: await file.text() });
+        csv = await file.text();
+      }
+      if (S.ws) {
+        note(`Attaching ${tableId}…`);
+        await callStudio("add_table", { name: tableId, csv });
+      } else {
+        S.files.push({ id: tableId, csv });
       }
     } catch (err) {
       note(`Could not read ${file.name}: ${err.message}`, "error");
@@ -1172,6 +1279,7 @@ function onBoardClick(e) {
     if (what === "approve") approve();
     else if (what === "edit") { S.editing = !S.editing; renderBoard(); }
     else if (what === "decline") decline();
+    else if (what === "continue") callStudio("say", { text: "continue without" });
     else if (what === "stop") stop();
     else if (what === "bundle") downloadArtifact("bundle");
     else if (what === "again") reset();
@@ -1240,3 +1348,7 @@ export function initStudy() {
   actions.openStudy = openStudy;
   renderAll();
 }
+
+// Exported for explorer/tests/studio-requests.test.mjs: the board state, the status it maps to, the board
+// renderers by status and the file intake, none of which otherwise leave this module.
+export { S, boardStatus, BOARDS, addFiles };
