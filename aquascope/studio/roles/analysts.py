@@ -398,36 +398,53 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
     _inherit_units(ws, run_, study)
     _draw(ws, run_, drawn, on_artifact, study)
     replans = 0
-    attempts = 0
-    while run_.stop_reason and attempts < max_replans:
-        attempts += 1
-        if run_.replan:
+    #: Recovery attempts per step id: each failed step gets its branch replan or its Specialist fallback at most
+    #: ``max_replans`` times, then it stays not established and the crew moves to the next failed step.
+    attempted: dict[str, int] = {}
+
+    def rerun(new_study: Study) -> StudyRun:
+        nonlocal study
+        study = new_study
+        out = run_study(study, on_event=say, prior=run_, tools=callables)
+        _name_stations(ws, out)
+        _inherit_units(ws, out, study)
+        _draw(ws, out, drawn, on_artifact, study)
+        return out
+
+    while not run_.stop_reason:
+        if run_.replan and attempted.get(str(run_.replan["step"]), 0) < max_replans:
+            sid = str(run_.replan["step"])
+            attempted[sid] = attempted.get(sid, 0) + 1
             branch = run_.replan["branch"]
             if pb is None:
-                ws.event("analyst", "replan_declined", "no playbook to fill the branch from", step=run_.stopped_at)
-                break
+                ws.event("analyst", "replan_declined", "no playbook to fill the branch from", step=sid)
+                run_.replan = None
+                continue
             try:
                 new = pbk.plan(pb, recon, intake, branch=branch, problem_text=text)
             except pbk.Declined as exc:
-                ws.event("analyst", "replan_declined", exc.reason, step=run_.stopped_at)
-                break
+                ws.event("analyst", "replan_declined", exc.reason, step=sid)
+                run_.replan = None
+                continue
             new = _carry(study, new)
-            new.plan["replanned_from"] = {"branch": plan.get("branch"), "step": run_.stopped_at,
+            new.plan["replanned_from"] = {"branch": plan.get("branch"), "step": sid,
                                           "reason": run_.replan.get("reason")}
-            ws.event("analyst", "replan", f"branch {branch} after {run_.stop_reason}", step=run_.stopped_at)
-            study = new
+            ws.event("analyst", "replan", f"branch {branch} after {run_.replan.get('reason')}", step=sid)
             replans += 1
-            run_ = run_study(study, on_event=say, prior=run_, tools=callables)
-            _name_stations(ws, run_)
-            _inherit_units(ws, run_, study)
-            _draw(ws, run_, drawn, on_artifact, study)
+            run_ = rerun(new)
             continue
         if not model:
             break
-        failed = next((r for r in run_.results if r.get("id") == run_.stopped_at), None)
-        step = study.step_by_id(run_.stopped_at or "")
-        if failed is None or step is None:
+        pending = [f for f in run_.failed_steps
+                   if not f.get("skipped") and attempted.get(str(f["id"]), 0) < max_replans]
+        if not pending:
             break
+        target = str(pending[0]["id"])
+        attempted[target] = attempted.get(target, 0) + 1
+        failed = next((r for r in run_.results if r.get("id") == target), None)
+        step = study.step_by_id(target)
+        if failed is None or step is None:
+            continue
         from aquascope.ai_engine.team import SPECIALIST_PROMPTS, _recon_summary
 
         proposal = model.call_json("analyst", f"{SPECIALIST_PROMPTS.get(kind, SPECIALIST_PROMPTS['default'])}\n"
@@ -436,16 +453,18 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
             "failed_step": {"id": step.id, "tool": step.tool, "arguments": step.arguments,
                             "rationale": step.rationale},
             "failed_gates": [g for g in failed.get("gates") or [] if not g.get("passed")],
+            "error": failed.get("error"),
             "result": compact(failed.get("result")),
             "earlier_fallback": compact(failed.get("fallback")) if failed.get("fallback") else None,
             "recon": _recon_summary(recon),
-            "tools": [{"tool": e["tool"], "arguments": list(e["arguments"]), "gates": e["gates"]}
+            "tools": [{"tool": e["tool"], "arguments": list(e["arguments"]), "gates": e["gates"],
+                       "allowed": e.get("allowed") or {}}
                       for e in catalogue.compact(ws.brief.kind)[:20]],
         }, step=step.id)
         if not proposal or not proposal.get("tool"):
             ws.event("analyst", "no_fallback", (proposal or {}).get("rationale")
                      or "the specialist proposed no usable fallback", step=step.id)
-            break
+            continue
         fb_step = {"tool": str(proposal["tool"]), "arguments": dict(proposal.get("arguments") or {}),
                    "rationale": str(proposal.get("rationale") or "proposed by the specialist after the gate failed"),
                    "expects": [g for g in (proposal.get("expects") or []) if isinstance(g, dict)]}
@@ -457,16 +476,14 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
         if errors:
             ws.event("analyst", "no_fallback", "the proposal did not pass the validator: " + "; ".join(errors[:3]),
                      step=step.id)
-            break
+            continue
         step.fallback = {"step": fb_step}
         study.plan = dict(study.plan or {})
-        study.plan.setdefault("replans", []).append({"step": step.id, "reason": run_.stop_reason, "fallback": fb_step})
+        study.plan.setdefault("replans", []).append({"step": step.id, "reason": pending[0]["reason"],
+                                                     "fallback": fb_step})
         ws.event("analyst", "replan", f"fallback {fb_step['tool']}: {fb_step['rationale']}", step=step.id)
         replans += 1
-        run_ = run_study(study, on_event=say, prior=run_, tools=callables)
-        _name_stations(ws, run_)
-        _inherit_units(ws, run_, study)
-        _draw(ws, run_, drawn, on_artifact, study)
+        run_ = rerun(study)
 
     _strip_bulk(run_, study)
     ws.set_study(study)
@@ -474,8 +491,12 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
         "ok": bool(run_.ok), "results": [dict(r) for r in run_.results], "gates": run_.gates,
         "failed_gates": run_.failed_gates, "stopped_at": run_.stopped_at, "stop_reason": run_.stop_reason,
         "started": started, "finished": run_.finished or datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "replans": replans,
+        "replans": replans, "failed_steps": run_.failed_steps, "summary": run_.summary,
     }
-    ws.event("analyst", "gates", f"{len(run_.gates) - len(run_.failed_gates)} of {len(run_.gates)} gates passed"
+    summ = run_.summary
+    ws.event("analyst", "gates", f"{len(run_.gates) - len(run_.failed_gates)} of {len(run_.gates)} gates passed; "
+             f"{summ['ok']} of {summ['planned']} step(s) established"
+             + (f", {summ['failed']} failed" if summ["failed"] else "")
+             + (f", {summ['skipped']} skipped" if summ["skipped"] else "")
              + (f"; stopped at {run_.stopped_at}" if run_.stop_reason else ""))
     return run_

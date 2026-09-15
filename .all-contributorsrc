@@ -272,6 +272,26 @@
         "code",
         "test"
       ]
+    },
+    {
+      "login": "itsnevu",
+      "name": "0x",
+      "avatar_url": "https://avatars.githubusercontent.com/u/129736887?v=4",
+      "profile": "https://github.com/itsnevu",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "bazinga0027-gif",
+      "name": "bazinga0027-gif",
+      "avatar_url": "https://avatars.githubusercontent.com/u/241781992?v=4",
+      "profile": "https://travelsafepilot.com",
+      "contributions": [
+        "code",
+        "test",
+        "doc"
+      ]
     }
   ],
   "commitType": "docs"

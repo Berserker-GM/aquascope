@@ -22,6 +22,7 @@ from typing import Any
 import pandas as pd
 
 from aquascope.registry import SOURCES, build_collector
+from aquascope.utils.http_client import IS_EMSCRIPTEN
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,39 @@ FULL_RECORD_YEARS = 150
 #: CWA CODIS answers one calendar year per request and each takes several
 #: seconds at the source, so that fetch is capped rather than asked in full.
 CWA_MAX_YEARS = 10
+
+
+class BrowserUnreachableError(RuntimeError):
+    """The agency cannot be called from a browser page and the archive holds no mirror for the station.
+
+    Raised only under Emscripten, in the Explorer's worker. Both Greek APIs
+    answer ``Access-Control-Allow-Origin: http://localhost:3000`` and
+    Hydroscope is plain http, so an XHR from the Explorer's origin is refused
+    before any data moves. The collectors then see a failed request as an
+    empty one and the station card said "no observations" (#408). This is
+    the honest message instead, and the agency is never called.
+    """
+
+
+def _browser_unreachable_message(source: str, station_id: str) -> str:
+    from aquascope.archive.observations import harvestable_variables
+
+    meta = SOURCES[source]
+    if harvestable_variables(source):
+        archive = (
+            "The AquaScope archive has no mirrored file for this station yet; "
+            "the weekly harvest fills the mirror in over time."
+        )
+    else:
+        archive = (
+            f"Its observations are not mirrored in the AquaScope archive because {meta.label} "
+            f"publishes no terms that allow redistribution (licence: {meta.license})."
+        )
+    return (
+        f"{meta.agency} cannot be reached from a browser: its API does not accept cross-origin "
+        f"requests from web pages. {archive} The Python package reads it directly: "
+        f"pip install aquascope, then aquascope.explore.fetch_series({source!r}, {station_id!r})."
+    )
 
 METHODS: dict[str, dict[str, str]] = {
     "gev_lmoments": {
@@ -400,6 +434,9 @@ def fetch_series(
             ) + _record_note(archived, window)
             return _fetched(archived, var, ARCHIVE_UNITS.get(var, ""), note, window)
 
+    if IS_EMSCRIPTEN and not SOURCES[source].browser_reachable:
+        raise BrowserUnreachableError(_browser_unreachable_message(source, station_id))
+
     if source == "usgs":
         # Pass the catalog id as-is ("USGS-01646500" or another agency's "CA574-09527500");
         # the collector maps it onto NWIS (number + agencyCd) or the OGC monitoring_location_id.
@@ -481,6 +518,21 @@ def fetch_series(
             )
         else:
             note = f"OpenHi.net (ITIA/NTUA) telemetry, 15-minute where the station reports it; {asked}."
+    elif source == "poland_imgw":
+        # The archive is one zip per hydrological month (to 2022) or year, so
+        # the window is pushed down to pick files; the collector caches every
+        # zip on disk and every parsed file in memory for the rest of the run.
+        c = build_collector("poland_imgw")
+        s, var, unit = None, "", ""
+        for want in (variable,) if variable else ("discharge", "water_level"):
+            recs = c.collect(variable=want, station_ids=[station_id], start=start, end=end)
+            s, var, unit = _records_to_series(recs)
+            if s is not None:
+                break
+        note = (
+            "IMGW-PIB daily archive, hydrological-year files (November to October, published once the "
+            f"year has ended, so the record stops at the last October; today's reading is in the live API); {asked}."
+        )
     elif source == "taiwan_cwa":
         # CODIS answers one calendar year per request and each takes several
         # seconds at the source, so the full record is never asked for here:
@@ -612,6 +664,7 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
     }
     if not len(s):
         return out
+    out["sampling"] = _sampling(int(len(s)), float(out["years"]))
 
     # hydrograph: daily means, capped at ~25k points for the browser
     daily = s.resample("D").mean().dropna()
@@ -636,19 +689,32 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
 
         if len(am) >= MIN_YEARS_FOR_FFA:
             ffa: dict[str, Any] = {"n_years": int(len(am)), "return_periods": rps, "fits": {}}
+            # The record maximum and its Weibull plotting position, T = (n + 1) / 1: the fits are also evaluated
+            # there, so a gate can say whether the largest observed event sits inside the fit (#416).
+            n_am = int(len(am))
+            t_max = float(n_am + 1)
+            i_max = int(am.values.argmax())
+            ffa["record_max"] = {"value": _clean(float(am.values[i_max])), "year": int(am.index[i_max].year),
+                                 "empirical_return_period": t_max, "n_years": n_am,
+                                 "plotting_position": "Weibull, T = (n + 1) / rank"}
+            rps_plus = [*rps, t_max] if t_max not in rps else list(rps)
             try:
-                g = fit_gev_lmoments(am, return_periods=rps)
+                g = fit_gev_lmoments(am, return_periods=rps_plus)
                 ffa["fits"]["gev_lmoments"] = {
                     "q": [_clean(float(g.return_periods[rp])) for rp in rps],
+                    "q_by_T": {f"{rp:g}": _clean(float(g.return_periods[rp])) for rp in rps},
+                    "at_record_max": _clean(float(g.return_periods[t_max])),
                     "params": [_clean(float(p)) for p in g.params],
                 }
                 out["methods"].append(METHODS["gev_lmoments"])
             except Exception as exc:  # noqa: BLE001
                 ffa["fits"]["gev_lmoments"] = {"error": str(exc)}
             try:
-                lp3 = fit_lp3(am, return_periods=rps, ci_level=0.90)
+                lp3 = fit_lp3(am, return_periods=rps_plus, ci_level=0.90)
                 ffa["fits"]["lp3"] = {
                     "q": [_clean(float(lp3.return_periods[rp])) for rp in rps],
+                    "q_by_T": {f"{rp:g}": _clean(float(lp3.return_periods[rp])) for rp in rps},
+                    "at_record_max": _clean(float(lp3.return_periods[t_max])),
                     "ci": [[_clean(float(a)), _clean(float(b))] for a, b in
                            (lp3.confidence_intervals.get(rp, (float("nan"), float("nan"))) for rp in rps)],
                     "params": [_clean(float(p)) for p in lp3.params],
@@ -656,6 +722,24 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
                 out["methods"].append(METHODS["lp3"])
             except Exception as exc:  # noqa: BLE001
                 ffa["fits"]["lp3"] = {"error": str(exc)}
+            # A stationary fit assumes the maxima have no trend; the pre-test on annual means says nothing
+            # about that, so the maxima get their own Mann-Kendall (#416).
+            if n_am >= 8:
+                try:
+                    from aquascope.analysis.trends import mann_kendall, sens_slope
+
+                    mk_am = mann_kendall(am.values)
+                    sl_am = sens_slope(am.values)
+                    ffa["amax_trend"] = {
+                        "on": "annual maxima",
+                        "p_value": _clean(float(mk_am.p_value)),
+                        "tau": _clean(float(mk_am.tau)),
+                        "trend": str(mk_am.trend),
+                        "sens_slope_per_year": _clean(float(sl_am.slope)),
+                        "n_years": int(mk_am.n_samples),
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    logger.info("amax trend skipped: %s", exc)
             out["ffa"] = ffa
         else:
             out["notes"].append(
@@ -688,6 +772,25 @@ def analyze_series(s: pd.Series, variable: str, unit: str, *,
         except Exception as exc:  # noqa: BLE001
             logger.info("trend skipped: %s", exc)
     return out
+
+
+#: Observations a year that a resolution label implies, and the floor a record must reach to be called that
+#: (about 55 %, so gaps do not turn a daily record into a weekly one).
+RESOLUTION_PER_YEAR: dict[str, float] = {"daily": 365.0, "weekly": 52.0, "monthly": 12.0, "quarterly": 4.0,
+                                          "annual": 1.0}
+
+
+def _sampling(n: int, years: float) -> dict[str, Any]:
+    """How densely a record is sampled: observations, span, observations a year, and the resolution that rate
+    implies. A payload carries it so a gate (``sampling_density``) can refuse "assumed daily" over five a year."""
+    per_year = (n / years) if years and years > 0 else float(n)
+    inferred = "sparse"
+    for label in ("daily", "weekly", "monthly", "quarterly", "annual"):
+        if per_year >= 0.55 * RESOLUTION_PER_YEAR[label]:
+            inferred = label
+            break
+    return {"n": int(n), "span_years": _clean(float(years)), "per_year": _clean(round(float(per_year), 2)),
+            "inferred_resolution": inferred}
 
 
 def _return_periods(return_periods: Any) -> list[Any]:
@@ -746,7 +849,15 @@ def analyze_station(
     what was requested and what came back; ``requested`` carries the window.
     """
     meta = SOURCES[source]
-    fetched = fetch_series(source, station_id, years=years, variable=variable, period_start=period_start)
+    try:
+        fetched = fetch_series(source, station_id, years=years, variable=variable, period_start=period_start)
+    except BrowserUnreachableError as exc:
+        # Not an empty record: the page cannot ask. Say so, and never "no observations" (#408).
+        return {
+            "source": source, "station_id": station_id, "agency": meta.agency,
+            "license": meta.license, "attribution": meta.attribution,
+            "fetch_note": "", "requested": None, "n": 0, "error": str(exc), "browser_unreachable": True,
+        }
     if store is not None:
         store["series"] = fetched["series"]
         store["source"], store["station_id"] = source, station_id

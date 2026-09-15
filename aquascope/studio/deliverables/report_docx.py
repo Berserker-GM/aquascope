@@ -178,7 +178,9 @@ def report_docx_bytes(ws: Workspace) -> bytes | None:
             if fig is not None and fig.data:
                 _add_figure(doc, fig.data, fig.caption)
         for tid in block["tables"]:
-            tab = c.table_artifact(ws, tid)
+            tab, pointer = c.prose_table(ws, tid)
+            if pointer:
+                doc.add_paragraph(pointer)
             if tab is None:
                 continue
             try:

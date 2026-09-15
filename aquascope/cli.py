@@ -1092,7 +1092,9 @@ def cmd_assess(args: argparse.Namespace) -> None:
 
 def cmd_gym(args: argparse.Namespace) -> None:
     """`aquascope gym basins|run|leaderboard`: HydroGym, the calibration environment over real basins (Phase 0),
-    and `aquascope gym tasks|bench|leaderboard FILES`: the playbook benchmark (Phase 1)."""
+    `aquascope gym tasks|bench|leaderboard FILES`: the playbook benchmark (Phase 1), `aquascope gym plans
+    list|show|validate|score|rescore`: the plan-quality benchmark (Phase 2), and `aquascope gym reports
+    list|show|score|bench`: report-quality scoring over a finished study bundle (#382)."""
     from aquascope import gym as hg
 
     def say(msg: str) -> None:
@@ -1161,6 +1163,63 @@ def cmd_gym(args: argparse.Namespace) -> None:
                   f"{scored['forbidden_used']}, decline correct {scored['decline_correct']}")
             for line in scored["explain"]:
                 print(f"    {line}")
+            return
+
+    if args.gym_cmd == "reports":
+        from aquascope.gym import reports as gru
+
+        if args.reports_cmd == "list":
+            rows = gru.list_references(args.reports)
+            if args.json:
+                print(json.dumps(rows, indent=2, default=str))
+                return
+            print(f"  {len(rows)} report references in {args.reports or gru.REPORTS_DIR}")
+            for r in rows:
+                tags = f" [{', '.join(r['tags'])}]" if r["tags"] else ""
+                print(f"  {r['id']:<28} study {r['study']:<24} must_say {r['must_say']:>2} must_not_say "
+                      f"{r['must_not_say']:>2}{tags}")
+            return
+        if args.reports_cmd == "show":
+            ref = gru.load_reference(args.id, args.reports)
+            if args.json or not ref.path:
+                print(json.dumps(ref.to_dict(), indent=2, default=str))
+                return
+            print(Path(ref.path).read_text(encoding="utf-8"))
+            return
+        if args.reports_cmd == "score":
+            study_dir = Path(args.study_dir)
+            ref = gru.load_reference(args.reference, args.reports) if args.reference else next(
+                (r for r in gru.load_references(args.reports) if r.study == study_dir.name), None)
+            scored = gru.score_study_dir(study_dir, reference=ref)
+            if args.json:
+                print(json.dumps(scored.to_dict(), indent=2, default=str))
+                return
+            print(f"  {scored.study_id}: mean {scored.mean}")
+            for dim in gru.DIMENSIONS:
+                print(f"    {dim}: {scored.dimensions.get(dim)}")
+            if scored.reference:
+                print(f"  reference {scored.reference['reference_id']}: score {scored.reference['score']}")
+                for line in scored.reference["must_say"]["failed"]:
+                    print(f"    must_say failed: {line}")
+                for line in scored.reference["must_not_say"]["violated"]:
+                    print(f"    must_not_say violated: {line}")
+            if scored.error:
+                print(f"  error: {scored.error}")
+            return
+        if args.reports_cmd == "bench":
+            refs = gru.load_references(args.reports)
+
+            def say(msg: str) -> None:
+                if not args.quiet:
+                    print(f"  · {msg}", file=sys.stderr)
+
+            results = gru.run_report_bench(args.dir, refs, study_ids=args.study or None, out=args.out, on_event=say)
+            if args.json:
+                print(json.dumps(gru.summarize_reports(results), indent=2, default=str))
+                return
+            print(gru.report_leaderboard(results))
+            if args.out:
+                print(f"  -> {args.out}")
             return
 
     if args.gym_cmd == "tasks":
@@ -1234,22 +1293,30 @@ def cmd_gym(args: argparse.Namespace) -> None:
     if args.gym_cmd == "leaderboard" and args.results:
         from aquascope.gym import bench as gb
         from aquascope.gym import plans as gp
+        from aquascope.gym import reports as gru
 
         results = gb.load_results(args.results)
         plan_results = gp.load_plan_results(args.results)
+        report_results = gru.load_report_results(args.results)
         if args.json:
-            if results and plan_results:
-                print(json.dumps({"tasks": gb.summarize(results), "plans": gp.summarize_plans(plan_results)},
-                                 indent=2, default=str))
-            else:
-                print(json.dumps(gp.summarize_plans(plan_results) if plan_results else gb.summarize(results),
-                                 indent=2, default=str))
+            summary = {}
+            if results:
+                summary["tasks"] = gb.summarize(results)
+            if plan_results:
+                summary["plans"] = gp.summarize_plans(plan_results)
+            if report_results:
+                summary["reports"] = gru.summarize_reports(report_results)
+            print(json.dumps(summary if len(summary) > 1 else next(iter(summary.values()), {}), indent=2,
+                             default=str))
             return
         parts = []
         if results:
             parts.append(gb.leaderboard(results, title=args.title))
         if plan_results:
             parts.append(gp.plan_leaderboard(plan_results, title=(args.title if not results else None)))
+        if report_results:
+            parts.append(gru.report_leaderboard(report_results,
+                                                title=(args.title if not (results or plan_results) else None)))
         text = "\n".join(parts)
         print(text)
         if args.out:
@@ -1551,7 +1618,8 @@ def cmd_studio(args: argparse.Namespace) -> None:
 
     try:
         studio = Studio(args.lat, args.lon, provider=args.provider, model=args.model, api_key=args.api_key,
-                        base_url=args.base_url, data=data, on_event=on_event, workspace=workspace, intake=intake)
+                        base_url=args.base_url, data=data, on_event=on_event, workspace=workspace, intake=intake,
+                        max_usd=args.max_usd)
     except (RuntimeError, ValueError, ImportError) as exc:
         logger.error("%s", exc)
         sys.exit(1)
@@ -1575,8 +1643,31 @@ def cmd_studio(args: argparse.Namespace) -> None:
             logger.error("studio needs the problem in plain language.")
             sys.exit(1)
         reply = studio.say(args.query) if args.query else studio.say("just go")
-        while reply.kind == "questions":
+    elif ws.status == "waiting":
+        reply = studio._request_reply()
+    if reply is not None and reply.kind in ("questions", "data_request"):
+        while reply.kind in ("questions", "data_request"):
             print(reply.text)
+            if reply.kind == "data_request":
+                if args.continue_without or not interactive:
+                    print("  Continuing without it (--continue-without or no terminal).", file=sys.stderr)
+                    reply = studio.say("continue without")
+                    continue
+                answer = ask("Path to a table (CSV, Excel, JSON), or 'continue' to go on without: ")
+                if answer is None:
+                    checkpoint()
+                    return
+                path = Path(answer.strip())
+                if path.exists():
+                    try:
+                        from aquascope.ingest import read_table
+
+                        reply = studio.add_table(path.name, read_table(str(path)))
+                    except (OSError, ValueError) as exc:
+                        print(f"  cannot read {path}: {exc}", file=sys.stderr)
+                else:
+                    reply = studio.say(answer)
+                continue
             if not interactive:
                 print("  Proceeding on the defaults (--yes or no terminal).", file=sys.stderr)
                 reply = studio.say("just go")
@@ -1586,7 +1677,7 @@ def cmd_studio(args: argparse.Namespace) -> None:
                 checkpoint()
                 return
             reply = studio.say(answer)
-    elif ws.status == "review":
+    if ws.status == "review" and reply is None:
         reply = studio._plan_reply()
     elif ws.status == "done":
         reply = studio._report_reply()
@@ -1628,6 +1719,21 @@ def cmd_studio(args: argparse.Namespace) -> None:
     if reply.kind == "report":
         print()
         print(reply.text)
+        decision = reply.payload.get("decision") or {}
+        findings = reply.payload.get("findings") or []
+        if (decision or findings) and not args.quiet:
+            if decision.get("grade"):
+                print(f"\n  Grade: {str(decision['grade']).replace('_', ' ')}", file=sys.stderr)
+            for line in decision.get("conditions") or []:
+                print(f"   · holds if: {line}", file=sys.stderr)
+            for line in decision.get("what_would_change_it") or []:
+                print(f"   · would change it: {line}", file=sys.stderr)
+            if findings:
+                print("\n  Findings:", file=sys.stderr)
+                for f in findings[:12]:
+                    print(f"   · [{str(f.get('grade') or '').replace('_', ' ')}] {f.get('claim')}", file=sys.stderr)
+            for r in reply.payload.get("data_requests") or []:
+                print(f"   · data the crew would ask for: {r.get('what')} ({r.get('effect_on_grade')})", file=sys.stderr)
         missing = reply.payload.get("not_established") or []
         if missing and not args.quiet:
             print("\n  What this study does not establish:", file=sys.stderr)
@@ -2567,6 +2673,28 @@ def main() -> None:
             p_gpc.add_argument("--out", default=None, help="Write the re-scored rows here instead (one file only)")
         p_gpc.add_argument("--plans", default=None, help="A folder of reference plans (default: the package's)")
         p_gpc.add_argument("--json", action="store_true")
+    p_gr = gym_sub.add_parser(
+        "reports", help="Score the report a finished study bundle carries, not just its plan (#382)"
+    )
+    gr_sub = p_gr.add_subparsers(dest="reports_cmd", required=True)
+    p_gr_list = gr_sub.add_parser("list", help="List the report-quality reference cases")
+    p_gr_show = gr_sub.add_parser("show", help="Print one reference case")
+    p_gr_show.add_argument("id", help="The case id")
+    p_gr_score = gr_sub.add_parser("score", help="Score one recorded study's workspace.json")
+    p_gr_score.add_argument("study_dir", help="A recorded study's directory (workspace.json sits inside it)")
+    p_gr_score.add_argument("--reference", default=None,
+                            help="A reference case id to score against (default: the reference, if any, whose "
+                                 "study matches the directory name)")
+    p_gr_bench = gr_sub.add_parser("bench", help="Score every recorded study under a directory")
+    p_gr_bench.add_argument("--dir", default=None,
+                            help="A directory of recorded studies (default: the Explorer's showcase, "
+                                 "explorer/showcase/studies)")
+    p_gr_bench.add_argument("--study", action="append", help="Only these study ids (repeatable)")
+    p_gr_bench.add_argument("--out", default=None, help="Append results as JSONL")
+    p_gr_bench.add_argument("--quiet", action="store_true")
+    for p_grc in (p_gr_list, p_gr_show, p_gr_score, p_gr_bench):
+        p_grc.add_argument("--reports", default=None, help="A folder of report references (default: the package's)")
+        p_grc.add_argument("--json", action="store_true")
     p_gbench = gym_sub.add_parser("bench", help="Play an agent on the tasks (Phase 1) or on the reference plans "
                                   "(Phase 2) and score it")
     p_gbench.add_argument("--tasks", default=None, help="Phase 1: tasks.jsonl from `gym tasks`")
@@ -2681,8 +2809,13 @@ def main() -> None:
     p_studio.add_argument("--model", default=None, help="Model name")
     p_studio.add_argument("--api-key", default=None)
     p_studio.add_argument("--base-url", default=None, help="Any OpenAI-compatible endpoint (or Anthropic's)")
+    p_studio.add_argument("--max-usd", type=float, default=None, metavar="USD",
+                          help="A spend ceiling for the model calls: past it the roles run keyless and the "
+                               "footer says so (models in the price table only)")
     p_studio.add_argument("--out", "-o", default=None, help="The bundle's directory (default ./studio-<id>/)")
     p_studio.add_argument("--yes", "-y", action="store_true", help="Answer the defaults, approve the plan, export")
+    p_studio.add_argument("--continue-without", action="store_true",
+                          help="When the crew asks for data you do not have, go on at the lower grade it names")
     p_studio.add_argument("--resume", default=None, metavar="WORKSPACE.JSON", help="Resume a saved workspace")
     p_studio.add_argument("--quiet", "-q", action="store_true", help="Do not print the timeline as it happens")
 

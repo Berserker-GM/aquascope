@@ -40,6 +40,14 @@ CHECKS: dict[str, str] = {
     "min_donors": "the donor count (or list) at path has at least value entries",
     "status_is": "the status at path equals value (or is in the list value)",
     "min_samples": "every sample count at path (a number, a list, or a dict of counts per parameter) is at least value",
+    "fit_envelopes_max": "the fit's quantile at the record maximum's empirical return period (ffa at path) is "
+                         "within value (relative) of the observed maximum",
+    "sampling_density": "the record at path (a sampling block: n, span_years, per_year) is sampled densely "
+                        "enough for the resolution value names (daily, weekly, monthly) or the rate value gives",
+    "trend_on_series": "the Mann-Kendall p-value at path (a trend block) is at least value: no significant trend "
+                       "in the series the test was run on",
+    "cross_check_ratio": "the number at path against reference (a number, or a dict by return period), as a ratio "
+                         "within 1 +/- value",
 }
 
 _DEFAULT_PATH = {
@@ -48,12 +56,20 @@ _DEFAULT_PATH = {
     "unit_present": "unit",
     "max_area_km2": "area_km2",
     "min_samples": "sample_counts",
+    "fit_envelopes_max": "ffa",
+    "sampling_density": "sampling",
+    "trend_on_series": "ffa.amax_trend",
 }
 
 _MISSING = object()
 
 _SELECTOR = re.compile(r"^([^\[\]]*)\[([^\]=]+)=([^\]]*)\]$")
 _INDEX = re.compile(r"^([^\[\]]*)\[(-?\d+)\]$")
+
+
+#: Observations a year each resolution label implies (mirrors aquascope.explore.RESOLUTION_PER_YEAR without the
+#: import, so the gates stay dependency-free).
+_RESOLUTION_PER_YEAR = {"daily": 365.0, "weekly": 52.0, "monthly": 12.0, "quarterly": 4.0, "annual": 1.0}
 
 
 def _segments(path: str) -> list[str]:
@@ -236,9 +252,14 @@ def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool, str
 
     if name == "spread_within":
         paths = list(gate.get("paths") or ([path] if path else []))
+        if len(paths) == 1 and "," in str(paths[0]):
+            # a model often writes the two paths in one string, as the catalogue lists them
+            paths = [p.strip() for p in str(paths[0]).split(",") if p.strip()]
         limit = _number(value)
-        if len(paths) < 2 or limit is None:
-            return False, "spread_within needs two or more paths and a value"
+        if limit is None:
+            limit = 0.25  # the tolerance the flood playbook uses when a plan names none
+        if len(paths) < 2:
+            return False, "spread_within needs two or more paths (paths: [...], or one string with a comma)"
         nums: list[float] = []
         notes: list[str] = []
         for p in paths:
@@ -326,5 +347,97 @@ def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool, str
         ok = not thin
         return ok, (f"{len(known)} parameter(s) with at least {need:g} samples each" if ok else
                     f"{need:g} samples per parameter needed, too few for {', '.join(thin[:6])}")
+
+    if name == "fit_envelopes_max":
+        ffa = resolve_path(payload, path)
+        tol = _number(value)
+        tol = 0.25 if tol is None else tol
+        if not isinstance(ffa, dict) or not isinstance(ffa.get("record_max"), dict):
+            return False, f"no record maximum at {path!r} (the flood payload carries ffa.record_max)"
+        rec = ffa["record_max"]
+        observed = _number(rec.get("value"))
+        t_max = _number(rec.get("empirical_return_period"))
+        fits = ffa.get("fits") if isinstance(ffa.get("fits"), dict) else {}
+        wanted = gate.get("fit")
+        names = [str(wanted)] if wanted else ["gev_lmoments", "lp3", "gev_bootstrap"]
+        fit_name = next((f for f in names if isinstance(fits.get(f), dict)
+                         and _number(fits[f].get("at_record_max")) is not None), None)
+        if observed is None or fit_name is None:
+            return False, "no fit evaluated at the record maximum's return period"
+        fitted = float(_number(fits[fit_name]["at_record_max"]))
+        if fitted <= 0:
+            return False, f"the {fit_name} fit gives a non-positive quantile at the record maximum"
+        ratio = observed / fitted
+        ok = ratio <= 1.0 + tol
+        where = f"T about {t_max:g} years" if t_max else "its empirical return period"
+        return ok, (
+            f"record maximum {_fmt(observed)} ({rec.get('year')}, {where}) against the {fit_name} fit's "
+            f"{_fmt(fitted)} there: ratio {ratio:.2f} ({1 + tol:.2f} allowed)"
+            + ("" if ok else ": the largest observed event sits above the fit")
+        )
+
+    if name == "sampling_density":
+        block = resolve_path(payload, path)
+        if not isinstance(block, dict) or _number(block.get("per_year")) is None:
+            return False, f"no sampling block at {path!r} (n, span_years, per_year)"
+        per_year = float(_number(block["per_year"]))
+        label = str(value).strip().lower() if isinstance(value, str) else None
+        need = _number(value) if label is None else _RESOLUTION_PER_YEAR.get(label)
+        if need is None:
+            return False, ("sampling_density needs a resolution (daily, weekly, monthly) or a rate a year, "
+                           f"not {value!r}")
+        floor = 0.55 * need if label else float(need)
+        ok = per_year >= floor
+        claimed = f"{label} claimed" if label else f"{need:g} a year needed"
+        return ok, (
+            f"{block.get('n')} observations in {block.get('span_years')} years: {per_year:g} a year, "
+            f"about {block.get('inferred_resolution')}; {claimed}"
+            + ("" if ok else ": the record is sparser than the resolution assumed")
+        )
+
+    if name == "trend_on_series":
+        block = resolve_path(payload, path)
+        threshold = _number(value)
+        threshold = 0.05 if threshold is None else threshold
+        if not isinstance(block, dict) or _number(block.get("p_value")) is None:
+            return False, f"no trend test at {path!r} (p_value, tau)"
+        p_value = float(_number(block["p_value"]))
+        tau = _number(block.get("tau"))
+        series = block.get("on") or path
+        ok = p_value >= threshold
+        p_text = "p < 0.001" if p_value < 0.001 else f"p = {p_value:.3g}"
+        return ok, (
+            f"Mann-Kendall on the {series}: {p_text}" + (f", tau = {tau:.2f}" if tau is not None else "")
+            + (f": no trend at the {threshold:g} level" if ok
+               else f": a significant trend in the {series} ({threshold:g} level); a stationary estimate needs a "
+                    "caveat")
+        )
+
+    if name == "cross_check_ratio":
+        got, note = _at_return_period(resolve_path(payload, path), payload, gate)
+        ref = gate.get("reference")
+        rp = gate.get("return_period")
+        if isinstance(got, dict) and rp is not None:
+            got = got.get(f"{float(rp):g}", got.get(str(rp)))
+            note = f"at T = {float(rp):g} years"
+        if isinstance(ref, dict) and rp is not None:
+            ref = ref.get(f"{float(rp):g}", ref.get(str(rp)))
+        elif isinstance(ref, (list, tuple)):
+            ref, _ = _at_return_period(ref, payload, gate)
+        a, b = _number(got), _number(ref)
+        tol = _number(value)
+        tol = 0.5 if tol is None else tol
+        if a is None:
+            return False, f"no number at {path!r}" + (f" ({note})" if note else "")
+        if b is None:
+            return False, "no reference number to compare with (the gate's reference did not resolve)"
+        if b == 0:
+            return False, "the reference is zero, the ratio is undefined"
+        ratio = a / b
+        ok = (1.0 / (1.0 + tol)) <= ratio <= (1.0 + tol)
+        return ok, (
+            f"{_fmt(a)} against the reference {_fmt(b)}" + (f" {note}" if note else "") + f": ratio {ratio:.2f} "
+            f"(within a factor {1 + tol:.2f} allowed)" + ("" if ok else ": the cross-check disagrees")
+        )
 
     return False, f"unknown check {name!r}; known: {', '.join(CHECKS)}"
