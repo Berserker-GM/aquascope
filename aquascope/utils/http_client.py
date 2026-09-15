@@ -194,12 +194,12 @@ class CachedHTTPClient:
         if age > self.cache_ttl:
             path.unlink(missing_ok=True)
             return None
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def _write_cache(self, key: str, data: Any) -> None:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         path = self.cache_dir / f"{key}.json"
-        path.write_text(json.dumps(data, ensure_ascii=False, default=str))
+        path.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
 
     # ── public API ───────────────────────────────────────────────────
     @staticmethod
@@ -325,7 +325,7 @@ class CachedHTTPClient:
                 age = time.time() - path_cache.stat().st_mtime
                 if age <= self.cache_ttl:
                     logger.debug("Cache hit for %s", url)
-                    return path_cache.read_text()
+                    return path_cache.read_text(encoding="utf-8")
                 path_cache.unlink(missing_ok=True)
 
         last_exc: Exception | None = None
@@ -338,7 +338,7 @@ class CachedHTTPClient:
                 text = resp.text
                 if use_cache:
                     self.cache_dir.mkdir(parents=True, exist_ok=True)
-                    (self.cache_dir / f"{key}.txt").write_text(text)
+                    (self.cache_dir / f"{key}.txt").write_text(text, encoding="utf-8")
                 return text
             except (httpx.HTTPStatusError, httpx.TransportError) as exc:
                 last_exc = exc

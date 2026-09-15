@@ -10,6 +10,7 @@ All notable changes to AquaScope are documented here.
 - **FAO-56 Rev.1 multi-class woody crop and winter wheat coefficient modeling** (#372). Added structured sub-class parameterization for woody crops (`olive`, `grape`, `citrus`) and `wheat_winter` per FAO-56 Rev.1 (2025) Tables 6.3/7.3 and 6.2/7.2. `get_kc`, `get_kcb`, `crop_water_requirement`, and `irrigation_schedule` support optional `ground_cover`, `density`, `variety`, and `class_name` parameters while preserving default backwards compatibility with standard Rev.1 classes.
 
 ### Fixed
+- **Windows test collection fails on UTF-8 fixtures** (#398). Path.read_text() and Path.write_text() without an encoding use the platform preferred encoding (cp1252 on a default Windows install). Taiwan CWA fixtures include Chinese station names, so collection aborted with UnicodeDecodeError before any tests ran. Every read_text / write_text call under tests/ and aquascope/ now passes encoding="utf-8".
 
 ## [0.17.0] - 2026-09-15
 
