@@ -612,7 +612,8 @@ def test_export_writes_every_artifact(ws, tmp_path) -> None:
     paths = bundle.export(ws, tmp_path / "out")
     assert set(paths) == {a.id for a in ws.artifacts}
     assert (tmp_path / "out" / "figures" / "s2_frequency_curve.png").read_bytes().startswith(PNG)
-    assert (tmp_path / "out" / "tables" / "s2_return_levels.csv").read_text().startswith("T,GEV,LP3,lower,upper")
+    csv_text = (tmp_path / "out" / "tables" / "s2_return_levels.csv").read_text(encoding="utf-8")
+    assert csv_text.startswith("T,GEV,LP3,lower,upper")
     assert (tmp_path / "out" / "report.html").stat().st_size > 10_000
     assert (tmp_path / "out" / "bundle.zip").exists()
 
