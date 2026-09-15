@@ -49,14 +49,39 @@ FLOW = {"source": "uk_ea", "station_id": "3400TH", "name": "Kingston", "license"
 CATCHMENT = {"latitude": 51.415, "longitude": -0.308, "sub_basin": {"hybas_id": 1},
              "attributes": {"upstream_area_km2": 9948.0}, "license": "CC BY 4.0", "attribution": "BasinATLAS"}
 
+# The reviewer's-eye fields the flood payload carries since #416: the sampling block, the record maximum with the
+# fit evaluated at its own return period, the quantiles by return period and the trend on the annual maxima.
+FLOW["sampling"] = {"n": 14555, "span_years": 39.9, "per_year": 364.8, "inferred_resolution": "daily"}
+FLOW.setdefault("ffa", {"n_years": 39, "return_periods": [2, 5, 10, 25, 50, 100],
+                        "fits": {"gev_lmoments": {"q": [250, 330, 380, 440, 480, 520]},
+                                 "lp3": {"q": [252, 335, 388, 452, 500, 548]}}})
+FLOW["ffa"]["record_max"] = {"value": 520.0, "year": 2014, "empirical_return_period": 40.0, "n_years": 39}
+FLOW["ffa"]["amax_trend"] = {"on": "annual maxima", "p_value": 0.37, "tau": 0.08, "trend": "no trend",
+                             "sens_slope_per_year": 0.4, "n_years": 39}
+for _fit in FLOW["ffa"]["fits"].values():
+    if isinstance(_fit, dict) and _fit.get("q"):
+        _fit["q_by_T"] = {f"{t:g}": v for t, v in zip(FLOW["ffa"]["return_periods"], _fit["q"])}
+        _fit["at_record_max"] = round(_fit["q"][3] + 0.6 * (_fit["q"][4] - _fit["q"][3]), 1)
+
+
+
+ANYWHERE = {"latitude": 51.415, "longitude": -0.308, "climate": {"aridity_index": 1.17, "aridity_class": "humid"},
+            "glofas": {"stats": {"mean": 60.0},
+                       "ffa": {"return_periods": [2, 5, 10, 25, 50, 100],
+                               "fits": {"gev_lmoments": {"q": [260, 340, 395, 460, 505, 560],
+                                                         "q_by_T": {"2": 260, "5": 340, "10": 395, "25": 460,
+                                                                    "50": 505, "100": 560}}}}},
+            "attribution": "Open-Meteo"}
+
 
 def _tools(calls):
     def rec(name):
         def f(**kw):
             calls.append((name, kw))
-            return {"describe_catchment": CATCHMENT, "analyze_station": FLOW, "flood_frequency": FLOW}[name]
+            return {"describe_catchment": CATCHMENT, "analyze_station": FLOW, "flood_frequency": FLOW,
+                    "anywhere": ANYWHERE}[name]
         return f
-    return {n: rec(n) for n in ("describe_catchment", "analyze_station", "flood_frequency")}
+    return {n: rec(n) for n in ("describe_catchment", "analyze_station", "flood_frequency", "anywhere")}
 
 
 @pytest.fixture(scope="module")
@@ -95,13 +120,14 @@ def test_a_scripted_team_run_is_scored_and_its_tokens_counted(suite):
     with patch("aquascope.study._tools", return_value=_tools(calls)):
         (res,) = gb.run_bench([task], "team", client=client, model="claude-sonnet-5", provider="custom")
     assert res.correct and res.branch_chosen == "at_site" and res.playbook_chosen == "flood_risk"
-    assert res.gates_expected == 7 and res.gates_evaluated == 7 and res.gates_passed == 7 and res.gates_respected == 1.0
-    assert res.tools_called == ["describe_catchment", "analyze_station", "flood_frequency"] and res.tools_matched == 1.0
+    assert res.gates_expected == 12 and res.gates_evaluated == 12 and res.gates_passed == 12
+    assert res.gates_respected == 1.0 and res.tools_matched == 1.0
+    assert res.tools_called == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     assert res.calls == 2 and res.prompt_tokens == 200 and res.completion_tokens == 40
     assert res.cost_usd == pytest.approx((200 * 2 + 40 * 10) / 1e6) and res.model == "claude-sonnet-5"
     assert res.answer.startswith("The 100-year flow") and res.answer_present and not res.declined
     assert res.detail["cost_by_role"]["narrator"]["calls"] == 1 and res.detail["ok"]
-    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     assert all(len(r["messages"]) == 2 for r in client.requests), "the team's role calls are stateless"
 
 
@@ -131,7 +157,7 @@ def test_the_ask_loop_is_read_off_its_tool_calls_and_its_answer(suite):
                                max_steps=4, context_chars=5_000)
     a, b = results
     assert a.tools_called == ["assess_site", "flood_frequency"] and a.branch_chosen == "at_site" and a.correct
-    assert a.gates_respected == 0.0 and a.tools_matched == pytest.approx(1 / 3) and not a.declined
+    assert a.gates_respected == 0.0 and a.tools_matched == pytest.approx(1 / 4) and not a.declined
     assert a.calls == 3 and a.prompt_tokens == 300 and a.cost_usd is None, "an unknown model gets no cost estimate"
     assert "latitude 51.4150, longitude -0.3080" in client.requests[0]["messages"][1]["content"]
     assert b.declined and b.correct and b.tools_called == [] and b.branch_chosen is None and b.calls == 1

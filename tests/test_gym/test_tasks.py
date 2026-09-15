@@ -51,7 +51,7 @@ def test_tasks_from_three_sites_and_two_playbooks_carry_the_expected_branches():
     assert key[("3400TH", "ungauged_flow")].expected["branch"] == "at_gauge"
     assert key[("point", "ungauged_flow")].expected["branch"] == "regional"
     t = key[("3400TH", "flood_risk")]
-    assert t.expected["tools"] == ["describe_catchment", "analyze_station", "flood_frequency"]
+    assert t.expected["tools"] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     assert {(g["step"], g["check"]) for g in t.expected["gates"]} >= {("s2", "min_years"), ("s3", "spread_within")}
     assert t.expected["station"]["station_id"] == "3400TH" and t.intake == {"return_period": 100,
                                                                              "decision": "design flow"}

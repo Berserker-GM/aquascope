@@ -8,7 +8,7 @@ file re-runs with no model. [studio-design.md](studio-design.md) is the
 contract; this page is the user's guide.
 
 ```
- you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Critic ──► Author ──► bundle
+ you ──► Consultant ──► Scout ──► Methodologist ──► you ──► Analysts ──► Interpreter ──► Critic ──► Author ──► bundle
         (the brief)   (inventory)  (the plan)     (approve)  (run, gates)  (review)  (report)
 ```
 
@@ -34,17 +34,46 @@ contract; this page is the user's guide.
    (`s3.return_period=200`) or change the brief ("make it a 200-year return
    period") and get a new plan.
 5. **Run.** The Analysts run the steps in order with their gates; a failed
-   gate runs the fallback once, or the plan is replanned once (the playbook's
+   gate runs the fallback once; a step that still fails is recorded as not established and the rest of
+   the plan runs (its dependents are skipped with the reason); each failed step gets its replan or its
+   Specialist fallback once (the playbook's
    branch, or a Specialist's proposal validated against the catalogue).
    Figures and tables are made per step as results land.
-6. **Report.** The Author writes the report from the results; the Critic
-   checks it (every number must be in a result; a return level carries its
-   interval; the record is named) and lists what is not established. With a
-   model the Critic's `fix` issues earn one rewrite.
-7. **Bundle.** Markdown, `study.yaml`, `report.json`, `workspace.json` and,
+   **Waiting for data.** When a playbook's own rule would decline for data
+   the user could bring (abstraction records to attribute a groundwater
+   decline, a reservoir's capacity and rule, your own water-quality samples,
+   a discharge record where no gauge reaches), the crew asks instead: what
+   it needs, why, and what it changes. Drop the table in (the page, `--data`
+   or a path at the prompt in the terminal, `tables` over MCP) and the plan
+   is written again on it, or say "continue without" and the study goes on
+   at the lower grade the request named (`--continue-without` in the
+   terminal). A table can arrive at any point: at review it is inventoried
+   and planned on, after the report it runs as a follow-up change.
+6. **Interpret.** The Interpreter reads the results, the gates and the brief's
+   decision and writes findings, not prose: claims that each point at the
+   result they come from (`s3.ffa.fits.gev_lmoments.q.5`), whether the
+   estimates agree, the decision block (the value, its band, its grade, the
+   conditions, what would change it), the data the crew would ask for, and
+   the assumptions. Keyless it is a rule table over the key numbers and the
+   gates; with a model, one call the engine holds to the results (a basis
+   that resolves to nothing drops the finding, a grade may go down, never up).
+   Every answer carries a grade: `established` (at-site data, every gate
+   passed), `indicative` (a fallback, a donor transfer, a marginal method),
+   `screening` (regional or reanalysis data only), `not_established`.
+7. **Report.** The Author writes the report from the findings; every sentence
+   a model wrote passes the Critic's number check first (one whose numbers
+   are in no result is dropped and counted). The Critic then runs its
+   deterministic checks and, with a model, one independent pass; every
+   failed check and every `fix` issue goes to the Author for one rewrite,
+   the second critique keeps the model, and a report that still fails opens
+   with one line naming the failed checks. What is not established is
+   listed, never hidden.
+8. **Bundle.** Markdown, `study.yaml`, `report.json`, `findings.json`, `workspace.json` and,
    when the deliverables package is installed, the figures, the Excel
-   workbook, the Word report, the notebook and one zip.
-8. **Follow-up.** A question is answered from the workspace; a change (another
+   workbook, the Word report, the notebook and one zip. The raw record and
+   the raw samples live in the workbook and the notebook; the documents say
+   which sheet, and print the evidence tables only.
+9. **Follow-up.** A question is answered from the workspace; a change (another
    return period, another statistic, another gauge, the donors) is planned,
    run and re-authored, reusing every step whose arguments and gates did not
    change.
@@ -97,7 +126,10 @@ model, and the list of what can.
 
 A model is used only when asked for (`--provider`, `--model`, `--api-key`,
 `--base-url`, or a ready client). The ledger of calls and tokens per role is
-in the report's footer.
+in the report's footer, with the USD spent when the model is in the price table
+(`aquascope.ai_engine.providers.PRICES`) and the sentences the checks dropped.
+`--max-usd` (CLI), `max_usd` (`Studio`, MCP) is a spend ceiling: past it the roles
+run keyless, the event and the footer say so, and the study still ends in a bundle.
 
 ## CLI
 
@@ -224,6 +256,18 @@ board above the input shows one thing at a time:
    change ("redo it with a 200-year return period") is planned, run and
    re-authored, and the board refreshes. **New study** clears the board for
    another study at the same place.
+
+The Done board opens with a grade badge (established, indicative, screening
+or not established, each explained on hover) and the decision block above the
+answer: what the value holds if, what would change it and what the crew would
+ask for, then the findings, collapsed. When a playbook's own rule would
+decline for data you could bring, the board shows a waiting card instead:
+what the crew needs, why, and a **Continue without** button where the study
+can still answer at the lower grade the request names. A CSV or XLSX can be
+dropped at intake, waiting, review or done alike, not only before a study
+starts: once one exists, a table is attached to it directly, and the crew
+plans again on it at waiting or review, or runs it as a follow-up once the
+report is in.
 
 The tiers are Ask's. Keyless by default, which is a complete study: the
 playbook tree plans, the gates check, templates write. When Ask holds a key,
