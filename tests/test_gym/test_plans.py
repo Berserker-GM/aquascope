@@ -280,7 +280,7 @@ def test_the_file_agent_scores_a_plan_json_and_reports_a_missing_one(tmp_path):
     ref = BY_ID["supply_gauged_vegre"]
     (tmp_path / f"{ref.id}.json").write_text(json.dumps({**_perfect(ref), "model": "device-4b", "provider": "local",
                                                           "usage": {"calls": 1, "prompt_tokens": 10,
-                                                                    "completion_tokens": 5}}))
+                                                                    "completion_tokens": 5}}), encoding="utf-8")
     results = gp.run_plan_bench(None, "file", candidates_dir=tmp_path,
                                 case_ids=[ref.id, "flood_at_site_potomac"], model="device-4b")
     by_id = {r.case_id: r for r in results}
@@ -320,7 +320,7 @@ def test_the_cli_plans_verbs_and_the_bench(monkeypatch, capsys, tmp_path):
     cli.main()
     assert "score 1.00" in capsys.readouterr().out
     plan = tmp_path / "plan.json"
-    plan.write_text(json.dumps(_perfect(BY_ID["gw_well_tetbury"])))
+    plan.write_text(json.dumps(_perfect(BY_ID["gw_well_tetbury"])), encoding="utf-8")
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "plans", "score", "gw_well_tetbury", "--candidate",
                                       str(plan), "--json"])
     cli.main()
@@ -329,7 +329,8 @@ def test_the_cli_plans_verbs_and_the_bench(monkeypatch, capsys, tmp_path):
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "bench", "--agent", "tree", "--limit", "4", "--out",
                                       str(out_file), "--quiet"])
     cli.main()
-    assert "aquascope gym bench: tree" in capsys.readouterr().out and len(out_file.read_text().splitlines()) == 4
+    assert "aquascope gym bench: tree" in capsys.readouterr().out
+    assert len(out_file.read_text(encoding="utf-8").splitlines()) == 4
     monkeypatch.setattr(sys, "argv", ["aquascope", "gym", "leaderboard", str(out_file), "--out",
                                       str(tmp_path / "lb.md")])
     cli.main()

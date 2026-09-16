@@ -43,8 +43,8 @@ AquaScope unifies **37 global water-data sources** behind one Python schema, the
 ## 🌍 Try it without installing anything
 
 **[AquaScope Explorer](https://rekin226-aquascope-explorer.static.hf.space/)**: every public gauge we can reach on one map
-(62,613 stations from USGS, Australia BOM, UK EA, Hub'Eau, Taiwan CWA, PEGELONLINE and Ireland OPW;
-Greece and Brazil land with the next weekly rebuild). Click one and get the observed record,
+(more than 60,000 stations from USGS, Brazil ANA, UK EA, Australia BOM, Hub'Eau, Taiwan CWA,
+PEGELONLINE, Greece and Ireland OPW; the dataset below carries the live count). Click one and get the observed record,
 flood frequency with confidence limits, flow duration and trend, computed in your browser by aquascope on Pyodide.
 The catalog behind it is an open GeoParquet dataset, [`Rekin226/aquascope-gauges`](https://huggingface.co/datasets/Rekin226/aquascope-gauges), harvested weekly.
 Press **Ask ✨** to type a question in plain language (bring your own key, Groq and Hugging Face are free): the model picks the
@@ -439,6 +439,7 @@ Thanks to these wonderful people who make AquaScope possible ([emoji key](CONTRI
       <td align="center" valign="top" width="20%"><a href="https://github.com/mohanasrujana"><img src="https://avatars.githubusercontent.com/u/59142214?v=4?s=100" width="100px;" alt="Satya Srujana Pilli"/><br /><sub><b>Satya Srujana Pilli</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=mohanasrujana" title="Tests">⚠️</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/itsnevu"><img src="https://avatars.githubusercontent.com/u/129736887?v=4?s=100" width="100px;" alt="0x"/><br /><sub><b>0x</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=itsnevu" title="Code">💻</a></td>
       <td align="center" valign="top" width="20%"><a href="https://travelsafepilot.com"><img src="https://avatars.githubusercontent.com/u/241781992?v=4?s=100" width="100px;" alt="bazinga0027-gif"/><br /><sub><b>bazinga0027-gif</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Tests">⚠️</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=100" width="100px;" alt="Harsh Raj Singhania"/><br /><sub><b>Harsh Raj Singhania</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=HarshRajSinghania" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=HarshRajSinghania" title="Tests">⚠️</a></td>
     </tr>
   </tbody>
 </table>
