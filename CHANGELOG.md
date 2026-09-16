@@ -9,6 +9,7 @@ All notable changes to AquaScope are documented here.
 ### Changed
 
 ### Fixed
+- **A rejected Hugging Face token read as a missing dataset, and a missing one published nothing in silence.** The weekly harvest failed on 2026-09-14 with `RepositoryNotFoundError: 401 ... Please use create_repo if it's not the case`, which sends the reader looking for a deleted dataset when the real cause is a token that expired or was revoked; the same message broke the Explorer deploy and cost a day of misdiagnosis. `publish_folder` now probes whether the dataset is publicly readable and, when it is, says the token was refused and where to rotate it, keeping the underlying error; a call with no token at all fails immediately naming `HF_TOKEN` rather than deep inside `huggingface_hub`. The harvest workflow also fails loudly when `HF_TOKEN` is missing on a scheduled run, where it used to skip the publish step silently and report success, so an archive that has quietly stopped publishing cannot look healthy for months.
 
 ## [0.17.0] - 2026-09-15
 

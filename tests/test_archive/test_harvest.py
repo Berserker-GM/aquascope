@@ -148,3 +148,50 @@ def test_publish_folder_rejects_missing_folder(tmp_path):
     with patch("aquascope.archive.publish.require", return_value=MagicMock()):
         with pytest.raises(FileNotFoundError):
             publish_folder(tmp_path / "nope", "me/ds")
+
+
+def test_publish_folder_without_a_token_says_where_the_token_goes(tmp_path, monkeypatch):
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("HUGGING_FACE_HUB_TOKEN", raising=False)
+    with patch("aquascope.archive.publish.require", return_value=MagicMock()):
+        with pytest.raises(PermissionError, match="HF_TOKEN"):
+            publish_folder(tmp_path, "me/ds")
+
+
+def test_a_rejected_token_is_named_as_the_cause_not_a_missing_dataset(tmp_path, monkeypatch):
+    """Hugging Face reports an expired token as `RepositoryNotFoundError: 401 ... Please use create_repo`,
+    which reads as a missing dataset. When the dataset is public and readable, say the token was refused."""
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.setenv("HF_TOKEN", "hf_stale")
+    fake_hub = MagicMock()
+    boom = Exception("401 Client Error. Repository Not Found for url: .../preupload/main. "
+                     "Invalid username or password.")
+    fake_hub.HfApi.return_value.upload_folder.side_effect = boom
+
+    class _Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    with patch("aquascope.archive.publish.require", return_value=fake_hub), \
+         patch("urllib.request.urlopen", return_value=_Resp()):
+        with pytest.raises(PermissionError) as err:
+            publish_folder(tmp_path, "me/ds")
+    text = str(err.value)
+    assert "the token is what was refused" in text and "Rotate" in text
+    assert "401" in text, "the underlying error is kept"
+
+
+def test_an_unrelated_upload_error_is_not_reinterpreted(tmp_path, monkeypatch):
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.setenv("HF_TOKEN", "hf_test")
+    fake_hub = MagicMock()
+    fake_hub.HfApi.return_value.upload_folder.side_effect = ValueError("disk full")
+    with patch("aquascope.archive.publish.require", return_value=fake_hub):
+        with pytest.raises(ValueError, match="disk full"):
+            publish_folder(tmp_path, "me/ds")
