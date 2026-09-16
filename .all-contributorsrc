@@ -147,7 +147,8 @@
         "code",
         "test",
         "doc",
-        "bug"
+        "bug",
+        "infra"
       ]
     },
     {
