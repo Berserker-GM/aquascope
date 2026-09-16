@@ -153,6 +153,15 @@ jobs:
           print(publish_folder("archive", os.environ["HF_DATASET"], commit_message=f"harvest {os.environ.get('GITHUB_RUN_ID','')}"))
           EOF
 
+      # A weekly archive that quietly stops publishing looks healthy for months. If the secret is gone on a
+      # scheduled run, say so loudly rather than skipping the publish in silence.
+      - name: Warn when HF_TOKEN is missing
+        if: always() && env.HF_TOKEN == '' && github.event_name == 'schedule'
+        run: |
+          echo "::error::HF_TOKEN is not set, so the harvest ran but published nothing. Set the repository \
+          secret HF_TOKEN to a Hugging Face token with write access to $HF_DATASET."
+          exit 1
+
       - name: Job summary
         if: always()
         run: |
