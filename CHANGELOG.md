@@ -5,6 +5,14 @@ All notable changes to AquaScope are documented here.
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [0.18.0] - 2026-09-16
+
+### Added
 - **CAMELS benchmark, Phase 3: the nightly CI smoke run** (#56). New `.github/workflows/camels-benchmark.yml` runs the Phase 2 harness on a nightly schedule (00:00 UTC every day, `cron: "0 0 * * *"`) and on demand via `workflow_dispatch`, fully offline — it reads only the committed `data/camels_benchmark/` fixtures and never invokes the generation-only network scripts. On Python 3.12 (pip-cached) it installs `aquascope[benchmarks]`, runs `python -m benchmarks.camels_benchmark --output-dir benchmark-output`, and uploads `results.json` (the single source of truth) with its Markdown and HTML renderings as the `camels-benchmark-report` artifact — uploaded even when the run fails so a red night is inspectable. `--strict` is deliberately not asserted in the nightly, so green means the harness still runs and its results validate: the Pydantic `build_results()` shape check hard-fails any structural drift, while the recorded numbers live in the artifact for inspection. It returns when the four known standing misses are resolved (or a committed baseline is added so only a new miss fails). Per-stage timings stay recorded, never asserted.
 
 ### Changed
