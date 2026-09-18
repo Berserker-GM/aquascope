@@ -16,11 +16,5 @@
     "stage": "signatures",
     "metric": "q5",
     "reason": "Computed q5 (0.0537 m³/s) has 32.9% relative error against published CAMELS q5 (0.0800 m³/s, tolerance 25.0%). In this semi-arid catchment the absolute difference is only 0.0263 m³/s (26 L/s); relative error is inflated by division near zero on synthetic daily series."
-  },
-  {
-    "gauge_id": "01013500",
-    "stage": "flood_frequency",
-    "metric": "gev_rp2",
-    "reason": "Historical reference scipy_gev quantile in ffa_reference.json was fitted via unseeded scipy.stats.genextreme.fit, which converged to a local minimum (log-likelihood -623.76 vs -575.76 for seeded MLE). AquaScope uses L-moments seeded MLE (236.03 m³/s), matching sample median (238.43 m³/s). Retained in baseline for compatibility."
   }
 ]
