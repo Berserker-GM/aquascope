@@ -473,7 +473,7 @@ def plot_budyko(
     grid = np.asarray(result.aridity_grid, dtype=float)
 
     # The two limits
-    ax.axhline(1.0, color=AQUA_PALETTE["neutral"], linestyle="--", linewidth=0.8,
+    ax.axhline(1.0, color=AQUA_PALETTE["secondary"], linestyle="--", linewidth=0.8,
                label="Water limit (ET/P = 1)")
     ax.plot(grid, grid, color=AQUA_PALETTE["neutral"], linestyle="--", linewidth=0.8,
             label="Energy limit (ET/P = PET/P)")
