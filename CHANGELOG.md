@@ -5,6 +5,7 @@ All notable changes to AquaScope are documented here.
 ## [Unreleased]
 
 ### Added
+- **Budyko framework** (#24). `aquascope.hydrology.budyko(...)` partitions long-term mean annual precipitation into evapotranspiration and runoff for the standard Budyko curves — Schreiber (1904), Ol'dekop (1911), Turc-Pike (1954/64) and Fu (1981)/Zhang et al. (2004) with the `omega` shape parameter — bounded by the energy limit (ET/P → PET/P as aridity → 0) and the water limit (ET/P → 1 as aridity → ∞). The result carries the prediction at the query point, the observed position when evapotranspiration or runoff is given (`observed_et` or `observed_runoff` — mutually exclusive, related by the long-term water balance `E = P − Q`, so a runoff input is placed as `ET/P = 1 − Q/P`; both yield `observed_evaporative_ratio` and a signed `observed_deviation` per curve, so a catchment can sit above or below the curve), and the full curve family over the canonical aridity grid so a single `BudykoResult` is both the answer and the diagram. Exposed as `budyko_analysis` on the high-level API (baseflow-style curve-set wrapper), plot `plot_budyko(...)` draws the two limits, the requested curves and the observed catchment points from a precomputed result (the SPI result-plot contract), and the recommender knows it (`budyko_framework`, hydrological modelling, references Budyko 1974, Fu 1981 and Zhang et al. 2004, doi:10.1029/2003WR002710). Theory guide §12, methodology matrix row.
 
 ### Changed
 
