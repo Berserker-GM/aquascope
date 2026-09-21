@@ -22,6 +22,7 @@ references.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import cast
@@ -41,16 +42,16 @@ class BudykoResult:
 
     Attributes
     ----------
-    aridity_index : object
+    aridity_index : float | numpy.ndarray
         Aridity index (PET / P) at the query point(s): a float for scalar
         inputs, an array of the input shape otherwise.
-    predicted : dict[str, object]
+    predicted : dict[str, float | numpy.ndarray]
         Predicted evaporative ratio (ET / P) per requested curve, evaluated
         at ``aridity_index``.
-    observed_evaporative_ratio : object, optional
+    observed_evaporative_ratio : float | numpy.ndarray, optional
         Observed evaporative ratio (ET / P) when *observed_et* or
         *observed_runoff* was given.
-    observed_deviation : dict[str, object], optional
+    observed_deviation : dict[str, float | numpy.ndarray], optional
         Observed ratio minus predicted ratio per curve; positive means the
         catchment sits above the curve (more evaporative than predicted).
     aridity_grid : numpy.ndarray
@@ -88,9 +89,9 @@ def _budyko_curve(aridity: np.ndarray, curve_name: str, omega: float) -> np.ndar
     """Evaporative ratio (ET / P) for one Budyko curve over an aridity array.
 
     ``aridity`` is the aridity index ``phi = PET / P``. Every curve shares
-    the same limits: it approaches ``phi`` as ``phi -> 0`` (energy limit,
-    ``ET/P -> phi``) and approaches 1 as ``phi -> inf`` (water limit,
-    ``ET/P -> 1``).  The Turc-Pike and
+    the same limits: ``(ET/P) / phi -> 1`` (equivalently ``ET/P -> phi`` and
+    ``E -> PET``) as ``phi -> 0``, the energy limit; and ``ET/P -> 1``
+    (``E -> P``) as ``phi -> inf``, the water limit.  The Turc-Pike and
     Fu/Zhang evaluations use numerically stable large-``phi`` forms so the
     curves stay 1 (not ``inf``/``nan``) even when ``phi**2`` or ``phi**omega``
     would overflow.
@@ -129,7 +130,7 @@ def budyko(
     Given long-term mean annual precipitation ``P`` and potential
     evapotranspiration ``PET``, the Budyko framework (Budyko 1974) assumes the
     evaporative ratio ``ET/P`` is a function only of the aridity index
-    ``phi = PET / P``, bounded by an energy limit (``ET/P -> phi`` as
+    ``phi = PET / P``, bounded by an energy limit (``(ET/P) / phi -> 1`` as
     ``phi -> 0``, i.e. ``E -> PET``) and a water limit (``ET/P -> 1`` as
     ``phi -> inf``, i.e. ``E -> P``).
     Each curve is a concrete shape between those limits:
@@ -150,6 +151,12 @@ def budyko(
     ``ET/P``, or from runoff, ``1 - Q/P``.  Pass *observed_et* **or**
     *observed_runoff* — not both — and the result reports the catchment's
     position relative to each curve.
+
+    The framework assumes a closed long-term water balance at steady state.
+    It is unreliable where storage change is significant (snowpack
+    carry-over, lakes or reservoirs) or where fluxes cross the catchment
+    boundary (irrigation imports, interbasin transfers, deep groundwater
+    exchange).
 
     Parameters
     ----------
@@ -192,6 +199,8 @@ def budyko(
         outside ``[0, precipitation]`` is supplied, or both observed fluxes
         are given.
     """
+    if isinstance(curves, str):
+        raise ValueError("curves must be a sequence of curve names, not a single string.")
     if not curves:
         raise ValueError("Choose at least one Budyko curve.")
     unknown = [c for c in curves if c not in BUDYKO_CURVES]
@@ -208,14 +217,14 @@ def budyko(
         p, e = np.broadcast_arrays(p, e)
     except ValueError as exc:
         raise ValueError("precipitation and pet must be broadcast-compatible shapes.") from exc
-    if np.any(p <= 0):
-        raise ValueError("precipitation must be positive")
-    if np.any(e <= 0):
-        raise ValueError("pet must be positive")
     if not np.all(np.isfinite(p)):
         raise ValueError("precipitation must be finite")
     if not np.all(np.isfinite(e)):
         raise ValueError("pet must be finite")
+    if np.any(p <= 0):
+        raise ValueError("precipitation must be positive")
+    if np.any(e <= 0):
+        raise ValueError("pet must be positive")
 
     evapotranspiration = None
     if observed_et is not None:
@@ -231,6 +240,13 @@ def budyko(
         if np.any(runoff < 0) or np.any(runoff > p):
             raise ValueError("observed_runoff must lie within [0, precipitation]")
         evapotranspiration = p - runoff
+
+    if evapotranspiration is not None and np.any(evapotranspiration == 0.0):
+        warnings.warn(
+            "A zero long-term evapotranspiration is physically implausible for "
+            "a Budyko water-balance catchment; check the observed flux input.",
+            stacklevel=2,
+        )
 
     aridity = e / p
     predicted = {curve_name: _budyko_curve(aridity, curve_name, fu_omega) for curve_name in curves}

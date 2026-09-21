@@ -730,6 +730,8 @@ def budyko_analysis(
     if curves is None:
         curves = list(BUDYKO_CURVES)
     else:
+        if isinstance(curves, str):
+            raise ValueError("curves must be a sequence of curve names, not a single string.")
         valid = set(BUDYKO_CURVES)
         for name in curves:
             if name not in valid:

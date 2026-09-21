@@ -29,6 +29,11 @@ class TestBudykoCurves:
         for values in result.predicted.values():
             assert values == pytest.approx(1e-3, abs=1e-5)
 
+    def test_oldekop_near_zero_aridity(self):
+        result = budyko(1000.0, 1e-3, curves=("oldekop",))
+        assert result.aridity_index == pytest.approx(1e-6)
+        assert result.predicted["oldekop"] == pytest.approx(1e-6, rel=1e-3)
+
     def test_monotonic_in_aridity(self):
         result = budyko(1.0, [0.5, 1.0, 2.0], curves=("fu_zhang",))
         values = result.predicted["fu_zhang"]
@@ -107,6 +112,10 @@ class TestBudykoValidation:
             budyko(0.0, 1000.0)
         with pytest.raises(ValueError, match="positive"):
             budyko(-100.0, 1000.0)
+
+    def test_curves_must_not_be_a_bare_string(self):
+        with pytest.raises(ValueError, match="sequence"):
+            budyko(1000.0, 1200.0, curves="schreiber")
 
     def test_non_positive_pet(self):
         with pytest.raises(ValueError, match="positive"):

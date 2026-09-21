@@ -331,6 +331,12 @@ class TestBudykoAnalysis:
         assert isinstance(result, BudykoResult)
         assert set(result.predicted) == {"schreiber", "oldekop", "turc_pike", "fu_zhang"}
 
+    def test_curves_must_not_be_a_bare_string(self):
+        from aquascope.api import budyko_analysis
+
+        with pytest.raises(ValueError, match="sequence"):
+            budyko_analysis(1000.0, 1200.0, curves="schreiber")
+
     def test_fu_omega_forwarded(self):
         from aquascope.api import budyko_analysis
 
