@@ -230,3 +230,27 @@ class TestBudykoRunoffPosition:
     def test_runoff_broadcast_with_scalar_precipitation(self):
         result = budyko(1000.0, 1200.0, observed_runoff=np.array([400.0, 500.0]))
         assert np.allclose(result.observed_evaporative_ratio, [0.6, 0.5])
+
+
+class TestBudykoCurveFamilyGrid:
+    def test_default_grid_when_observed_within_canonical_domain(self):
+        result = budyko(1000.0, 1500.0, observed_et=600.0)
+        assert result.aridity_grid.min() == pytest.approx(0.02)
+        assert result.aridity_grid.max() == pytest.approx(4.0)
+        assert result.aridity_grid.size == 300
+
+    def test_grid_extends_to_hyper_arid_observed_point(self):
+        result = budyko(1000.0, 8000.0, observed_et=600.0)
+        assert result.aridity_grid.max() >= 8.0
+        assert result.aridity_grid.min() == pytest.approx(0.02)
+
+    def test_grid_extends_to_humid_observed_point(self):
+        result = budyko(1000.0, 10.0, observed_et=900.0)
+        assert result.aridity_grid.min() <= 0.01
+        assert result.aridity_grid.max() == pytest.approx(4.0)
+
+    def test_family_spans_extended_grid(self):
+        result = budyko(1000.0, 8000.0, observed_et=600.0, curves=("schreiber",))
+        assert result.curves["schreiber"].shape == result.aridity_grid.shape
+        assert result.curves["schreiber"][-1] == pytest.approx(
+            result.predicted["schreiber"], abs=1e-6)

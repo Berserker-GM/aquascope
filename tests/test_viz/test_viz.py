@@ -335,6 +335,14 @@ class TestBudykoPlot:
         assert isinstance(fig, plt.Figure)
         plt.close(fig)
 
+    def test_plot_budyko_labels_without_observed_raises(self):
+        from aquascope.hydrology.budyko import budyko
+        from aquascope.viz import plot_budyko
+
+        result = budyko(1000.0, 1500.0)
+        with pytest.raises(ValueError, match="no observed"):
+            plot_budyko(result, labels=["A"])
+
     def test_plot_budyko_includes_observed_aridity_outside_grid(self):
         from aquascope.hydrology.budyko import budyko
         from aquascope.viz import plot_budyko

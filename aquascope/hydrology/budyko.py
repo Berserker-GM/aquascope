@@ -35,6 +35,11 @@ BUDYKO_CURVES = ("schreiber", "oldekop", "turc_pike", "fu_zhang")
 _DEFAULT_ARIDITY_GRID = np.linspace(0.02, 4.0, 300)
 
 
+def _grid_covers(grid: np.ndarray, aridity: np.ndarray) -> bool:
+    """Whether *grid* spans every element of *aridity*."""
+    return bool(np.all(aridity >= grid.min()) and np.all(aridity <= grid.max()))
+
+
 # Result dataclass
 @dataclass
 class BudykoResult:
@@ -55,7 +60,9 @@ class BudykoResult:
         Observed ratio minus predicted ratio per curve; positive means the
         catchment sits above the curve (more evaporative than predicted).
     aridity_grid : numpy.ndarray
-        The canonical aridity domain the curves were evaluated over.
+        The aridity domain the curves were evaluated over: the canonical
+        ``[0.02, 4.0]`` domain, extended when an observed aridity index lies
+        outside it so the family spans the plotted points.
     curves : dict[str, numpy.ndarray]
         Predicted evaporative ratio per requested curve over ``aridity_grid``,
         ready for plotting.
@@ -141,8 +148,9 @@ def budyko(
     - ``fu_zhang``   : ``1 + phi - (1 + phi**omega) ** (1 / omega)``  (Fu 1981, Zhang et al. 2004)
 
     The result carries the prediction at the query point **and** the full
-    curve family over the canonical ``aridity_grid`` (``[0.02, 4.0]``), so a
-    single :class:`BudykoResult` can both report a catchment's position and
+    curve family over the canonical ``aridity_grid`` (``[0.02, 4.0]``,
+    extended to cover any observed aridity index outside it), so a single
+    :class:`BudykoResult` can both report a catchment's position and
     render the diagram it lives in (:func:`aquascope.viz.plot_budyko`).
 
     To locate a real catchment, the long-term water balance
@@ -251,7 +259,13 @@ def budyko(
 
     aridity = e / p
     predicted = {curve_name: _budyko_curve(aridity, curve_name, fu_omega) for curve_name in curves}
-    curve_family = {curve_name: _budyko_curve(_DEFAULT_ARIDITY_GRID, curve_name, fu_omega) for curve_name in curves}
+    aridity_grid = _DEFAULT_ARIDITY_GRID.copy()
+    if evapotranspiration is not None and not _grid_covers(aridity_grid, aridity):
+        lo = float(aridity.min())
+        hi = float(aridity.max())
+        aridity_grid = np.linspace(min(_DEFAULT_ARIDITY_GRID.min(), lo),
+                                   max(_DEFAULT_ARIDITY_GRID.max(), hi), _DEFAULT_ARIDITY_GRID.size)
+    curve_family = {curve_name: _budyko_curve(aridity_grid, curve_name, fu_omega) for curve_name in curves}
 
     return BudykoResult(
         aridity_index=_to_scalar_if_zero_dim(aridity),
@@ -260,6 +274,6 @@ def budyko(
         observed_deviation=None if evapotranspiration is None else {
             curve_name: _to_scalar_if_zero_dim(evapotranspiration / p - predicted[curve_name]) for curve_name in curves
         },
-        aridity_grid=_DEFAULT_ARIDITY_GRID.copy(),
+        aridity_grid=aridity_grid,
         curves=curve_family,
     )

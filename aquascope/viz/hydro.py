@@ -443,7 +443,10 @@ def plot_budyko(
         place the catchment point(s).
     labels:
         Optional one-per-point labels for the observed catchment points;
-        the count must match the number of observed points.
+        the count must match the number of observed points.  Points are
+        labelled in the flattened (row-major) order of ``aridity_index``.
+        Passing labels for a result without observed points raises
+        ``ValueError``.
     title:
         Plot title.
     figsize:
@@ -460,6 +463,9 @@ def plot_budyko(
 
     apply_aqua_style()
     fig, ax = plt.subplots(figsize=figsize)
+
+    if labels is not None and result.observed_evaporative_ratio is None:
+        raise ValueError("'labels' given but the result has no observed points.")
 
     curve_colours = [AQUA_PALETTE["primary"], AQUA_PALETTE["dark"],
                      AQUA_PALETTE["success"], AQUA_PALETTE["warning"]]
@@ -485,11 +491,9 @@ def plot_budyko(
                 label=curve_labels.get(curve_name, curve_name))
 
     # The observed catchment position(s), if any
-    observed_x = None
     if result.observed_evaporative_ratio is not None:
         x = np.asarray(result.aridity_index, dtype=float).reshape(-1)
         y = np.asarray(result.observed_evaporative_ratio, dtype=float).reshape(-1)
-        observed_x = x
         ax.scatter(x, y, color=AQUA_PALETTE["danger"], zorder=5, label="Observed catchment")
         if labels is not None:
             if len(labels) != len(x):
@@ -500,9 +504,7 @@ def plot_budyko(
     ax.set_xlabel("Aridity index (PET / P)")
     ax.set_ylabel("Evaporative ratio (ET / P)")
     ax.set_title(title)
-    x_min = float(grid.min()) if observed_x is None else min(float(grid.min()), float(observed_x.min()))
-    x_max = float(grid.max()) if observed_x is None else max(float(grid.max()), float(observed_x.max()))
-    ax.set_xlim(x_min, x_max)
+    ax.set_xlim(float(grid.min()), float(grid.max()))
     ax.set_ylim(0, 1.05)
     ax.legend(loc="lower right")
 
