@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
@@ -159,6 +161,22 @@ class TestBudykoValidation:
         with pytest.raises(ValueError, match="observed_et"):
             budyko(np.array([1000.0, 2000.0]), np.array([1500.0, 1000.0]),
                    observed_et=np.array([500.0, 600.0, 700.0]))
+
+
+class TestBudykoZeroEtWarning:
+    def test_zero_observed_et_warns(self):
+        with pytest.warns(UserWarning, match="zero long-term"):
+            budyko(1000.0, 1200.0, observed_et=0.0)
+
+    def test_runoff_equals_precipitation_warns(self):
+        with pytest.warns(UserWarning, match="zero long-term"):
+            budyko(1000.0, 1200.0, observed_runoff=1000.0)
+
+    def test_nonzero_et_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UserWarning)
+            budyko(1000.0, 1200.0, observed_et=600.0)
+            budyko(1000.0, 1200.0, observed_runoff=400.0)
 
 
 class TestBudykoObservedPosition:

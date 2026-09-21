@@ -153,10 +153,11 @@ def budyko(
     position relative to each curve.
 
     The framework assumes a closed long-term water balance at steady state.
-    It is unreliable where storage change is significant (snowpack
-    carry-over, lakes or reservoirs) or where fluxes cross the catchment
+    Where storage change is significant (multi-year snow or groundwater
+    carry-over, glaciers, lakes or reservoirs) or fluxes cross the catchment
     boundary (irrigation imports, interbasin transfers, deep groundwater
-    exchange).
+    exchange), these assumptions are violated and deviations from a curve
+    cannot be attributed to catchment properties alone.
 
     Parameters
     ----------
@@ -243,8 +244,8 @@ def budyko(
 
     if evapotranspiration is not None and np.any(evapotranspiration == 0.0):
         warnings.warn(
-            "A zero long-term evapotranspiration is physically implausible for "
-            "a Budyko water-balance catchment; check the observed flux input.",
+            "A zero long-term evapotranspiration is physically implausible; check "
+            "the observed flux input.",
             stacklevel=2,
         )
 
