@@ -60,12 +60,12 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 
 ## AI Engine & Workflows
 
-- **26 research methodologies** — scored and ranked against dataset profiles
+- **27 research methodologies** — scored and ranked against dataset profiles
 - **7 auto-executable pipelines** — trend analysis, WQI, PCA, RF, XGBoost, ARIMA, correlation
 - **Challenge workflows** — flood risk (GEV), drought severity (SPI), water quality (WHO)
 - **Natural-language agent** — describe your goal, get recommendations + execution
 
-### Built-in Research Methodologies (26)
+### Built-in Research Methodologies (27)
 
 | Category | Methodologies | Pipelines |
 | :--- | :--- | :--- |
@@ -74,7 +74,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 | Time-Series | ARIMA/SARIMA Forecasting | 1 |
 | Process Engineering | MBBR Pilot, MBR Fouling, A2O Nutrient Removal, SWMM, QUAL2K | — |
 | Spatial Analysis | Satellite Eutrophication, GIS Watershed, Kriging Interpolation | — |
-| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design | — |
+| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design, Budyko Framework | — |
 | Policy | SDG 6 Benchmarking, IWRM Assessment | — |
 
 For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.md).
@@ -83,7 +83,7 @@ For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.
 
 ## Visualization & Reporting
 
-- **16 plot functions** — time-series, box plots, heatmaps, spatial maps (Folium), FDC, hydrographs
+- **17 plot functions** — time-series, box plots, heatmaps, spatial maps (Folium), FDC, hydrographs
 - **Diagnostic plots** — Q-Q, P-P, return level, 4-panel diagnostic panel
 - **Automated reports** — Markdown & HTML with embedded plots, metrics, TOC
 - **Alerts** — WHO, US EPA, EU WFD threshold checking
