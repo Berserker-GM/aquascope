@@ -16,7 +16,9 @@ from collections.abc import Iterator, Sequence
 from datetime import datetime
 from typing import Any
 
-from aquascope.collectors.base import BaseCollector
+import httpx
+
+from aquascope.collectors.base import BaseCollector, CollectorError
 from aquascope.schemas.water_data import (
     DataSource,
     GeoLocation,
@@ -132,9 +134,21 @@ class WQPCollector(BaseCollector):
                 if len(records) >= max_results:
                     break
                 records.append(dict(row))
+        except CollectorError:
+            raise
         except Exception as exc:
             logger.error("WQP fetch failed: %s", exc)
-            raise
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            if status_code is None and isinstance(getattr(exc, "__cause__", None), httpx.HTTPStatusError):
+                status_code = exc.__cause__.response.status_code
+            target_url = f"{self.client.base_url}/Result/search"
+            raise CollectorError(
+                f"WQP fetch failed for {target_url}: {exc}",
+                source=self.name,
+                url=target_url,
+                status_code=status_code,
+                cause=exc,
+            ) from exc
 
         logger.info("WQP fetch returned %d raw rows (max_results=%d).", len(records), max_results)
         return records

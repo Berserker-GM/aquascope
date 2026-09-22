@@ -5,6 +5,7 @@ Abstract base class for all data collectors.
 from __future__ import annotations
 
 import logging
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any
@@ -15,6 +16,46 @@ from aquascope.schemas.station import Station
 from aquascope.utils.http_client import CachedHTTPClient
 
 logger = logging.getLogger(__name__)
+
+
+class CollectorError(RuntimeError):
+    """Raised when a data collector encounters a hard endpoint or network failure.
+
+    Distinguishes hard failures (HTTP 4xx/5xx, connection timeouts, malformed
+    payloads) from genuine empty results (e.g. a valid query returning zero records).
+    Carries the collector source name, target URL, optional HTTP status code, and
+    the underlying cause exception.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        source: str = "",
+        url: str = "",
+        status_code: int | None = None,
+        cause: Exception | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.source = source
+        self.url = url
+        if status_code is None and cause is not None:
+            for candidate in (cause, getattr(cause, "__cause__", None)):
+                if candidate is not None:
+                    code = getattr(getattr(candidate, "response", None), "status_code", None)
+                    if isinstance(code, int):
+                        status_code = code
+                        break
+                    code = getattr(candidate, "status_code", None)
+                    if isinstance(code, int):
+                        status_code = code
+                        break
+        if status_code is None:
+            m = re.search(r"\(status (\d{3})\)", message)
+            if m:
+                status_code = int(m.group(1))
+        self.status_code = status_code
+        self.cause = cause
 
 
 class BaseCollector(ABC):
@@ -31,7 +72,14 @@ class BaseCollector(ABC):
 
     @abstractmethod
     def fetch_raw(self, **kwargs) -> Any:
-        """Fetch raw data from the upstream API."""
+        """Fetch raw data from the upstream API.
+
+        Raises:
+            CollectorError: When an endpoint fails hard (e.g. HTTP 4xx/5xx,
+                transport/connection failure, invalid response body).
+                An empty collection should only be returned when the API
+                genuinely answered with zero results.
+        """
 
     @abstractmethod
     def normalise(self, raw: Any) -> Sequence[BaseModel]:

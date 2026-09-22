@@ -22,7 +22,9 @@ import logging
 from collections.abc import Sequence
 from typing import Any
 
-from aquascope.collectors.base import BaseCollector
+import httpx
+
+from aquascope.collectors.base import BaseCollector, CollectorError
 from aquascope.schemas.water_data import SDG6Indicator
 from aquascope.utils.http_client import CachedHTTPClient, RateLimiter
 
@@ -131,7 +133,22 @@ class SDG6Collector(BaseCollector):
             page = 1
             while True:
                 params["page"] = page
-                data = self.client.get_json("Series/Data", params=params)
+                try:
+                    data = self.client.get_json("Series/Data", params=params)
+                except CollectorError:
+                    raise
+                except Exception as exc:
+                    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                    if status_code is None and isinstance(getattr(exc, "__cause__", None), httpx.HTTPStatusError):
+                        status_code = exc.__cause__.response.status_code
+                    target_url = f"{self.client.base_url}/Series/Data" if self.client.base_url else "Series/Data"
+                    raise CollectorError(
+                        f"SDG6 API request failed for indicator {code}: {exc}",
+                        source=self.name,
+                        url=target_url,
+                        status_code=status_code,
+                        cause=exc,
+                    ) from exc
                 items = data.get("data", [])
                 # Tag each record with the SDG indicator code (the API returns
                 # the series code; we keep the human-friendly SDG dotted code).

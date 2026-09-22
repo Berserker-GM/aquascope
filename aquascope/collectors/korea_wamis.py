@@ -15,7 +15,9 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from aquascope.collectors.base import BaseCollector
+import httpx
+
+from aquascope.collectors.base import BaseCollector, CollectorError
 from aquascope.schemas.water_data import (
     DataSource,
     GeoLocation,
@@ -227,14 +229,24 @@ class KoreaWAMISCollector(BaseCollector):
 
         try:
             data = self.client.get_json(url, params=params)
-            if isinstance(data, list):
-                return data
-            if isinstance(data, dict):
-                return data.get("list", data.get("data", data.get("results", [data])))
-            return []
-        except Exception:
-            logger.warning("WAMIS API request failed for %s", url, exc_info=True)
-            return []
+        except Exception as exc:
+            logger.warning("WAMIS API request failed for %s: %s", url, exc, exc_info=True)
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            if status_code is None and isinstance(getattr(exc, "__cause__", None), httpx.HTTPStatusError):
+                status_code = exc.__cause__.response.status_code
+            raise CollectorError(
+                f"WAMIS API request failed for {url}: {exc}",
+                source=self.name,
+                url=url,
+                status_code=status_code,
+                cause=exc,
+            ) from exc
+
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("list", data.get("data", data.get("results", [data])))
+        return []
 
     # ------------------------------------------------------------------ #
     # normalise

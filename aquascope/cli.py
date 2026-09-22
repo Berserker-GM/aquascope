@@ -120,6 +120,7 @@ def _parse_bbox(value: str | None) -> tuple[float, float, float, float] | None:
 
 def cmd_collect(args: argparse.Namespace) -> None:
     """Run a data collector and save results."""
+    from aquascope.collectors.base import CollectorError
     from aquascope.registry import build_collector, source_keys
     from aquascope.utils.storage import save_records
 
@@ -295,7 +296,13 @@ def cmd_collect(args: argparse.Namespace) -> None:
             kwargs["end_date"] = args.end_date
         if args.parameter_type:
             kwargs["parameter_type"] = args.parameter_type
-    records = collector.collect(**kwargs)
+    try:
+        records = collector.collect(**kwargs)
+    except CollectorError as exc:
+        logger.error("[%s] Collection failed: %s", source, exc)
+        sys.exit(1)
+        return
+
     if not records:
         logger.warning("No records collected.")
         return

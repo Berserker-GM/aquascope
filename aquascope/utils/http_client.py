@@ -201,6 +201,16 @@ class CachedHTTPClient:
         path = self.cache_dir / f"{key}.json"
         path.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
 
+    def _format_retry_error(self, url: str, exc: Exception | None, method: str = "GET") -> str:
+        if isinstance(exc, httpx.HTTPStatusError):
+            detail = f"status {exc.response.status_code}"
+        elif exc is not None:
+            detail = f"{type(exc).__name__}: {exc}"
+        else:
+            detail = "unknown error"
+        prefix = f"{method} " if method != "GET" else ""
+        return f"All {self.retries} attempts failed for {prefix}{url} ({detail})"
+
     # ── public API ───────────────────────────────────────────────────
     @staticmethod
     def _parse_response_json(resp: httpx.Response) -> Any:
@@ -295,7 +305,7 @@ class CachedHTTPClient:
                 )
                 time.sleep(wait)
 
-        raise RuntimeError(f"All {self.retries} attempts failed for {url}") from last_exc
+        raise RuntimeError(self._format_retry_error(url, last_exc)) from last_exc
 
 
     def get_text(
@@ -353,7 +363,7 @@ class CachedHTTPClient:
                 )
                 time.sleep(wait)
 
-        raise RuntimeError(f"All {self.retries} attempts failed for {url}") from last_exc
+        raise RuntimeError(self._format_retry_error(url, last_exc)) from last_exc
 
     def post_json(
         self,
@@ -417,7 +427,7 @@ class CachedHTTPClient:
                 )
                 time.sleep(wait)
 
-        raise RuntimeError(f"All {self.retries} attempts failed for POST {url}") from last_exc
+        raise RuntimeError(self._format_retry_error(url, last_exc, method="POST")) from last_exc
 
     def close(self) -> None:
         self._client.close()
