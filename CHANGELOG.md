@@ -9,6 +9,8 @@ All notable changes to AquaScope are documented here.
 
 ### Changed
 
+- Keep Explorer search and nearest-gauge grouping local so results do not wait for Python startup. Use UK EA's `stationGuid` for site identity while preserving each station's `notation`, normalize list-valued identifiers, and omit redundant member lists from single-record MCP results (#274, #407). Sources without agency site identifiers still default to individual stations; inferred grouping for Taiwan CWA and USGS is deferred.
+
 - **Group co-located station records by site** (#274, #407). Adds source-scoped `site_id` values to station catalogs, including Hub'Eau site identifiers and compatibility with older catalogs. Search and nearest-gauge results show one entry per site, represented by the longest matching record, with record counts and selectors that preserve access to individual stations. Co-located map markers are offset on screen without changing their geographic coordinates.
 
 ### Fixed

@@ -189,6 +189,25 @@ UKEA_PAGE = {
 
 
 class TestUKEAStations:
+    def test_site_guid_groups_distinct_notations_and_normalizes_lists(self):
+        client = MagicMock()
+        client.get_json.return_value = {"items": [
+            {"notation": [notation], "stationGuid": ["shared-guid"], "lat": 51.0, "long": 0.0}
+            for notation in ("flow-record", "level-record")
+        ]}
+        stations = UKEACollector(client=client).stations()
+        assert {s.station_id for s in stations} == {"flow-record", "level-record"}
+        assert {s.site_id for s in stations} == {"shared-guid"}
+
+    @pytest.mark.parametrize("guid", [None, [], ""])
+    def test_missing_site_guid_defaults_to_notation(self, guid):
+        client = MagicMock()
+        client.get_json.return_value = {"items": [
+            {"notation": "record", "stationGuid": guid, "lat": 51.0, "long": 0.0},
+        ]}
+        station = UKEACollector(client=client).stations()[0]
+        assert station.site_id == station.station_id == "record"
+
     def test_parses_and_filters_bbox(self):
         client = MagicMock()
         client.get_json.return_value = UKEA_PAGE

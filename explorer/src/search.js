@@ -5,15 +5,28 @@
 
 import { $, actions, escapeHtml, foldText, sourceStyle, state, stationKey } from "./core.js?v=__BUILD__";
 import { shapeSvg } from "./shapes.js?v=__BUILD__";
-import { call, ensureCatalogInWorker } from "./worker-client.js?v=__BUILD__";
+import { groupStationSites } from "./sites.js?v=__BUILD__";
 
-export async function searchStations(query, limit = 25) {
+export function searchStations(query, limit = 25) {
   const whole = foldText(query).trim();
   if (whole.length < 2) return [];
-  await ensureCatalogInWorker();
-  const result = await call("tool", { name: "find_stations", arguments: { query, limit } });
-  if (result.error) throw new Error(result.error);
-  return result.stations;
+  const tokens = whole.split(/\s+/).filter(Boolean);
+  const hits = [];
+  for (const row of state.stations) {
+    const name = foldText(row.name || ""), id = foldText(row.station_id);
+    if (!tokens.every((token) => name.includes(token) || id.includes(token))) continue;
+    let score = id === whole ? 1000 : 0;
+    for (const token of tokens) {
+      const at = name.indexOf(token);
+      if (at === 0) score += 60;
+      else if (at > 0) score += /[\s,('-]/.test(name[at - 1]) ? 40 : 20;
+      if (id.startsWith(token)) score += 30;
+      else if (id.includes(token)) score += 10;
+    }
+    hits.push({ row, score: score - Math.min(20, name.length / 12) });
+  }
+  hits.sort((a, b) => b.score - a.score);
+  return groupStationSites(hits.map((hit) => hit.row), state.stations).slice(0, Math.max(0, limit));
 }
 
 
@@ -134,7 +147,7 @@ export function initSearch() {
         });
       }
       try {
-        const found = await searchStations(query);
+        const found = searchStations(query);
         if (my !== run) return;
         hits = found;
         active = hits.length ? 0 : -1;

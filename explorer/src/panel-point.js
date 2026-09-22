@@ -10,7 +10,8 @@ import { clearCatchment, requestBasin, requestCatchment } from "./basins.js?v=__
 import { flyToPoint, setPointMarker, highlightStation } from "./map.js?v=__BUILD__";
 import { addMethodOnce, methodsOnPage, openCite, renderMethodList } from "./methods.js?v=__BUILD__";
 import { hideCard, selectTab, setCard, setTab, showSurface } from "./shell.js?v=__BUILD__";
-import { call, ensureCatalogInWorker } from "./worker-client.js?v=__BUILD__";
+import { call } from "./worker-client.js?v=__BUILD__";
+import { groupStationSites } from "./sites.js?v=__BUILD__";
 import { canonicalUrl, writeUrl } from "./url.js?v=__BUILD__";
 
 let pointRun = 0;
@@ -18,23 +19,13 @@ const root = () => $("panel-point");
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export async function renderNearestStations(lat, lon, my = pointRun) {
+export function renderNearestStations(lat, lon, my = pointRun) {
   const ul = $("pt-nearest");
   const current = () => my === pointRun && state.point?.lat === lat && state.point?.lon === lon;
-  ul.innerHTML = `<li class="muted">Loading nearest gauges...</li>`;
+  if (!current()) return;
   try {
-    const sources = [...new Set(state.stations.map((r) => r.source))].filter((s) => !state.hidden.has(s));
-    let stations = [];
-    if (sources.length) {
-      await ensureCatalogInWorker();
-      if (!current()) return;
-      const result = await call("tool", {
-        name: "find_stations", arguments: { near: [lat, lon], sources, limit: 6 },
-      });
-      if (!current()) return;
-      if (result.error) throw new Error(result.error);
-      stations = result.stations;
-    }
+    const stations = groupStationSites(state.stations.filter((r) => !state.hidden.has(r.source)))
+      .sort((a, b) => haversineKm(lat, lon, a.lat, a.lon) - haversineKm(lat, lon, b.lat, b.lon)).slice(0, 6);
     ul.replaceChildren();
     if (!stations.length) {
       ul.innerHTML = `<li class="muted">no gauges in the catalog</li>`;
@@ -47,7 +38,7 @@ export async function renderNearestStations(lat, lon, my = pointRun) {
       button.type = "button";
       button.className = "nearest-open";
       const st = sourceStyle(r.source);
-      const d = haversineKm(lat, lon, r.latitude, r.longitude);
+      const d = haversineKm(lat, lon, r.lat, r.lon);
       button.innerHTML = `${shapeSvg(st.shape, st.color)}<span class="nearest-name">${escapeHtml(r.name || r.station_id)}</span>` +
         `<span class="muted">${escapeHtml(st.label)}</span>` +
         `<span class="dist">${d < 10 ? d.toFixed(1) : Math.round(d)} km</span>`;

@@ -1,7 +1,9 @@
 """Site grouping preserves records while limiting search results by physical site."""
 
+import json
 from copy import deepcopy
 from datetime import date
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -9,6 +11,20 @@ import pytest
 from aquascope.archive.catalog import group_station_sites, search_stations
 from aquascope.mcp_server import find_stations
 from aquascope.schemas.station import Station
+
+
+def test_shared_browser_fixture():
+    rows = json.loads((Path(__file__).parent / "fixtures/site_grouping.json").read_text())
+    result = group_station_sites(rows)
+    assert [r["station_id"] for r in result] == ["A891030102", "other", "a"]
+    assert [r["record_count"] for r in result] == [2, 1, 3]
+
+
+def test_single_record_mcp_result_omits_members():
+    with patch("aquascope.archive.catalog.load_stations", return_value=[_record("only")]):
+        row = find_stations()["stations"][0]
+    assert row["record_count"] == 1
+    assert "records" not in row
 
 
 @pytest.mark.parametrize("fields, expected", [({}, "station-1"), ({"site_id": ""}, "station-1"),

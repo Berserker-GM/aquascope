@@ -1,6 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { colocatedOffsets, siteKey } from "../src/sites.js";
+import { colocatedOffsets, siteKey, groupStationSites } from "../src/sites.js";
+import { readFileSync } from "node:fs";
+
+test("representatives match the Python shared fixture", () => {
+  const rows = JSON.parse(readFileSync(new URL("../../tests/fixtures/site_grouping.json", import.meta.url)));
+  const result = groupStationSites(rows);
+  assert.deepEqual(result.map((r) => r.station_id), ["A891030102", "other", "a"]);
+  assert.deepEqual(result.map((r) => r.record_count), [2, 1, 3]);
+});
 import { toFeatureCollection } from "../src/catalog.js?v=__BUILD__";
 import { state } from "../src/core.js?v=__BUILD__";
 

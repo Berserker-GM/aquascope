@@ -21,49 +21,40 @@ globalThis.document = { getElementById: () => list, createElement: (tag) => new 
 globalThis.Option = class { constructor(text, value) { this.text = text; this.value = value; } };
 globalThis.location = { href: "http://localhost/" };
 const messages = [];
-let response;
-let beforeResult = () => {};
 globalThis.Worker = class {
-  postMessage(message) {
-    messages.push(message);
-    if (message.type === "init") return;
-    queueMicrotask(() => {
-      if (message.type === "tool") beforeResult();
-      this.onmessage({ data: { id: message.id, type: "result", result: message.type === "catalog" ? {} : response } });
-    });
+  constructor() {
+    messages.push("worker started");
+    throw new Error("Local search must not start Pyodide");
   }
 };
 const records = ["A891030101", "A891030102"].map((station_id) => ({
   source: "hubeau_hydrometrie", station_id, site_id: "A8910301", name: "Example gauge",
   latitude: 48, longitude: 7, period_start: "2000-01-01", period_end: null,
 }));
-const site = { ...records[0], record_count: 2, records };
 
 function reset() {
-  response = { stations: [site] };
   messages.length = 0;
   state.stations = records.map((r) => ({ ...r, lat: r.latitude, lon: r.longitude }));
   state.ask.catalogSent = false;
   state.hidden.clear();
   state.point = { lat: 48, lon: 7 };
-  beforeResult = () => {};
   list.replaceChildren();
 }
 
-test("search sends site IDs to the shared engine and keeps grouped results", async () => {
+test("search groups synchronously without starting a worker", () => {
   reset();
-  assert.deepEqual(await searchStations("Example"), [site]);
-  assert.equal(messages.find((m) => m.type === "catalog").rows[0].site_id, "A8910301");
-  const request = messages.find((m) => m.type === "tool");
-  assert.equal(request.name, "find_stations");
-  assert.equal(request.arguments.query, "Example");
+  const hits = searchStations("Example");
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].record_count, 2);
+  assert.equal(messages.length, 0);
+  assert.equal(searchStations("A891030102")[0].station_id, "A891030102");
 });
 
 test("nearest panel has one site row and can open either member", async () => {
   reset();
   const opened = [];
   actions.selectStation = (key) => opened.push(key);
-  await renderNearestStations(48, 7);
+  renderNearestStations(48, 7);
   assert.equal(list.children.length, 1);
   const [button, label] = list.children[0].children;
   assert.equal(label.children[0], "2 records at this site");
@@ -73,7 +64,7 @@ test("nearest panel has one site row and can open either member", async () => {
   selector.events.change();
   assert.deepEqual(opened, records.map((r) => `${r.source}/${r.station_id}`));
   assert.equal(selector.value, "");
-  assert.equal(messages.find((m) => m.type === "tool").arguments.limit, 6);
+  assert.equal(messages.length, 0);
 });
 
 test("all sources hidden shows an empty result without an unfiltered search", async () => {
@@ -86,17 +77,17 @@ test("all sources hidden shows an empty result without an unfiltered search", as
 
 test("an old point response cannot replace the current view", async () => {
   reset();
-  beforeResult = () => { state.point = { lat: 49, lon: 8 }; list.innerHTML = "new point"; };
+  state.point = { lat: 49, lon: 8 };
   await renderNearestStations(48, 7);
-  assert.equal(list.innerHTML, "new point");
+  assert.equal(list.children.length, 0);
 });
 
 test("failed nearest search offers a working retry", async () => {
   reset();
-  response = { error: "test failure" };
+  state.stations = null;
   await renderNearestStations(48, 7);
-  assert.match(list.children[0].textContent, /test failure/);
-  response = { stations: [site] };
+  assert.match(list.children[0].textContent, /Could not load/);
+  state.stations = records.map((r) => ({ ...r, lat: r.latitude, lon: r.longitude }));
   await list.children[0].children[0].events.click();
   assert.equal(list.children[0].className, "nearest-site");
 });

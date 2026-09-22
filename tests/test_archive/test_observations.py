@@ -96,7 +96,8 @@ def test_every_harvestable_variable_gets_its_own_budget_and_cursor(tmp_path):
 
 
 def test_manifest_v1_is_migrated_in_place(tmp_path):
-    station = {"n": 10, "harvested_at": "2026-08-17T00:00:00+00:00"}
+    recent = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(timespec="seconds")
+    station = {"n": 10, "harvested_at": recent}
     v1 = {"version": 1, "sources": {"usgs": {"variable": "discharge", "license": "US-PD",
                                              "stations": {"USGS-1": station}}}}
     (tmp_path / "obs").mkdir()
