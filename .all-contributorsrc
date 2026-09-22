@@ -147,7 +147,8 @@
         "code",
         "test",
         "doc",
-        "bug"
+        "bug",
+        "infra"
       ]
     },
     {
@@ -291,6 +292,16 @@
         "code",
         "test",
         "doc"
+      ]
+    },
+    {
+      "login": "HarshRajSinghania",
+      "name": "Harsh Raj Singhania",
+      "avatar_url": "https://avatars.githubusercontent.com/u/40535627?v=4",
+      "profile": "https://github.com/HarshRajSinghania",
+      "contributions": [
+        "code",
+        "test"
       ]
     }
   ],

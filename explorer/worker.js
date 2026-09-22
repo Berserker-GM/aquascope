@@ -515,7 +515,11 @@ def _studio_dispatch(a, on_event, on_artifact, store):
         _STUDIO[s.ws.id] = s
         return _studio_reply(s, _studio_say(s, str(a.get("text") or ""), _proposed(a)))
     s = _studio_open(a, on_event, on_artifact)
+    if op == "add_table":
+        return _studio_reply(s, s.add_table(str(a.get("name") or "table"), str(a.get("csv") or "")))
     if op == "say":
+        for _name, _csv in (a.get("tables") or {}).items():
+            s.add_table(str(_name), str(_csv))
         return _studio_reply(s, _studio_say(s, str(a.get("text") or ""), _proposed(a)))
     if op == "approve":
         edits = a.get("edits") or None

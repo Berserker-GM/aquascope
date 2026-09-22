@@ -67,7 +67,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     assert (out / "README.md").exists()
 
     assert report.n_stations == 2 and report.n_ok == 2 and report.n_failed == 1
-    health = json.loads((out / "health.json").read_text())
+    health = json.loads((out / "health.json").read_text(encoding="utf-8"))
     by = {s["source"]: s for s in health["sources"]}
     assert by["uk_ea"]["ok"] is False and "503" in by["uk_ea"]["error"]
     assert by["ireland_opw"]["n_stations"] == 1 and by["ireland_opw"]["license"] == "CC-BY-4.0"
@@ -80,7 +80,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     assert table.column("source").to_pylist() == ["ireland_opw", "pegelonline"]
     assert table.column("site_id").to_pylist() == ["0000001041", "celle-site"]
 
-    gj = json.loads((out / "stations.geojson").read_text())
+    gj = json.loads((out / "stations.geojson").read_text(encoding="utf-8"))
     assert gj["type"] == "FeatureCollection" and len(gj["features"]) == 2
     f0 = gj["features"][0]
     assert f0["geometry"]["coordinates"] == [-7.58, 54.84]
@@ -91,7 +91,7 @@ def test_harvest_writes_files_and_health(tmp_path):
     assert gj["features"][1]["properties"]["period_start"] == "1990-01-01"
     assert gj["features"][1]["properties"]["site_id"] == "celle-site"
 
-    card = (out / "README.md").read_text()
+    card = (out / "README.md").read_text(encoding="utf-8")
     assert card.startswith("---\nlicense: other")
     assert "| `uk_ea` |" in card and "failed: RuntimeError: 503" in card
     assert "resolve/main/stations.parquet" in card
@@ -150,7 +150,7 @@ def test_empty_harvest_still_writes_valid_files(tmp_path):
 def test_dataset_card_lists_every_source(tmp_path):
     report = HarvestReport(run_at="2026-08-16T00:00:00+00:00", aquascope_version="x", n_stations=0, sources=[])
     path = write_dataset_card(tmp_path / "README.md", report, repo_id="me/ds")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert "hf://datasets/me/ds/stations.parquet" in text
     assert "aquascope harvest stations" in text
 
@@ -174,3 +174,50 @@ def test_publish_folder_rejects_missing_folder(tmp_path):
     with patch("aquascope.archive.publish.require", return_value=MagicMock()):
         with pytest.raises(FileNotFoundError):
             publish_folder(tmp_path / "nope", "me/ds")
+
+
+def test_publish_folder_without_a_token_says_where_the_token_goes(tmp_path, monkeypatch):
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("HUGGING_FACE_HUB_TOKEN", raising=False)
+    with patch("aquascope.archive.publish.require", return_value=MagicMock()):
+        with pytest.raises(PermissionError, match="HF_TOKEN"):
+            publish_folder(tmp_path, "me/ds")
+
+
+def test_a_rejected_token_is_named_as_the_cause_not_a_missing_dataset(tmp_path, monkeypatch):
+    """Hugging Face reports an expired token as `RepositoryNotFoundError: 401 ... Please use create_repo`,
+    which reads as a missing dataset. When the dataset is public and readable, say the token was refused."""
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.setenv("HF_TOKEN", "hf_stale")
+    fake_hub = MagicMock()
+    boom = Exception("401 Client Error. Repository Not Found for url: .../preupload/main. "
+                     "Invalid username or password.")
+    fake_hub.HfApi.return_value.upload_folder.side_effect = boom
+
+    class _Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    with patch("aquascope.archive.publish.require", return_value=fake_hub), \
+         patch("urllib.request.urlopen", return_value=_Resp()):
+        with pytest.raises(PermissionError) as err:
+            publish_folder(tmp_path, "me/ds")
+    text = str(err.value)
+    assert "the token is what was refused" in text and "Rotate" in text
+    assert "401" in text, "the underlying error is kept"
+
+
+def test_an_unrelated_upload_error_is_not_reinterpreted(tmp_path, monkeypatch):
+    (tmp_path / "stations.parquet").write_bytes(b"x")
+    monkeypatch.setenv("HF_TOKEN", "hf_test")
+    fake_hub = MagicMock()
+    fake_hub.HfApi.return_value.upload_folder.side_effect = ValueError("disk full")
+    with patch("aquascope.archive.publish.require", return_value=fake_hub):
+        with pytest.raises(ValueError, match="disk full"):
+            publish_folder(tmp_path, "me/ds")

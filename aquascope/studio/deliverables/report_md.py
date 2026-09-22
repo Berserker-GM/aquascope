@@ -88,7 +88,9 @@ def builder_for(ws: Workspace) -> ReportBuilder:
             if fig is not None:
                 rb.add_figure(fig.name, caption=fig.caption or "")
         for tid in block["tables"]:
-            tab = c.table_artifact(ws, tid)
+            tab, pointer = c.prose_table(ws, tid)
+            if pointer:
+                rb.add_paragraph(f"*{pointer}*")
             if tab is None:
                 continue
             try:

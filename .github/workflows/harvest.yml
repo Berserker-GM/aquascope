@@ -113,6 +113,13 @@ jobs:
           aquascope harvest obs --out archive --variable water_level --source uk_ea --max-stations $((B / 3))
           aquascope harvest obs --out archive --variable water_level --source usgs --max-stations $((B / 5))
           aquascope harvest obs --out archive --variable precipitation --source taiwan_cwa --max-stations 15
+          # Greece OpenHi: 65 telemetry stations the browser cannot call (#408); small enough to mirror whole.
+          aquascope harvest obs --out archive --variable discharge --source greece_openhi --max-stations 65
+          aquascope harvest obs --out archive --variable water_level --source greece_openhi --max-stations 65
+          aquascope harvest obs --out archive --variable precipitation --source greece_openhi --max-stations 65
+          # Poland IMGW-PIB: ~900 gauges, daily from 1951; one download of the archive serves every station (#391).
+          aquascope harvest obs --out archive --variable discharge --source poland_imgw --max-stations $B
+          aquascope harvest obs --out archive --variable water_level --source poland_imgw --max-stations $((B / 2))
           echo "exit=$?" >> "$GITHUB_OUTPUT"
           set -e
 
@@ -145,6 +152,15 @@ jobs:
           from aquascope.archive import publish_folder
           print(publish_folder("archive", os.environ["HF_DATASET"], commit_message=f"harvest {os.environ.get('GITHUB_RUN_ID','')}"))
           EOF
+
+      # A weekly archive that quietly stops publishing looks healthy for months. If the secret is gone on a
+      # scheduled run, say so loudly rather than skipping the publish in silence.
+      - name: Warn when HF_TOKEN is missing
+        if: always() && env.HF_TOKEN == '' && github.event_name == 'schedule'
+        run: |
+          echo "::error::HF_TOKEN is not set, so the harvest ran but published nothing. Set the repository \
+          secret HF_TOKEN to a Hugging Face token with write access to $HF_DATASET."
+          exit 1
 
       - name: Job summary
         if: always()

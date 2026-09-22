@@ -4,7 +4,7 @@ Complete capability reference for AquaScope. For installation and a quick exampl
 
 ---
 
-## Data Collection (36 sources)
+## Data Collection (37 sources)
 
 - **Taiwan** — MOENV water quality, WRA levels / reservoirs / groundwater (annual and daily) / FHY / IoT, CWA climate, Civil IoT sensors, data.gov.tw
 - **Americas** — USGS streamflow, NOAA NWPS, Colorado DWR/CDSS, Water Quality Portal (400+ agencies), CAMELS-CL, CAMELS-BR, ANA Hidroweb
@@ -33,7 +33,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 
 - **FAO-56 Penman-Monteith ET₀** — reference evapotranspiration with all intermediate steps
 - **Hargreaves ET₀** — temperature-only alternative
-- **Crop water requirements** — 26 crops with FAO-56 Kc coefficients and growth stages; single (Kc) and dual (Kcb + Ke) coefficient modes
+- **Crop water requirements** — 26 crops with FAO-56 Kc coefficients and growth stages; single (Kc) and dual (Kcb + Ke) coefficient modes; olive, grape, citrus and winter wheat resolve to 32 FAO-56 Rev.1 sub-classes by variety, planting density and ground cover
 - **Irrigation scheduling** — effective rainfall, net/gross demand, efficiency
 - **Soil water balance** — daily tracking, depletion, auto-irrigation triggers
 - **WaPOR productivity workflows** — biomass water productivity and AETI-to-RET performance metrics
@@ -92,7 +92,7 @@ For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.
 
 ## Infrastructure
 
-- **2,500+ tests** with CAMELS benchmark validation
+- **2,800+ tests** with CAMELS benchmark validation
 - **Interactive dashboard** — 10-page Streamlit app
 - **29 CLI commands** — `collect`, `recommend`, `eda`, `quality`, `run`, `completion`, `list-methods`, `list-sources`, `stations`, `harvest`, `ask`, `ingest`, `basins`, `assess`, `gym`, `caravan`, `mcp`, `playbooks`, `solve`, `studio`, `studio-showcase`, `forecast`, `plot`, `dashboard`, `agri`, `alerts`, `groundwater`, `climate`, `hydro`
 - **[Theory guide](theory.md)** — mathematical equations, DOI citations, decision trees
