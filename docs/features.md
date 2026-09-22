@@ -61,7 +61,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 ## AI Engine & Workflows
 
 - **27 research methodologies** — scored and ranked against dataset profiles
-- **7 auto-executable pipelines** — trend analysis, WQI, PCA, RF, XGBoost, ARIMA, correlation
+- **26 auto-executable pipelines** — including trend analysis, WQI, PCA and ARIMA
 - **Challenge workflows** — flood risk (GEV), drought severity (SPI), water quality (WHO)
 - **Natural-language agent** — describe your goal, get recommendations + execution
 
