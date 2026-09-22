@@ -8,7 +8,7 @@
 [![Tests](https://img.shields.io/badge/tests-2800%2B%20passing-brightgreen.svg)](https://github.com/Rekin226/aquascope/actions)
 [![GitHub stars](https://img.shields.io/github/stars/Rekin226/aquascope?style=social)](https://github.com/Rekin226/aquascope/stargazers)
 
-AquaScope unifies **37 global water-data sources** behind one Python schema. On top of that it layers a full scientific computing stack, from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements**, wrapped in an AI engine that scores **26 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,800+ tests.
+AquaScope unifies **37 global water-data sources** behind one Python schema. On top of that it layers a full scientific computing stack, from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements**, wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,800+ tests.
 
 ---
 
@@ -29,7 +29,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
 - 📈 **Run hydrological analyses**: Bulletin 17C flood frequency (GEV / LP3 / Gumbel / non-stationary GEV / EMA), baseflow separation, rating curves, and 22 hydrological signatures.
 - 🌾 **Plan agricultural water**: FAO-56 Penman–Monteith ET₀, crop water requirements for 26 crops (olive, grape, citrus and winter wheat resolved by variety and canopy), irrigation scheduling, and soil water balance with auto-irrigation.
 - 🤖 **Ask the AI engine**: describe your goal in plain English, get a recommended methodology scored against your dataset, and auto-execute it.
-- 📊 **Visualise and report**: 16 plot types, Q-Q / P-P diagnostics, Markdown / HTML reports with embedded figures, threshold alerts (WHO / EPA / EU WFD).
+- 📊 **Visualise and report**: 17 plot types, Q-Q / P-P diagnostics, Markdown / HTML reports with embedded figures, threshold alerts (WHO / EPA / EU WFD).
 - 🗺️ **Spatial hydrology**: DEM processing, D8 flow direction, watershed delineation, Strahler ordering.
 
 [Full feature list →](features.md)
@@ -78,7 +78,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
 
 - **2,800+ tests** across every collector, hydrology method, and pipeline.
 - **CAMELS benchmark**: a 10-catchment validation subset bundled at `data/camels_benchmark/`, run on every CI build.
-- **Every method cited**: equations, decision trees, and DOI references for all 26 methodologies live in the [theory guide](theory.md).
+- **Every method cited**: equations, decision trees, and DOI references for all 27 methodologies live in the [theory guide](theory.md).
 - **JOSS paper in preparation**: see [`paper.md`](https://github.com/Rekin226/aquascope/blob/main/paper.md) and [`paper.bib`](https://github.com/Rekin226/aquascope/blob/main/paper.bib).
 
 ---
