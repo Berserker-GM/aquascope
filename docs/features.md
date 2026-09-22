@@ -74,7 +74,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 | Time-Series | ARIMA/SARIMA Forecasting | 1 |
 | Process Engineering | MBBR Pilot, MBR Fouling, A2O Nutrient Removal, SWMM, QUAL2K | — |
 | Spatial Analysis | Satellite Eutrophication, GIS Watershed, Kriging Interpolation | — |
-| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design, Budyko Framework| — |
+| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design, Budyko Framework | — |
 | Policy | SDG 6 Benchmarking, IWRM Assessment | — |
 
 For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.md).
