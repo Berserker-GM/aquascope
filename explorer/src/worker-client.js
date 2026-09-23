@@ -25,6 +25,9 @@ export function onStudioArtifact(fn) { artifactListeners.add(fn); return () => a
 // The worker was terminated and a fresh one is booting: a module that had handed it state (a table, a
 // study's bytes) re-sends what it can, or marks what is gone.
 export function onWorkerRestart(fn) { restartListeners.add(fn); return () => restartListeners.delete(fn); }
+// Study this area: the engine's progress events ({phase, done, total, site}) with the call's id.
+const areaListeners = new Set();
+export function onAreaProgress(fn) { areaListeners.add(fn); return () => areaListeners.delete(fn); }
 
 export function ensureWorker() {
   if (worker) return worker;
@@ -36,6 +39,7 @@ export function ensureWorker() {
     if (m.type === "solve_progress") { for (const fn of solveListeners) fn(m.event, m.id); return; }
     if (m.type === "studio_progress") { for (const fn of studioListeners) fn(m.event, m.id); return; }
     if (m.type === "studio_artifact") { for (const fn of artifactListeners) fn(m.artifact, m.id); return; }
+    if (m.type === "area_progress") { for (const fn of areaListeners) fn(m.event, m.id); return; }
     if (m.type === "ready") { state.workerReady = true; bootDone(); return; }
     const pending = state.pending.get(m.id);
     if (!pending) return;                       // cancelled: drop it
