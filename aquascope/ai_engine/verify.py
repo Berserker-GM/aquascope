@@ -337,7 +337,9 @@ def verify(answer: str, tool_results: list[dict[str, Any]], *, question: str = "
         significance = None
         for r in trend_payloads:
             payload = r["payload"]
-            trend = payload.get("trend") if isinstance(payload, dict) else None
+            # The series the report quotes (annual maxima for a flood question, trend_series.py) is the one
+            # its significance wording is held to; the annual-mean test is the fallback.
+            trend = payload.get("trend_reported") or payload.get("trend") if isinstance(payload, dict) else None
             if isinstance(trend, dict) and "p_value" in trend:
                 significance = trend
                 break
