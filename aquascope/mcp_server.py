@@ -901,6 +901,9 @@ def build_server():
     server.tool()(describe_catchment)
     server.tool()(similar_basins)
     server.tool()(regionalize_signatures)
+    from aquascope.archive.signatures import filter_gauges  # the map's signature filter (signatures.parquet)
+
+    server.tool()(filter_gauges)
     server.tool()(drought_indices)
     server.tool()(drought_propagation)
     server.tool()(low_flow_context)
