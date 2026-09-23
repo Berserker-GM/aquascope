@@ -514,6 +514,10 @@ def _studio_dispatch(a, on_event, on_artifact, store):
                     **_studio_model(a))
         _STUDIO[s.ws.id] = s
         return _studio_reply(s, _studio_say(s, str(a.get("text") or ""), _proposed(a)))
+    if op in ("link", "open_link"):   # study links: encode a plan, or decode and check one (aquascope.study_link)
+        from aquascope.study_link import studio_op as _link_op
+
+        return _link_op(a)
     s = _studio_open(a, on_event, on_artifact)
     if op == "add_table":
         return _studio_reply(s, s.add_table(str(a.get("name") or "table"), str(a.get("csv") or "")))
