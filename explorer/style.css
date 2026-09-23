@@ -940,3 +940,12 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
   [role="tabpanel"][hidden] { display: block !important; }
   .card { break-inside: avoid; }
 }
+
+/* My places + Compare (places.js, compare.js) */
+.places-list { list-style: none; margin: .4rem 0; padding: 0; }
+.place-row { display: flex; align-items: center; gap: .4rem; padding: .35rem 0; border-bottom: 1px solid var(--line); }
+.place-row .place-open { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 0; color: var(--ink); cursor: pointer; font: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.place-row .place-open:hover .place-name { text-decoration: underline; }
+#btn-place[aria-pressed="true"] { border-color: var(--blue); color: var(--blue); }
+.cmp-swatch { display: inline-block; width: .7rem; height: .7rem; border-radius: 2px; margin-right: .35rem; vertical-align: middle; }
+#panel-places .card-body p.muted { font-size: .78rem; margin: 0 0 .4rem; }
