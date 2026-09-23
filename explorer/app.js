@@ -27,6 +27,7 @@ import { initUrl, readUrl, writeUrl } from "./src/url.js?v=__BUILD__";
 import { ensureWorker } from "./src/worker-client.js?v=__BUILD__";
 import { openCite } from "./src/methods.js?v=__BUILD__";
 import { registerWebMcpTools } from "./src/webmcp.js?v=__BUILD__";
+import { initSignatureFilter } from "./src/signature-filter.js?v=__BUILD__";
 
 // Study is loaded when it is first used (the Study button, the drawer's radio,
 // "Study this place", a #study=1 link): its modules are the larger part of the
@@ -231,6 +232,7 @@ function goHome() {
 
   buildRail();
   updateCount();
+  initSignatureFilter();  // async: shows the rail's signature filter when signatures.parquet exists
   if (mapOk) bringMapOnline(url);
   else if (mapResult && mapResult.reason === "slow") whenMapLoadsLate(() => bringMapOnline(url));
   ensureWorker();  // warm Python in the background so the first click is quicker
