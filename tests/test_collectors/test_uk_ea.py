@@ -354,6 +354,18 @@ def test_fetch_raw_errors_and_behaviour(monkeypatch):
     assert len(res2) == 3
 
 
+def test_bbox_readings_normalize_list_station_guid():
+    def behaviour(path, params):
+        if path == "id/stations.json":
+            return {"items": [{"stationGuid": ["shared-guid"], "lat": 51.5, "long": 0.5}]}
+        assert params["station"] == "shared-guid"
+        return {"items": []}
+
+    client = DummyClient(behaviour=behaviour)
+    UKEACollector(client=client).fetch_raw(observed_property="waterLevel", bbox="0,51,1,52")
+    assert any(path == "data/readings.json" for path, _ in client.calls)
+
+
 def test_fetch_raw_bbox_requires_observed_property():
     collector = UKEACollector(client=DummyClient())
 
