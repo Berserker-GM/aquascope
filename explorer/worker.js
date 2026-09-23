@@ -406,7 +406,19 @@ def _studio_open(a, on_event, on_artifact):
 
 
 def _studio_reply(s, r):
-    return {"reply": r.to_dict(), "workspace": s.to_dict(with_artifacts=False), "status": s.ws.status}
+    return {"reply": r.to_dict(), "workspace": s.to_dict(with_artifacts=False), "status": s.ws.status,
+            "plain": _studio_plain(s)}
+
+
+def _studio_plain(s):
+    """The plan in plain words and each step's controls (aquascope.studio.steering), for the page; None when this
+    engine has no steering or the study cannot be read."""
+    try:
+        from aquascope.studio.steering import plain_plan as _plain_plan
+
+        return _plain_plan(s.ws.study) or None
+    except Exception:  # noqa: BLE001 - the page falls back to the raw gates
+        return None
 
 
 def _studio_file(art):
@@ -495,8 +507,8 @@ def _studio_check_plan(s, a):
 
 
 def studio_call(a, on_event=None, on_artifact=None, store=None):
-    """One message from the page. op is start, say, approve, follow_up, narrate, context, check_plan, prompts,
-    file or export."""
+    """One message from the page. op is start, say, approve, follow_up, steer, narrate, context, check_plan,
+    prompts, file or export."""
     return _with_recon_context(a, lambda: _studio_dispatch(a, on_event, on_artifact, store))
 
 
@@ -533,6 +545,11 @@ def _studio_dispatch(a, on_event, on_artifact, store):
         return _studio_reply(s, r)
     if op == "follow_up":
         return _studio_reply(s, s.follow_up(str(a.get("text") or "")))
+    if op == "steer":
+        steer = getattr(s, "steer", None)
+        if steer is None:
+            return {"error": "adjusting a step is not available in this engine"}
+        return _studio_reply(s, steer(str(a.get("step_id") or ""), dict(a.get("changes") or {})))
     if op == "narrate":
         narrate = getattr(s, "narrate", None)
         if narrate is None:
