@@ -307,11 +307,16 @@ def test_trend_check_reads_the_series_the_report_quotes():
     """A flood report quotes the annual-maxima test; the check must not hold it to the annual-mean p."""
     from aquascope.ai_engine.verify import verify
 
-    payload = {
-        "trend": {"p_value": 0.01, "on": "annual mean"},
-        "trend_reported": {"p_value": 0.32, "on": "annual maxima"},
-    }
+    record = {"trend": {"p_value": 0.01, "on": "annual mean"}}  # the record step: annual means only
+    flood = {"trend": {"p_value": 0.01, "on": "annual mean"},
+             "trend_reported": {"p_value": 0.32, "on": "annual maxima"}}
     answer = "Mann-Kendall on the annual maxima: not significant at the 5 % level (p = 0.32), no trend in the floods."
-    v = verify(answer, [{"ok": True, "name": "analyze_station", "payload": payload}])
+    v = verify(answer, [{"ok": True, "name": "analyze_station", "payload": record},
+                        {"ok": True, "name": "flood_frequency", "payload": flood}])
     check = next(c for c in v.checks if c.name == "trend_matches_the_test")
     assert check.passed
+    # and the check still bites: calling the peaks' trend significant at p = 0.32 is caught
+    wrong = "Mann-Kendall on the annual maxima: a significant rising trend in the flood peaks (p = 0.32)."
+    v = verify(wrong, [{"ok": True, "name": "analyze_station", "payload": record},
+                       {"ok": True, "name": "flood_frequency", "payload": flood}])
+    assert not next(c for c in v.checks if c.name == "trend_matches_the_test").passed
