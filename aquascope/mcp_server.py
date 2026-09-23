@@ -302,6 +302,33 @@ def assess_site(
         return {"error": str(exc)}
 
 
+def study_area(
+    bbox: list[float] | None = None,
+    stations: list[str] | None = None,
+    question: str | None = None,
+    max_sites: int = 60,
+    max_live: int = 25,
+) -> dict[str, Any]:
+    """Study the gauges of an area together (flood focus). bbox: [west, south, east, north]; or stations: a list of
+    "source/station_id". Reads the AquaScope Archive first and fetches at most max_live gauges live from an agency
+    (keyless rate limits); the rest are listed as skipped. Returns a per-site table (record span, mean, Q100 from a
+    GEV by L-moments, Q100 per km2 where the area is known, Mann-Kendall trend on annual maxima), field
+    significance of the trends (counts up/down/none, Benjamini-Hochberg FDR, Walker test, with the independence
+    caveat), an index-flood regional growth curve (L-moments, discordancy, heterogeneity H), GeoJSON points and a
+    one-line headline. Report the headline and the caveats; do not claim a regional trend the field test rejects.
+    """
+    from aquascope import area_study as _area
+
+    if not bbox and not stations:
+        return {"error": "give bbox [west, south, east, north] or stations ['source/station_id', ...]"}
+    try:
+        return _area.study_area(stations or None, bbox=tuple(bbox) if bbox and not stations else None,
+                                question=question, max_sites=max(1, min(int(max_sites), _area.MAX_SITES)),
+                                max_live=max(0, min(int(max_live), _area.MAX_LIVE_FETCHES)))
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
 def describe_methods() -> dict[str, Any]:
     """What each analysis computes and the reference to cite."""
     from aquascope.explore import METHODS, MIN_YEARS_FOR_FFA, RETURN_PERIODS
@@ -903,6 +930,7 @@ def build_server():
     server.tool()(flood_frequency)
     server.tool()(describe_methods)
     server.tool()(assess_site)
+    server.tool()(study_area)
     server.tool()(describe_catchment)
     server.tool()(similar_basins)
     server.tool()(regionalize_signatures)

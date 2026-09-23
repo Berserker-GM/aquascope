@@ -1090,6 +1090,47 @@ def cmd_assess(args: argparse.Namespace) -> None:
     print(_format_assessment(res, radius_km=args.radius_km))
 
 
+# ── area-study (Study this area) ─────────────────────────────────────────────
+
+
+def cmd_area_study(args: argparse.Namespace) -> None:
+    """`aquascope area-study`: a multi-gauge flood study over a box or a list of stations (thin face)."""
+    from aquascope import area_study
+
+    if not args.bbox and not args.station:
+        logger.error("give --bbox=west,south,east,north or one or more --station source/station_id")
+        sys.exit(2)
+    res = area_study.study_area(
+        args.station or None, bbox=_parse_bbox(args.bbox) if not args.station else None, question=args.question,
+        max_sites=args.max_sites, max_live=args.max_live,
+    )
+    if args.output:
+        out = Path(args.output)
+        if out.suffix == ".xlsx":
+            out.write_bytes(area_study.to_xlsx(res))
+        elif out.suffix == ".csv":
+            out.write_text(area_study.to_csv(res), encoding="utf-8")
+        elif out.suffix == ".geojson":
+            out.write_text(json.dumps(res["geojson"], ensure_ascii=False), encoding="utf-8")
+        else:
+            out.write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
+        print(f"wrote {out}", file=sys.stderr)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return
+    print(res["headline"])
+    print()
+    for r in res["sites"]:
+        if r["status"] != "studied":
+            print(f"  {r['source']}/{r['station_id']}: {r['status']} ({r['note']})")
+            continue
+        q = f"Q100 {r['q100']:g} {r['unit']}" if r.get("q100") is not None else "no Q100"
+        p = f", p = {r['trend_p']:.3f}" if r.get("trend_p") is not None else ""
+        print(f"  {r['source']}/{r['station_id']}: {r['record_years']} yr, {q}, trend {r['trend']}{p}")
+    for note in res["notes"]:
+        print(f"- {note}")
+
+
 def cmd_gym(args: argparse.Namespace) -> None:
     """`aquascope gym basins|run|leaderboard`: HydroGym, the calibration environment over real basins (Phase 0),
     `aquascope gym tasks|bench|leaderboard FILES`: the playbook benchmark (Phase 1), `aquascope gym plans
@@ -2613,6 +2654,19 @@ def main() -> None:
     p_assess.add_argument("--return-period", type=float, default=None, help="The T (years) the question asks for")
     p_assess.add_argument("--json", action="store_true")
 
+    p_area = sub.add_parser(
+        "area-study", help="Study the gauges of an area together: per-site floods, trend field, regional growth curve"
+    )
+    p_area.add_argument("--bbox", default=None,
+                        help="west,south,east,north (write --bbox=-77,38,-76,39 when it starts with a minus)")
+    p_area.add_argument("--station", action="append", default=None, help="source/station_id (repeatable)")
+    p_area.add_argument("--question", default=None, help="A title for the study")
+    p_area.add_argument("--max-sites", type=int, default=60, help="Gauges studied at most (default 60)")
+    p_area.add_argument("--max-live", type=int, default=25,
+                        help="Gauges fetched live from an agency at most; the rest come from the Archive (default 25)")
+    p_area.add_argument("--output", "-o", default=None, help="Write .xlsx, .csv, .geojson or .json")
+    p_area.add_argument("--json", action="store_true")
+
     p_gym = sub.add_parser("gym", help="HydroGym: a gym-style calibration environment over real basins (#175)")
     gym_sub = p_gym.add_subparsers(dest="gym_cmd", required=True)
     p_gb = gym_sub.add_parser("basins", help="Suggest gauged basins from the Archive that make good tasks")
@@ -3023,6 +3077,7 @@ def main() -> None:
         "mcp": cmd_mcp,
         "basins": cmd_basins,
         "assess": cmd_assess,
+        "area-study": cmd_area_study,
         "gym": cmd_gym,
         "caravan": cmd_caravan,
         "ask": cmd_ask,

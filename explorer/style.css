@@ -968,3 +968,27 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
   border: 1px solid var(--line); border-radius: var(--radius-xs); padding: .26rem .36rem; width: 100%;
 }
 .steer-field input[type="checkbox"] { align-self: flex-start; }
+/* ── Study this area (area-study.js) ───────────────────────────────────── */
+.area-study {
+  position: absolute; left: var(--gap); bottom: var(--gap); z-index: 6;
+  width: min(760px, calc(100% - var(--panel-w) - 3 * var(--gap))); max-height: 58vh; overflow: auto;
+  background: var(--surface); backdrop-filter: blur(8px); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-2); padding: .6rem .8rem; font-size: .82rem;
+}
+.area-study[hidden] { display: none; }
+.area-study .as-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .3rem; }
+.area-study .small { font-size: .76rem; }
+.area-study .as-headline { font-weight: 600; margin: .2rem 0 .4rem; }
+.area-study .as-bar { height: 6px; border-radius: 999px; background: var(--bg-sunken); overflow: hidden; margin: .4rem 0; }
+.area-study .as-bar > span { display: block; height: 100%; width: 0; background: var(--blue); transition: width .3s; }
+.area-study .as-controls { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: .4rem 0; }
+.area-study .as-legend { display: flex; flex-wrap: wrap; gap: .3rem .8rem; margin: .2rem 0 .4rem; color: var(--ink-2); }
+.area-study .as-key i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #0f1c26; margin-right: .3rem; vertical-align: -1px; }
+.area-study table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.area-study th, .area-study td { padding: .2rem .4rem; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; }
+.area-study th:first-child, .area-study td:first-child, .area-study th:nth-child(2), .area-study td:nth-child(2) { text-align: left; }
+.area-study .as-sort { background: none; border: 0; font: inherit; font-weight: 620; color: var(--ink-2); cursor: pointer; padding: 0; }
+.area-study .as-site { background: none; border: 0; font: inherit; color: var(--blue); cursor: pointer; padding: 0; text-align: left; }
+.area-study tr.as-skipped td, .area-study tr.as-failed td { color: var(--muted); }
+.area-study .as-notes { margin-top: .4rem; }
+@media (max-width: 1100px) { .area-study { width: calc(100% - 2 * var(--gap)); } }
