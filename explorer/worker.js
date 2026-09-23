@@ -774,6 +774,46 @@ json.dumps(_out, default=str)
   post("result", { id, result: JSON.parse(out) });
 }
 
+// ── Study this area: aquascope.area_study over the gauges the page selected ──
+// op "run" studies them (the Archive first, live fetches capped) and keeps the
+// result; "areas" fills in catchment areas the page read afterwards; "csv" and
+// "xlsx" are the downloads (openpyxl is installed on first use).
+async function areaStudy({ id, op, stations, question, max_live, areas }) {
+  if (op === "xlsx") await ensureDocs(id);
+  self.__aqArea = JSON.stringify({ op, stations: stations || [], question: question || null,
+    max_live: Number.isFinite(Number(max_live)) ? Number(max_live) : null, areas: areas || {} });
+  self.__aqAreaEvent = (text) => post("area_progress", { id, event: JSON.parse(text) });
+  const code = `
+import json, base64
+from js import __aqArea, __aqAreaEvent
+from aquascope import area_study as _area_mod
+_AREA_STORE = globals().setdefault("_AREA_STORE", {})
+_a = json.loads(__aqArea)
+if _a["op"] == "run":
+    _kw = {"max_live": _a["max_live"]} if _a.get("max_live") is not None else {}
+    _AREA_STORE["result"] = _area_mod.study_area(
+        _a["stations"], question=_a.get("question"),
+        on_progress=lambda e: __aqAreaEvent(json.dumps(e, default=str)), **_kw)
+    _out = json.dumps(_AREA_STORE["result"], default=str)
+elif _a["op"] == "areas":
+    _out = json.dumps(_area_mod.apply_areas(_AREA_STORE["result"], _a["areas"]), default=str)
+elif _a["op"] == "csv":
+    _out = json.dumps(_area_mod.to_csv(_AREA_STORE["result"]))
+elif _a["op"] == "xlsx":
+    _out = json.dumps(base64.b64encode(_area_mod.to_xlsx(_AREA_STORE["result"])).decode("ascii"))
+else:
+    _out = json.dumps({"error": "unknown op"})
+_out
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqArea = null;
+    self.__aqAreaEvent = null;
+  }
+}
+
 self.onmessage = async (e) => {
   const m = e.data;
   try {
@@ -795,6 +835,7 @@ self.onmessage = async (e) => {
     if (m.type === "workbench") return await workbench(m);
     if (m.type === "tool") return await runTool(m);
     if (m.type === "frame_from_station") return await frameFromStation(m);
+    if (m.type === "area_study") return await areaStudy(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
     // exception line (last non-empty) and log the whole thing for debugging.
