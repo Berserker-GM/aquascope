@@ -807,6 +807,7 @@ def run_study(
     on_event: Callable[[dict[str, Any]], None] | None = None,
     prior: StudyRun | None = None,
     tools: dict[str, Callable[..., Any]] | None = None,
+    reuse: list[str] | None = None,
 ) -> StudyRun:
     """Run every step in order, evaluate its gates, and collect the results.
 
@@ -823,7 +824,8 @@ def run_study(
     reused rather than fetched again (the team's replan uses it). ``tools``
     adds to or replaces the registry's tools by name: the browser worker,
     where BasinATLAS cannot be read, serves ``describe_catchment`` from what
-    the page already holds.
+    the page already holds. ``reuse`` (a steered rerun, :mod:`aquascope.studio.steering`) names exactly the
+    prior results to keep as they were, passed or failed; every other step runs again.
     """
     from aquascope.gates import evaluate
 
@@ -836,6 +838,8 @@ def run_study(
     # A version-1 study stays a version-1 file: results are written back only into a plan.
     write_back = study.is_v2
     reusable = {r["id"]: r for r in (prior.results if prior else []) if r.get("ok") and r.get("gates_passed")}
+    if reuse is not None:  # steering: exactly these prior results stand, the rest reruns
+        reusable = {r["id"]: r for r in (prior.results if prior else []) if r.get("id") in set(reuse)}
 
     for i, step in enumerate(study.steps, 1):
         step_id = step.id or f"s{i}"
@@ -877,6 +881,8 @@ def run_study(
             done[step_id] = rec
             if write_back:
                 study.results[step_id] = _result_entry(rec)
+            if not _established(rec):  # a failed result kept by a steered rerun is still a failure
+                run.ok = False
             continue
 
         func = tools.get(step.tool)

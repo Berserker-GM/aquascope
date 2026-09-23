@@ -395,6 +395,7 @@ def drought_indices(
     source: str | None = None,
     station_id: str | None = None,
     pet: str = "thornthwaite",
+    threshold: float = -1.0,
 ) -> dict[str, Any]:
     """Drought status at a place: SPI and SPEI at several timescales (default 1, 3 and 12 months) with the
     divergence between them. Give source + station_id for a rain gauge (its whole record is the P of both
@@ -402,13 +403,15 @@ def drought_indices(
     thornthwaite (from ERA5 temperature, the PET SPEI was introduced with), fao56 (ERA5 FAO-56 ET0) or none
     (SPI only). Returns current values and classes, the worst month, drought events, the ERA5 temperature
     trend, the thinned series and the citations. SPEI is preferable under warming; a record shorter than 30
-    years is marginal (20 is the floor).
+    years is marginal (20 is the floor). threshold is the index value at or below which a month counts as
+    drought (-1 by default, McKee et al. 1993).
     """
     from aquascope.problems import drought_indices as _run
 
     try:
         return _run(float(lat), float(lon), years=int(years), timescales=timescales or (1, 3, 12),
-                    source=source or None, station_id=station_id or None, pet=pet or "thornthwaite")
+                    source=source or None, station_id=station_id or None, pet=pet or "thornthwaite",
+                    threshold=float(threshold) if threshold is not None else -1.0)
     except Exception as exc:  # noqa: BLE001 - the model gets to see it
         return {"error": f"drought_indices failed: {type(exc).__name__}: {exc}"}
 
