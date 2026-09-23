@@ -150,13 +150,15 @@ class UKEACollector(BaseCollector):
                 )
                 if variable and variable not in variables:
                     variables = sorted(set(variables) | {variable})
-                notation = item.get("notation") or item.get("stationGuid")
+                site_id = _first_str(item.get("stationGuid"))
+                notation = _first_str(item.get("notation")) or site_id
                 if not notation:
                     continue
                 stations.append(
                     Station(
                         source="uk_ea",
                         station_id=str(notation),
+                        site_id=site_id or str(notation),
                         name=_first_str(item.get("label")),
                         latitude=lat,
                         longitude=lon,
@@ -355,7 +357,7 @@ class UKEACollector(BaseCollector):
                 params["maxeq-date"] = max_date
 
             for station in station_meta:
-                station_id = station.get("stationGuid", None)
+                station_id = _first_str(station.get("stationGuid"))
                 if not station_id:
                     logger.warning("Station metadata missing stationGuid: %s", station)
                     continue
@@ -941,4 +943,3 @@ class UKEACollector(BaseCollector):
                 return GeoLocation(latitude=float(lat), longitude=float(long))
             except (ValueError, TypeError):
                 return None
-
