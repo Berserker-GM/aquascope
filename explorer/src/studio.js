@@ -40,6 +40,7 @@ import { fetchStudyYaml, linkUrl, sharedBoardHtml, sharedPlanLine } from "./stud
 // study map: the crew's places drawn on the map (study-map.js)
 import { clearStudyMap, focusStudyStep, showStudyMapFor, studyMapArtifact } from "./study-map.js?v=__BUILD__";
 import { drawnOnMap, stepsOnMapHtml } from "./study-map-data.js?v=__BUILD__";
+import { initStudyControls, rememberPlain, steerHtml, stepChecksHtml } from "./study-controls.js?v=__BUILD__";
 
 const RECORDED_BASE = "./showcase/studies/";
 
@@ -275,7 +276,7 @@ function stepHtml(s) {
     `<div class="step-main"><span class="step-tool">${escapeHtml(toolLabel(s.tool))}</span>` +
     (S.editing ? "" : ` <span class="step-args">${escapeHtml(argsWords(args))}</span>`) + `</div>` +
     (inputs ? `<div class="study-args">${inputs}</div>` : "") +
-    (gates ? `<div class="step-gates">${gates}</div>` : "") +
+    stepChecksHtml(s, gates) + // steering: the gates in plain words, the raw chips behind "details"
     (s.rationale ? `<details class="step-why"><summary>why</summary>${escapeHtml(s.rationale)}</details>` : "") +
     `</li>`;
 }
@@ -454,6 +455,7 @@ function doneHtml() {
       ? `<div class="study-figs">${figs.map((a) => figHtml(S.figures.get(a.id) || { id: a.id, caption: a.caption })).join("")}</div>`
       : "") +
     stepsOnMapHtml(S.ws, toolLabel) +
+    steerHtml(S.ws.study, { label: toolLabel, busy: S.busy }) + // steering: per-step controls
     (not.length
       ? `<div class="ask-checks warn"><strong>Not established</strong><ul>${not.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>`
       : "") +
@@ -638,6 +640,7 @@ function job(op, extra = {}) {
 
 function applyReply(res, op) {
   S.ws = res.workspace || S.ws;
+  rememberPlain(res.plain); // steering: the plan in plain words and the step controls
   S.busy = false;
   state.study.running = false;
   S.editing = false;
@@ -881,7 +884,7 @@ async function callStudio(op, extra = {}) {
   S.declined = null;
   setBusy(true);
   try {
-    if (op === "approve" || op === "follow_up" || op === "add_table") {
+    if (op === "approve" || op === "follow_up" || op === "add_table" || op === "steer") {
       await ensureCatalogInWorker();
       // A resumed study (a reload, a dropped workspace.json) has not read its site yet.
       if (S.site && !S.siteReady) await loadSiteInfo(S.site, my);
@@ -1423,6 +1426,7 @@ export function initStudy() {
   const el = board();
   el.addEventListener("click", onBoardClick);
   el.addEventListener("change", onBoardChange);
+  initStudyControls(el, (extra) => callStudio("steer", extra)); // steering: Rerun this step
   for (const type of ["dragenter", "dragover"]) {
     el.addEventListener(type, (e) => { if (S.busy || S.writing) return; e.preventDefault(); el.classList.add("over"); });
   }

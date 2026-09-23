@@ -949,3 +949,22 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
   [role="tabpanel"][hidden] { display: block !important; }
   .card { break-inside: avoid; }
 }
+
+/* steerable steps (src/study-controls.js): the plan's gates in plain words, and the per-step controls after
+   the report */
+.study-steps .step-checks { grid-column: 2; margin: .15rem 0 0; padding-left: 1rem; font-size: .74rem; line-height: 1.45; color: var(--ink-2); }
+.study-steps .step-raw { grid-column: 2; font-size: .7rem; }
+.study-steps .step-raw > summary { cursor: pointer; color: var(--blue); list-style: none; font-size: .7rem; }
+.study-steps .step-raw > summary::-webkit-details-marker { display: none; }
+.study-steer { margin-top: .6rem; font-size: .78rem; }
+.study-steer > summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+.study-steer .steer-note { font-size: .72rem; margin: .3rem 0; }
+.steer-step { border: 1px solid var(--line-soft); border-radius: var(--radius-xs); padding: .4rem .55rem .5rem; margin: .4rem 0 0; min-width: 0; }
+.steer-step > legend { font-size: .72rem; font-weight: 620; padding: 0 .25rem; }
+.steer-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .3rem .5rem; margin-bottom: .4rem; }
+.steer-field { display: flex; flex-direction: column; gap: .15rem; font-size: .68rem; color: var(--muted); min-width: 0; }
+.steer-field select, .steer-field input[type="number"] {
+  font: inherit; font-size: .78rem; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: var(--radius-xs); padding: .26rem .36rem; width: 100%;
+}
+.steer-field input[type="checkbox"] { align-self: flex-start; }

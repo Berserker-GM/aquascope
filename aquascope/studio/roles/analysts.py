@@ -377,7 +377,7 @@ def _carry(old: Study, new: Study) -> Study:
 
 
 def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = None, on_artifact: Any = None,
-        max_replans: int = 1, prior: StudyRun | None = None) -> StudyRun:
+        max_replans: int = 1, prior: StudyRun | None = None, reuse: list[str] | None = None) -> StudyRun:
     """Run ``ws.study`` with gates, figures and one bounded replan; write ``ws.run`` and the study's results."""
     from aquascope import playbooks as pbk
 
@@ -411,7 +411,7 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
     started = datetime.now(timezone.utc).isoformat(timespec="seconds")
     ws.event("analyst", "start", f"{len(study.steps)} step(s)")
     _ask_for_the_return_period(ws, study)
-    run_ = run_study(study, on_event=say, prior=prior, tools=callables)
+    run_ = run_study(study, on_event=say, prior=prior, tools=callables, reuse=reuse)  # reuse: a steered rerun
     _name_stations(ws, run_)
     _inherit_units(ws, run_, study)
     _report_the_asked_trend(ws, run_, study)  # study-trust-fixes: flood questions quote the annual-maxima trend

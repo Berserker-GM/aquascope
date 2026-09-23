@@ -239,11 +239,12 @@ def _tool_specs() -> list[ToolSpec]:
             "drought_indices",
             "Drought status at a place: SPI and SPEI at 1, 3 and 12 months (or timescales) with their divergence, "
             "from a rain gauge (source + station_id, its whole record) or the ERA5 cell (lat, lon, last years). "
-            "pet: thornthwaite (default, from ERA5 temperature) | fao56 | none. Prefer SPEI under warming.",
+            "pet: thornthwaite (default, from ERA5 temperature) | fao56 | none. Prefer SPEI under warming. "
+            "threshold: the index value at or below which a month is drought (default -1).",
             {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"},
                                               "timescales": {"type": "array", "items": {"type": "integer"}},
                                               "source": {"type": "string"}, "station_id": {"type": "string"},
-                                              "pet": {"type": "string"}},
+                                              "pet": {"type": "string"}, "threshold": num},
              "required": ["lat", "lon"]},
             t.drought_indices,
         ),

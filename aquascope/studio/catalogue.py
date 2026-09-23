@@ -55,6 +55,9 @@ class Entry:
     figures: list[str] = field(default_factory=list)
     tables: list[str] = field(default_factory=list)
     citation: str | None = None
+    #: The parameters a reader may change after the result, with type and allowed values
+    #: (:mod:`aquascope.studio.steering`).
+    steer: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +65,7 @@ class Entry:
             "arguments": self.arguments, "required": self.required,
             "yields": self.yields, "methods": self.methods, "gates": self.gates,
             "figures": self.figures, "tables": self.tables, "citation": self.citation,
+            "steer": self.steer,
         }
 
     def compact(self) -> dict[str, Any]:
@@ -321,6 +325,11 @@ def _build() -> dict[str, Entry]:
                    "value_column": {"type": "string"}, "datetime_column": {"type": "string"}},
         required=["table"], yields=ann["yields"], tables=ann["tables"], figures=ann["figures"], gates=ann["gates"],
     )
+    # steerable parameters (aquascope.studio.steering)
+    from aquascope.studio.steering import declared
+
+    for e in out.values():
+        e.steer = declared(e.id)
     # citations from the registry, by the first method an entry applies
     for e in out.values():
         for m in e.methods:
