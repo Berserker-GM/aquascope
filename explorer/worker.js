@@ -122,6 +122,26 @@ json.dumps(analysis.assess_site(
   }
 }
 
+// My places, Compare: aquascope.compare over two to five gauges. The page
+// passes each gauge's catchment area, which it reads from its own table.
+async function compare({ id, stations, years }) {
+  post("progress", { text: "Fetching the records to compare…" });
+  self.__aqCompare = JSON.stringify({ stations: stations || [], years: Number(years) > 0 ? Math.round(Number(years)) : null });
+  const code = `
+import json
+from js import __aqCompare
+import aquascope.compare as _compare
+_a = json.loads(__aqCompare)
+json.dumps(_compare.compare_stations(_a["stations"], years=_a["years"]))
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqCompare = null;
+  }
+}
+
 // The main thread already holds the station catalog (DuckDB-WASM); hand it to
 // Python once so find_stations() answers from memory instead of the Hub
 // (httpx / pyarrow do not run here).
@@ -844,6 +864,7 @@ self.onmessage = async (e) => {
     if (m.type === "analyze") return await analyze(m);
     if (m.type === "anywhere") return await anywhere(m);
     if (m.type === "assess") return await assess(m);
+    if (m.type === "compare") return await compare(m);
     if (m.type === "flood_ci") return await floodCi(m);
     if (m.type === "csv") return await csv(m);
     if (m.type === "catalog") return await catalog(m);

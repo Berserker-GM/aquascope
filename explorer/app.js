@@ -29,6 +29,7 @@ import { openCite } from "./src/methods.js?v=__BUILD__";
 import { registerWebMcpTools } from "./src/webmcp.js?v=__BUILD__";
 import { studyUrlParam } from "./src/study-link.js?v=__BUILD__";
 import { initSignatureFilter } from "./src/signature-filter.js?v=__BUILD__";
+import { initPlaces } from "./src/places.js?v=__BUILD__";  // My places + Compare
 
 // Study is loaded when it is first used (the Study button, the drawer's radio,
 // "Study this place", a #study=1 link): its modules are the larger part of the
@@ -181,6 +182,7 @@ function goHome() {
   initStationPanel();
   initPointPanel();
   initWorkbench();
+  initPlaces();  // My places + Compare
   initAsk();   // async: fills the provider list from providers.json
   initStudyLoader();
   initSearch();

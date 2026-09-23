@@ -16,6 +16,7 @@ import { hideCard, selectTab, setCard, setStatusEl, setTab, showSurface } from "
 import { Cancelled, call, callCancelable } from "./worker-client.js?v=__BUILD__";
 import { canonicalUrl, writeUrl } from "./url.js?v=__BUILD__";
 import { siteKey } from "./sites.js?v=__BUILD__";
+import { syncPlaceButton } from "./places.js?v=__BUILD__";  // My places: the ☆ Save button
 
 let analysisRun = 0;
 let gr4jRun = 0;
@@ -56,6 +57,7 @@ export function selectStation(key, { fly = false, tab = null, push = true } = {}
   badge.style.background = st.color;
   $("st-name").textContent = r.name || r.station_id;
   $("st-id").textContent = r.station_id;
+  syncPlaceButton();  // My places
   const members = state.stations.filter((record) => siteKey(record) === siteKey(r));
   const selector = $("st-site-select");
   selector.replaceChildren();
