@@ -654,8 +654,9 @@ _out = studio_call(
     _a,
     on_event=lambda e: __aqStudioEvent(json.dumps(e, default=str)),
     # PNG figures travel with their bytes so the page can show them as they land; SVG and CSV without.
+    # The study map (study_map.geojson) travels with its bytes too, so the page draws it as the steps land.
     on_artifact=lambda art: __aqStudioArtifact(
-        json.dumps(art.to_dict(with_data=art.media_type == "image/png"), default=str)),
+        json.dumps(art.to_dict(with_data=art.media_type == "image/png" or art.id == "study-map"), default=str)),
     store=_STORE,
 )
 json.dumps(_out, default=str)

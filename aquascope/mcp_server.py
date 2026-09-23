@@ -686,8 +686,10 @@ def _with_tables(studio: Any, tables: dict[str, str] | None) -> Any:
 
 
 def _studio_reply(studio: Any, reply: Any) -> dict[str, Any]:
+    from aquascope.study_map import workspace_features
+
     return {"reply": reply.to_dict(), "status": studio.workspace.status, "summary": studio.workspace.summary(),
-            "workspace": studio.to_dict()}
+            "workspace": studio.to_dict(), "map": workspace_features(studio.workspace)}
 
 
 def studio_start(

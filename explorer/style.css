@@ -831,6 +831,10 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
 .study-timeline .tl-step { font-weight: 620; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .study-timeline li.ok .tl-role { color: var(--ok-ink); }
 .study-timeline li.fail .tl-role { color: var(--warn-ink); }
+/* study map: a step row picks out that step's places on the map */
+.study-timeline li[data-map-step] { cursor: pointer; }
+.study-timeline li[data-map-step]:hover { background: var(--blue-soft); }
+.study-map-steps { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; margin-top: .6rem; font-size: .8rem; }
 .study-figs { display: flex; flex-direction: column; gap: .5rem; margin-top: .6rem; }
 .study-figs:empty { display: none; }
 .study-fig { margin: 0; }

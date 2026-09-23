@@ -1006,7 +1006,8 @@ def _result_entry(rec: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_outputs(run: StudyRun, out_dir: str | Path) -> dict[str, str]:
-    """Write ``report.md``, ``manifest.json``, ``results.json`` (and ``study.yaml`` for v2) into ``out_dir``."""
+    """Write ``report.md``, ``manifest.json``, ``results.json`` (and ``study.yaml`` for v2) into ``out_dir``, and
+    ``study_map.geojson`` when a step put anything on the map."""
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "report.md").write_text(run.to_markdown(), encoding="utf-8")
@@ -1017,6 +1018,12 @@ def write_outputs(run: StudyRun, out_dir: str | Path) -> dict[str, str]:
         encoding="utf-8",
     )
     paths = {name: str(out / name) for name in ("report.md", "manifest.json", "results.json")}
+    from aquascope import study_map
+
+    fc = study_map.run_features(run.results, site=(run.study.problem or {}).get("site"))
+    if any(f["properties"]["role"] != "site" for f in fc["features"]):
+        (out / study_map.FILE_NAME).write_text(study_map.to_geojson(fc), encoding="utf-8")
+        paths[study_map.FILE_NAME] = str(out / study_map.FILE_NAME)
     if run.study.is_v2:
         (out / "study.yaml").write_text(run.study.to_yaml(), encoding="utf-8")
         paths["study.yaml"] = str(out / "study.yaml")

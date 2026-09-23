@@ -36,6 +36,9 @@ import {
   recordedChipsHtml, recordedFigures, recordedFilesHtml, recordedNoteHtml, recordedPlanLine,
 } from "./studio-recorded.js?v=__BUILD__";
 import { writeUrl } from "./url.js?v=__BUILD__";
+// study map: the crew's places drawn on the map (study-map.js)
+import { clearStudyMap, focusStudyStep, showStudyMapFor, studyMapArtifact } from "./study-map.js?v=__BUILD__";
+import { drawnOnMap, stepsOnMapHtml } from "./study-map-data.js?v=__BUILD__";
 
 const RECORDED_BASE = "./showcase/studies/";
 
@@ -330,11 +333,12 @@ function eventHtml(e) {
     if (m) text = `${e.event === "fallback" ? "fallback: " : ""}${toolLabel(m[1])}`;
   }
   if (e.event === "status") text = statusWord(detail);
-  return `<li class="${cls}"><span class="tl-role">${escapeHtml(e.role || "")}</span>` +
+  return `<li class="${cls}"${e.step ? ` data-map-step="${escapeHtml(e.step)}"` : ""}><span class="tl-role">${escapeHtml(e.role || "")}</span>` +
     `<span class="tl-text" title="${escapeHtml(detail)}">${e.step ? `<span class="tl-step">${escapeHtml(e.step)}</span> ` : ""}${escapeHtml(text)}</span></li>`;
 }
 
 function figHtml(f) {
+  if (drawnOnMap(f)) return "";   // study map: the map shows the site and the donors
   const cap = escapeHtml(f.caption || "");
   const img = f.src
     ? `<img src="${f.src}" alt="${cap}" loading="lazy">`
@@ -446,6 +450,7 @@ function doneHtml() {
     (figs.length
       ? `<div class="study-figs">${figs.map((a) => figHtml(S.figures.get(a.id) || { id: a.id, caption: a.caption })).join("")}</div>`
       : "") +
+    stepsOnMapHtml(S.ws, toolLabel) +
     (not.length
       ? `<div class="ask-checks warn"><strong>Not established</strong><ul>${not.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>`
       : "") +
@@ -469,6 +474,7 @@ function recordedDoneHtml(report, numbers, not) {
       ? `<table class="ffa study-numbers"><tbody>${numbers.map((k) => `<tr><td>${escapeHtml(k.label)}</td><td>${escapeHtml(numValue(k))}</td></tr>`).join("")}</tbody></table>`
       : "") +
     (S.figures.size ? `<div class="study-figs">${[...S.figures.values()].map(figHtml).join("")}</div>` : "") +
+    stepsOnMapHtml(S.ws, toolLabel) +
     (not.length
       ? `<div class="ask-checks warn"><strong>Not established</strong><ul>${not.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>`
       : "") +
@@ -647,6 +653,7 @@ function applyReply(res, op) {
     S.proseLine = null;
   }
   renderAll();
+  showStudyMapFor(S.ws);
   persist();
   if (r.kind === "plan") { focusBoard(".study-plan"); announce("The plan is ready to approve."); maybePlanOnDevice(); return; }
   if (r.kind === "report") {
@@ -829,6 +836,7 @@ async function start(text, { intake: given = null } = {}) {
   S.editing = false;
   S.events = [];
   S.figures.clear();
+  clearStudyMap();
   S.proposal = null;
   S.planLine = null;
   S.proseLine = null;
@@ -961,6 +969,7 @@ function stop() {
   for (const [id, f] of S.figures) if (f.job === stoppedJob) S.figures.delete(id);
   S.events = [];
   renderAll();
+  showStudyMapFor(S.ws);
   note(S.ws ? "Stopped; the figures made so far are gone, the plan is kept." : "Stopped.", "warn");
 }
 
@@ -985,6 +994,7 @@ function reset() {
   S.planSource = null;
   S.recorded = null;
   state.study.recorded = null;
+  clearStudyMap();
   note("");
   renderAll();
   refreshResume();
@@ -1044,6 +1054,7 @@ function openWorkspace(ws, figures, lines = {}) {
   state.study.recorded = null;
   note("");
   renderAll();
+  showStudyMapFor(ws);
   announce(`Study resumed: ${statusWord(ws.status)}.`);
 }
 
@@ -1099,6 +1110,7 @@ async function openRecorded(id) {
   S.planSource = null;
   note("");
   renderAll();
+  showStudyMapFor(S.ws);
   if (drawerOpen()) writeUrl();
   focusBoard(".study-answer");
   announce(`Recorded study opened: ${(rec.meta && rec.meta.title) || rec.id}.`);
@@ -1289,6 +1301,8 @@ function onBoardClick(e) {
     else if (what === "more-recorded") { S.moreRecorded = true; renderBoard(); }
     return;
   }
+  const onMap = e.target.closest("[data-map-step]");
+  if (onMap) { focusStudyStep(onMap.dataset.mapStep); return; }
   const chip = e.target.closest("[data-recorded]");
   if (chip) { openRecorded(chip.dataset.recorded); return; }
   const file = e.target.closest("[data-file]");
@@ -1339,6 +1353,7 @@ export function initStudy() {
     appendEvent(event);
   });
   onStudioArtifact((artifact, id) => {
+    if (id === S.jobId && studyMapArtifact(artifact)) return;   // study map: drawn as the steps land
     if (id !== S.jobId || artifact.media_type !== "image/png" || !artifact.data) return;
     const f = { id: artifact.id, src: `data:image/png;base64,${artifact.data}`, caption: artifact.caption || "",
                 step: artifact.step, job: id };

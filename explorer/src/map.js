@@ -19,8 +19,8 @@ export function whenMapLoadsLate(cb) { onLate = cb; }
 const OUR_SOURCES = ["stations", "catchment", "basins6", "basins12", "terrain-dem"];
 const OUR_LAYERS = ["catchment-fill", "catchment-line", "basins6-line", "basins12-line", "basins12-up",
   "gauge-heat", "clusters", "cluster-count", "points", "selected", "hillshade"];
-const isOurs = (id) => OUR_SOURCES.includes(id) || id.startsWith("ov-");
-const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-");
+const isOurs = (id) => OUR_SOURCES.includes(id) || id.startsWith("ov-") || id.startsWith("study-");
+const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-") || id.startsWith("study-");
 
 // WebGL is what the map actually needs; test it directly instead of blaming it
 // for every slow style load (the old code said "WebGL is off" after a 12 s
