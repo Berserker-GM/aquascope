@@ -489,6 +489,9 @@ def fetch_series(
         # Pass the catalog id as-is ("USGS-01646500" or another agency's "CA574-09527500");
         # the collector maps it onto NWIS (number + agencyCd) or the OGC monitoring_location_id.
         c = build_collector("usgs")
+        # The series drops the drainage area, so skip its one-request-per-station lookup (a harvest of
+        # 150 gauges spent 150 of its 1,000 hourly requests on it).
+        c.lookup_catchment_area = False
         span = (end - start).days
         s, var, unit = None, "", ""
         for want in (variable,) if variable else ("discharge", "water_level"):

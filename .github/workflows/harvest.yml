@@ -42,7 +42,7 @@ concurrency:
 jobs:
   harvest:
     runs-on: ubuntu-latest
-    timeout-minutes: 170
+    timeout-minutes: 210
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_DATASET: Rekin226/aquascope-gauges
@@ -100,26 +100,34 @@ jobs:
       - name: Harvest daily observations (budgeted; the archive fills up over weeks)
         id: obs
         if: ${{ !inputs.skip_obs }}
-        timeout-minutes: 120
+        # Every phase below carries --max-seconds; together they fit well inside this (about 125 min at most).
+        timeout-minutes: 150
         run: |
           set +e
           B=${{ inputs.obs_budget || 150 }}
-          # Phase 1: discharge for the three long-record sources.
+          # Phase 1: discharge for the long-record sources. USGS runs last, on its own time budget (below).
           aquascope harvest obs --out archive --variable discharge \
-            --source usgs --source uk_ea --source hubeau_hydrometrie --max-stations $B
+            --source uk_ea --source hubeau_hydrometrie --max-stations $B --max-seconds 1200
           # Phase 2: the other variables, smaller budgets (UK EA: 3.6k boreholes, 1k rain gauges, 2.6k level sites).
-          aquascope harvest obs --out archive --variable groundwater_level --source uk_ea --max-stations $((B / 2))
-          aquascope harvest obs --out archive --variable precipitation --source uk_ea --max-stations $((B / 3))
-          aquascope harvest obs --out archive --variable water_level --source uk_ea --max-stations $((B / 3))
-          aquascope harvest obs --out archive --variable water_level --source usgs --max-stations $((B / 5))
+          aquascope harvest obs --out archive --variable groundwater_level --source uk_ea --max-stations $((B / 2)) \
+            --max-seconds 600
+          aquascope harvest obs --out archive --variable precipitation --source uk_ea --max-stations $((B / 3)) --max-seconds 400
+          aquascope harvest obs --out archive --variable water_level --source uk_ea --max-stations $((B / 3)) --max-seconds 400
           aquascope harvest obs --out archive --variable precipitation --source taiwan_cwa --max-stations 15
           # Greece OpenHi: 65 telemetry stations the browser cannot call (#408); small enough to mirror whole.
           aquascope harvest obs --out archive --variable discharge --source greece_openhi --max-stations 65
           aquascope harvest obs --out archive --variable water_level --source greece_openhi --max-stations 65
           aquascope harvest obs --out archive --variable precipitation --source greece_openhi --max-stations 65
           # Poland IMGW-PIB: ~900 gauges, daily from 1951; one download of the archive serves every station (#391).
-          aquascope harvest obs --out archive --variable discharge --source poland_imgw --max-stations $B
-          aquascope harvest obs --out archive --variable water_level --source poland_imgw --max-stations $((B / 2))
+          aquascope harvest obs --out archive --variable discharge --source poland_imgw --max-stations $B --max-seconds 600
+          aquascope harvest obs --out archive --variable water_level --source poland_imgw --max-stations $((B / 2)) \
+            --max-seconds 300
+          # USGS last and time-boxed: a keyed quota is 1,000 requests an hour, a full record is ~4 pages, and
+          # the collector paces itself to 15 a minute. On a 429 it stops for the run instead of burning the step
+          # (the 2026-09-14 and 09-21 runs timed out on retries). Stations not reached go first next week.
+          aquascope harvest obs --out archive --variable discharge --source usgs --max-stations $B --max-seconds 2100
+          aquascope harvest obs --out archive --variable water_level --source usgs --max-stations $((B / 5)) \
+            --max-seconds 480
           echo "exit=$?" >> "$GITHUB_OUTPUT"
           set -e
 

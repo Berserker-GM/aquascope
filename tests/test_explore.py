@@ -502,3 +502,19 @@ def test_browser_unreachable_but_mirrored_source_reads_the_archive(monkeypatch):
     assert out["series"] is not None and out["variable"] == "discharge"
     assert "From the AquaScope archive" in out["note"]
     assert archived.call_args[0][:3] == ("greece_openhi", "8425", "discharge")
+
+
+def test_fetch_series_skips_the_usgs_area_lookup():
+    """The series drops the drainage area, so its one-request-per-station lookup is turned off (harvest 429s)."""
+    from unittest.mock import MagicMock, patch
+
+    import aquascope.explore as ex
+
+    fake = MagicMock()
+    fake.collect.return_value = []
+    with patch("aquascope.explore.build_collector", return_value=fake):
+        try:
+            ex.fetch_series("usgs", "USGS-01013500", years=5, prefer_archive=False, variable="discharge")
+        except Exception:  # noqa: BLE001 - an empty record may raise; the flag is what is under test
+            pass
+    assert fake.lookup_catchment_area is False
