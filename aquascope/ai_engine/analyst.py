@@ -111,6 +111,12 @@ def _run_python_tool(code: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def _filter_gauges_tool(**kwargs: Any) -> dict[str, Any]:
+    from aquascope.archive.signatures import filter_gauges
+
+    return filter_gauges(**kwargs)
+
+
 def _tool_specs() -> list[ToolSpec]:
     from aquascope import mcp_server as t
     from aquascope.explore import anywhere
@@ -234,6 +240,18 @@ def _tool_specs() -> list[ToolSpec]:
                                                          "enum": ["similarity", "regression", "both"]}},
              "required": ["lat", "lon"]},
             t.regionalize_signatures,
+        ),
+        ToolSpec(  # the map's signature filter (aquascope.archive.signatures)
+            "filter_gauges",
+            "Which mirrored gauges meet a condition on their flow signatures, and the filter the map applies: "
+            "min_years (years of daily data), flood_trend (rising | falling | none: Mann-Kendall on annual maxima), "
+            "bfi_min / bfi_max (baseflow index 0 to 1), or question in plain words. Returns the count and the "
+            "longest records first.",
+            {"type": "object", "properties": {"question": {"type": "string"}, "min_years": num,
+                                              "flood_trend": {"type": "string", "enum": ["rising", "falling", "none"]},
+                                              "bfi_min": num, "bfi_max": num, "limit": {"type": "integer"},
+                                              "spec_only": {"type": "boolean"}}},
+            _filter_gauges_tool,
         ),
         ToolSpec(
             "drought_indices",

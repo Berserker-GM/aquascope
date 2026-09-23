@@ -126,6 +126,11 @@ jobs:
       - name: Roll the per-station files into Parquet bundles (one per variable and source)
         run: aquascope harvest bundles --out archive
 
+      - name: Per-station flow signatures (signatures.parquet, the Explorer's map filter)
+        # The stations step already built it from last week's files; this refresh adds what obs just mirrored.
+        continue-on-error: true
+        run: aquascope harvest signatures --out archive
+
       - name: Donor signatures and leave-one-out skill (basins/station_signatures.parquet, regionalization_skill.json)
         # Flow signatures of every gauged station with 10+ years of archived discharge and a catchment row, then
         # every donor predicted from the others (even stride sample) so the regionalisation reports its own skill.

@@ -992,3 +992,11 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
 .area-study tr.as-skipped td, .area-study tr.as-failed td { color: var(--muted); }
 .area-study .as-notes { margin-top: .4rem; }
 @media (max-width: 1100px) { .area-study { width: calc(100% - 2 * var(--gap)); } }
+/* The signature filter in the rail (signature-filter.js). */
+.sigfilter-body input[type=number] {
+  font: inherit; font-size: .82rem; color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--radius-xs); padding: .3rem .4rem; width: 100%; box-sizing: border-box;
+}
+.sigfilter-range { display: flex; align-items: center; gap: .35rem; }
+.sigfilter-range input[type=number] { width: 0; flex: 1; }
+.sigfilter-foot { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .2rem .15rem; font-size: .75rem; min-height: 1.6rem; }

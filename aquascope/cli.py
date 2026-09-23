@@ -616,6 +616,9 @@ def cmd_harvest(args: argparse.Namespace) -> None:
     if args.what == "bundles":
         _cmd_harvest_bundles(args)
         return
+    if args.what == "signatures":
+        _cmd_harvest_signatures(args)
+        return
 
     report = harvest_stations(
         args.out,
@@ -624,6 +627,7 @@ def cmd_harvest(args: argparse.Namespace) -> None:
         api_key=args.api_key,
         max_workers=args.workers,
         write_geojson=not args.no_geojson,
+        write_signatures=not args.no_signatures,
     )
     for s in report.sources:
         status = f"{s.n_stations:>6} stations" if s.ok else f"FAILED: {s.error}"
@@ -705,6 +709,25 @@ def _cmd_harvest_bundles(args: argparse.Namespace) -> None:
     print(f"\n  {len(infos)} bundles written")
     if args.publish:
         url = publish_folder(args.out, args.publish, commit_message="harvest bundles")
+        print(f"  published: {url}")
+
+
+def _cmd_harvest_signatures(args: argparse.Namespace) -> None:
+    """`aquascope harvest signatures`: build signatures.parquet from the mirrored discharge files in --out."""
+    from aquascope.archive import publish_folder
+    from aquascope.archive.signatures import build_signatures_file
+
+    summary = build_signatures_file(args.out, sources=args.source or None)
+    if not summary.get("file"):
+        print(f"  {summary.get('note', 'nothing to do')}")
+        return
+    print(
+        f"  {summary['n_stations']:,} stations -> {summary['file']}: flows for {summary['n_with_flows']:,}, "
+        f"flood trend for {summary['n_with_trend']:,} ({summary['n_rising']:,} rising, "
+        f"{summary['n_falling']:,} falling), Q100 for {summary['n_with_q100']:,}"
+    )
+    if args.publish:
+        url = publish_folder(args.out, args.publish, commit_message="harvest signatures")
         print(f"  published: {url}")
 
 
@@ -2510,9 +2533,9 @@ def main() -> None:
     p_harvest = sub.add_parser("harvest", help="Harvest catalogs into GeoParquet for the open archive (#188)")
     p_harvest.add_argument(
         "what",
-        choices=["stations", "obs", "bundles"],
+        choices=["stations", "obs", "bundles", "signatures"],
         help="stations: the catalog; obs: daily series per station; bundles: one Parquet per "
-        "variable and source rolled up from obs/",
+        "variable and source rolled up from obs/; signatures: signatures.parquet from the mirrored discharge",
     )
     p_harvest.add_argument("--out", default="archive", help="Output folder (default: ./archive)")
     p_harvest.add_argument("--source", action="append", choices=source_keys(), help="Restrict to a source (repeatable)")
@@ -2546,6 +2569,9 @@ def main() -> None:
     p_harvest.add_argument("--api-key", default=None)
     p_harvest.add_argument("--workers", type=int, default=4)
     p_harvest.add_argument("--no-geojson", action="store_true", help="Skip stations.geojson")
+    p_harvest.add_argument(
+        "--no-signatures", action="store_true", help="stations: skip rebuilding signatures.parquet from obs/"
+    )
     p_harvest.add_argument(
         "--publish",
         default=None,
