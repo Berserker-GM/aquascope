@@ -63,7 +63,8 @@ def test_the_run_writes_results_gates_and_the_study_and_skips_figures_without_th
     assert [c[0] for c in calls] == ["describe_catchment", "analyze_station", "flood_frequency", "anywhere"]
     kinds = [(e["role"], e["event"]) for e in ws.events]
     assert ("analyst", "figures_skipped") in kinds and ("runner", "done") in kinds and ("reviewer", "gate") in kinds
-    assert ("analyst", "gates") in kinds and ws.artifacts == []
+    # no figures or tables without the makers; the study map is pure Python and is always made
+    assert ("analyst", "gates") in kinds and [a.id for a in ws.artifacts] == ["study-map"]
 
 
 def test_figures_and_tables_are_made_per_step_when_the_makers_exist(monkeypatch):
@@ -94,7 +95,7 @@ def test_figures_and_tables_are_made_per_step_when_the_makers_exist(monkeypatch)
         analysts.run(ws, None, on_artifact=streamed.append)
     assert [m[1] for m in made if m[0] == "fig"] == ["s1", "s2", "s3", "s4"] and made[2][3] == "m3/s"
     assert made[2][4] == {"lat": 51.415, "lon": -0.308}
-    ids = sorted(a.id for a in ws.artifacts)
+    ids = sorted(a.id for a in ws.artifacts if a.id != "study-map")
     assert ids == ["s1_series", "s1_table", "s2_series", "s2_table", "s3_table", "s4_series", "s4_table"], \
         "a maker's error skips one figure"
     assert [a.id for a in streamed] == [a.id for a in ws.artifacts]

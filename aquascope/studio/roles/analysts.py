@@ -25,6 +25,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from aquascope import study_map
 from aquascope.studio import catalogue
 from aquascope.studio.model import Model, compact
 from aquascope.studio.prompts import SPECIALIST
@@ -397,6 +398,7 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
     _name_stations(ws, run_)
     _inherit_units(ws, run_, study)
     _draw(ws, run_, drawn, on_artifact, study)
+    study_map.publish(ws, run_.results, on_artifact)  # the study on the map (study_map.geojson)
     replans = 0
     #: Recovery attempts per step id: each failed step gets its branch replan or its Specialist fallback at most
     #: ``max_replans`` times, then it stays not established and the crew moves to the next failed step.
@@ -409,6 +411,7 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
         _name_stations(ws, out)
         _inherit_units(ws, out, study)
         _draw(ws, out, drawn, on_artifact, study)
+        study_map.publish(ws, out.results, on_artifact)
         return out
 
     while not run_.stop_reason:
