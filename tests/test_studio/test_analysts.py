@@ -138,8 +138,9 @@ def test_a_failed_gate_runs_the_playbooks_fallback_then_the_specialists_proposal
     assert ws2.study["steps"][2]["fallback"]["step"]["tool"] == "anywhere"
     r3 = ws2.run["results"][2]
     assert r3["fallback"]["tool"] == "anywhere" and r3["fallback"]["ok"] and r3["fallback"]["gates_passed"]
+    # s4 is not called at all: it snaps its GloFAS cell to s3's mean flow, which the replaced fit does not carry
     assert [c[0] for c in calls2] == ["describe_catchment", "analyze_station", "flood_frequency", "similar_basins",
-                                      "flood_frequency", "anywhere", "anywhere"], "passed steps are reused"
+                                      "flood_frequency", "anywhere"], "passed steps are reused"
     assert ws2.ledger["analyst"]["calls"] == 2, "one proposal for s3, one (empty) for the cross-check s4"
     assert client.requests[0]["context"]["failed_step"]["id"] == "s3"
     assert any(e["event"] == "replan" and e["role"] == "analyst" for e in ws2.events)

@@ -323,7 +323,9 @@ def test_analyze_station_asks_usgs_for_the_whole_catalog_span():
 def test_the_archive_copy_is_served_whole_by_default_and_capped_on_request():
     idx = pd.date_range(end=_today(), periods=int(365.25 * 30), freq="D")
     hit = pd.Series(np.linspace(1, 2, len(idx)), index=idx)
-    with patch("aquascope.archive.observations.fetch_archived_series", return_value=hit):
+    agency = _FakeUSGS(pd.Series(dtype="float64"))  # the agency has nothing earlier: the archive copy stands
+    with patch("aquascope.archive.observations.fetch_archived_series", return_value=hit), \
+            patch.object(analysis, "build_collector", return_value=agency):
         whole = analysis.fetch_series("usgs", "USGS-1", period_start="1930-01-01")
         capped = analysis.fetch_series("usgs", "USGS-1", years=5, period_start="1930-01-01")
     assert len(whole["series"]) == len(hit) and "full record requested" in whole["note"]

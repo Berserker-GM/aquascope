@@ -47,7 +47,7 @@ CHECKS: dict[str, str] = {
     "trend_on_series": "the Mann-Kendall p-value at path (a trend block) is at least value: no significant trend "
                        "in the series the test was run on",
     "cross_check_ratio": "the number at path against reference (a number, or a dict by return period), as a ratio "
-                         "within 1 +/- value",
+                         "within 1 +/- value; skipped when the compared block says comparable: false",
 }
 
 _DEFAULT_PATH = {
@@ -199,7 +199,10 @@ def evaluate(expects: list[dict[str, Any]] | None, payload: Any) -> list[dict[st
             passed, detail = _run_check(name, gate, payload)
         except Exception as exc:  # noqa: BLE001 - a broken gate is a failed gate, said out loud
             passed, detail = False, f"gate could not be evaluated: {type(exc).__name__}: {exc}"
-        row = {"check": name, "passed": bool(passed), "detail": detail}
+        # None is a skip: the check does not apply to this payload (a model cell that is not the gauge's river)
+        row = {"check": name, "passed": True if passed is None else bool(passed), "detail": detail}
+        if passed is None:
+            row["skipped"] = True
         if gate.get("path") is not None:
             row["path"] = gate["path"]
         if gate.get("paths") is not None:
@@ -210,7 +213,22 @@ def evaluate(expects: list[dict[str, Any]] | None, payload: Any) -> list[dict[st
     return out
 
 
-def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool, str]:
+def _not_comparable(payload: Any, path: str | None) -> str | None:
+    """The note of the first block along ``path`` that says ``comparable: false``; None when none does."""
+    if not path:
+        return None
+    segs = _segments(str(path))
+    for i in range(1, len(segs) + 1):
+        node = resolve_path(payload, ".".join(segs[:i]))
+        if isinstance(node, dict) and node.get("comparable") is False:
+            why = node.get("note") or (node.get("cell") or {}).get("why")
+            return str(why or "the compared block is marked not comparable")
+        if node is None:
+            return None
+    return None
+
+
+def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool | None, str]:
     path = gate.get("path", _DEFAULT_PATH.get(name))
     value = gate.get("value")
     if isinstance(payload, dict) and payload.get("error") and name != "status_is":
@@ -414,6 +432,9 @@ def _run_check(name: str, gate: dict[str, Any], payload: Any) -> tuple[bool, str
         )
 
     if name == "cross_check_ratio":
+        skip = _not_comparable(payload, path)
+        if skip:
+            return None, f"skipped: {skip}"
         got, note = _at_return_period(resolve_path(payload, path), payload, gate)
         ref = gate.get("reference")
         rp = gate.get("return_period")

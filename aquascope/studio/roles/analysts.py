@@ -101,6 +101,23 @@ def _name_stations(ws: Workspace, run: StudyRun) -> None:
                     p["name"] = name
 
 
+def _report_the_asked_trend(ws: Workspace, run: StudyRun, study: Study) -> None:
+    """A flood question ("is it getting worse?") is answered with the Mann-Kendall test on the annual maxima,
+    not on the annual means: every station payload is marked with the trend the report quotes
+    (``trend_reported``), so the key numbers, the sentences and the trend figure use the same series."""
+    from aquascope.trend_series import is_flood_question, mark_reported_trend
+
+    plan = study.plan or {}
+    flood = is_flood_question(ws.brief.kind, ws.brief.problem, ws.brief.playbook or plan.get("playbook"))
+    if not flood:
+        return
+    for r in run.results:
+        mark_reported_trend(r.get("result"), flood=True)
+        fb = r.get("fallback")
+        if isinstance(fb, dict):
+            mark_reported_trend(fb.get("result"), flood=True)
+
+
 def _ask_for_the_return_period(ws: Workspace, study: Study) -> None:
     """A flood step reports the fits at 2, 5, 10, 25, 50 and 100 years unless told otherwise; when the brief
     asks for another T (200 years, 20 years) the step is told, so the gates and the prose find it."""
@@ -396,6 +413,7 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
     run_ = run_study(study, on_event=say, prior=prior, tools=callables)
     _name_stations(ws, run_)
     _inherit_units(ws, run_, study)
+    _report_the_asked_trend(ws, run_, study)  # study-trust-fixes: flood questions quote the annual-maxima trend
     _draw(ws, run_, drawn, on_artifact, study)
     replans = 0
     #: Recovery attempts per step id: each failed step gets its branch replan or its Specialist fallback at most
@@ -408,6 +426,7 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
         out = run_study(study, on_event=say, prior=run_, tools=callables)
         _name_stations(ws, out)
         _inherit_units(ws, out, study)
+        _report_the_asked_trend(ws, out, study)
         _draw(ws, out, drawn, on_artifact, study)
         return out
 
