@@ -196,10 +196,13 @@ def _tool_specs() -> list[ToolSpec]:
         ToolSpec(
             "anywhere",
             "Climate and modelled discharge for a point with no gauge: ERA5 rainfall/temperature, FAO-56 ET0, "
-            "aridity, GloFAS.",
-            {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"}},
+            "aridity, GloFAS. match_mean_flow (a gauge's mean flow, m3/s) snaps the GloFAS cell to the one nearby "
+            "that carries the gauge's river, or says there is no comparable model cell.",
+            {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"},
+                                              "match_mean_flow": num, "area_km2": num},
              "required": ["lat", "lon"]},
-            lambda lat, lon, years=10: anywhere(lat, lon, years=years),
+            lambda lat, lon, years=10, match_mean_flow=None, area_km2=None: anywhere(
+                lat, lon, years=years, match_mean_flow=match_mean_flow, area_km2=area_km2),
         ),
         ToolSpec(
             "describe_catchment",
