@@ -5,7 +5,6 @@ Abstract base class for all data collectors.
 from __future__ import annotations
 
 import logging
-import re
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Any
@@ -50,10 +49,6 @@ class CollectorError(RuntimeError):
                     if isinstance(code, int):
                         status_code = code
                         break
-        if status_code is None:
-            m = re.search(r"\(status (\d{3})\)", message)
-            if m:
-                status_code = int(m.group(1))
         self.status_code = status_code
         self.cause = cause
 

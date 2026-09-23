@@ -43,6 +43,25 @@ class TestCollectorErrorClass:
         assert err.status_code is None
         assert err.cause is None
 
+    def test_extract_status_code_from_cause_chain(self):
+        request = httpx.Request("GET", "http://example.com/api")
+        response = httpx.Response(404, request=request)
+        http_err = httpx.HTTPStatusError("Not Found", request=request, response=response)
+        runtime_err = RuntimeError("All 3 attempts failed")
+        runtime_err.__cause__ = http_err
+
+        err = CollectorError("Collector failed", source="test", cause=runtime_err)
+        assert err.status_code == 404
+
+
+def _make_http_status_runtime_error(url: str, status_code: int) -> RuntimeError:
+    request = httpx.Request("GET", url)
+    response = httpx.Response(status_code, request=request)
+    status_err = httpx.HTTPStatusError(f"Status {status_code}", request=request, response=response)
+    err = RuntimeError(f"All 3 attempts failed for {url} (status {status_code})")
+    err.__cause__ = status_err
+    return err
+
 
 class TestCachedHTTPClientFormatting:
     def setup_method(self):
@@ -74,9 +93,7 @@ class TestCachedHTTPClientFormatting:
 class TestJapanMLITCollectorError:
     def test_fetch_raw_raises_collector_error_on_404(self):
         client = MagicMock()
-        client.get_json.side_effect = RuntimeError(
-            "All 3 attempts failed for http://www1.river.go.jp/cgi-bin/ (status 404)"
-        )
+        client.get_json.side_effect = _make_http_status_runtime_error("http://www1.river.go.jp/cgi-bin/", 404)
         collector = JapanMLITCollector(client=client)
 
         with pytest.raises(CollectorError) as exc_info:
@@ -107,9 +124,7 @@ class TestJapanMLITCollectorError:
 class TestKoreaWAMISCollectorError:
     def test_fetch_raw_raises_collector_error_on_500(self):
         client = MagicMock()
-        client.get_json.side_effect = RuntimeError(
-            "All 3 attempts failed for http://www.wamis.go.kr/api (status 500)"
-        )
+        client.get_json.side_effect = _make_http_status_runtime_error("http://www.wamis.go.kr/api", 500)
         collector = KoreaWAMISCollector(client=client)
 
         with pytest.raises(CollectorError) as exc_info:
@@ -139,9 +154,7 @@ class TestKoreaWAMISCollectorError:
 class TestEUWFDCollectorError:
     def test_fetch_raw_raises_collector_error_on_404(self):
         client = MagicMock()
-        client.get_json.side_effect = RuntimeError(
-            "All 3 attempts failed for https://discomap.eea.europa.eu (status 404)"
-        )
+        client.get_json.side_effect = _make_http_status_runtime_error("https://discomap.eea.europa.eu", 404)
         collector = EUWFDCollector(client=client)
 
         with pytest.raises(CollectorError) as exc_info:
@@ -174,9 +187,7 @@ class TestEUWFDCollectorError:
 class TestSDG6CollectorError:
     def test_fetch_raw_raises_collector_error_on_failure(self):
         client = MagicMock()
-        client.get_json.side_effect = RuntimeError(
-            "All 3 attempts failed for https://sdg6data.org/api (status 503)"
-        )
+        client.get_json.side_effect = _make_http_status_runtime_error("https://sdg6data.org/api", 503)
         collector = SDG6Collector(client=client)
 
         with pytest.raises(CollectorError) as exc_info:
@@ -232,9 +243,7 @@ class TestCLICollectorError:
             api_key=None,
         )
 
-        with patch("aquascope.registry.build_collector") as mock_build, patch(
-            "sys.exit"
-        ) as mock_exit:
+        with patch("aquascope.registry.build_collector") as mock_build, pytest.raises(SystemExit) as exc_info:
             mock_collector = MagicMock()
             mock_collector.collect.side_effect = CollectorError(
                 "Japan MLIT endpoint failed: 404",
@@ -246,4 +255,4 @@ class TestCLICollectorError:
 
             cmd_collect(args)
 
-            mock_exit.assert_called_once_with(1)
+        assert exc_info.value.code == 1

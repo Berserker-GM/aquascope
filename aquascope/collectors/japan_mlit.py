@@ -15,8 +15,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-import httpx
-
 from aquascope.collectors.base import BaseCollector, CollectorError
 from aquascope.schemas.water_data import (
     DataSource,
@@ -191,10 +189,7 @@ class JapanMLITCollector(BaseCollector):
             If *parameter* is not one of the supported types.
         """
         if parameter not in _PARAM_ENDPOINT:
-            raise ValueError(
-                f"Unsupported parameter '{parameter}'. "
-                f"Choose from: {list(_PARAM_ENDPOINT.keys())}"
-            )
+            raise ValueError(f"Unsupported parameter '{parameter}'. Choose from: {list(_PARAM_ENDPOINT.keys())}")
 
         endpoint = _PARAM_ENDPOINT[parameter]
         url = f"{self.BASE_URL}{endpoint}"
@@ -218,14 +213,10 @@ class JapanMLITCollector(BaseCollector):
             data = self.client.get_json(url, params=params)
         except Exception as exc:
             logger.warning("MLIT API request failed for %s: %s", url, exc, exc_info=True)
-            status_code = getattr(getattr(exc, "response", None), "status_code", None)
-            if status_code is None and isinstance(getattr(exc, "__cause__", None), httpx.HTTPStatusError):
-                status_code = exc.__cause__.response.status_code
             raise CollectorError(
                 f"MLIT API request failed for {url}: {exc}",
                 source=self.name,
                 url=url,
-                status_code=status_code,
                 cause=exc,
             ) from exc
 
