@@ -35,7 +35,8 @@ import { loadRecorded, recordedIndex, replayBrief, replayPlan } from "./studio-s
 import {
   recordedChipsHtml, recordedFigures, recordedFilesHtml, recordedNoteHtml, recordedPlanLine,
 } from "./studio-recorded.js?v=__BUILD__";
-import { writeUrl } from "./url.js?v=__BUILD__";
+import { canonicalUrl, writeUrl } from "./url.js?v=__BUILD__";
+import { fetchStudyYaml, linkUrl, sharedBoardHtml, sharedPlanLine } from "./study-link.js?v=__BUILD__";
 // study map: the crew's places drawn on the map (study-map.js)
 import { clearStudyMap, focusStudyStep, showStudyMapFor, studyMapArtifact } from "./study-map.js?v=__BUILD__";
 import { drawnOnMap, stepsOnMapHtml } from "./study-map-data.js?v=__BUILD__";
@@ -125,6 +126,7 @@ const S = {
   recorded: null,       // the recording on the board: { id, meta, workspace, report, figures, files }
   planSource: null,     // "recorded" while a re-run's plan is with the engine, for the words on the foot
   planModel: null,      // the model that wrote the recorded plan being re-run
+  shared: null,         // a shared study on the board: the worker's open_link reply, or { loading: true }
 };
 
 const note = (text, kind = "info") => setStatusEl($("study-status"), text, kind);
@@ -187,6 +189,7 @@ async function loadSiteInfo(w, my) {
 function boardStatus() {
   if (S.busy) return "running";
   if (S.declined) return "declined";
+  if (S.shared && !S.ws) return "shared";
   if (!S.ws) return "intake";
   const st = S.ws.status;
   if (st === "declined" || st === "review" || st === "done" || st === "waiting") return st;
@@ -455,6 +458,7 @@ function doneHtml() {
       ? `<div class="ask-checks warn"><strong>Not established</strong><ul>${not.map((t) => `<li>${escapeHtml(t)}</li>`).join("")}</ul></div>`
       : "") +
     `<div class="row-actions"><button type="button" class="btn primary" data-act="bundle">Download bundle</button>` +
+    `<button type="button" class="btn" data-act="copy-link" title="A link to this plan; whoever opens it reruns it keyless">Copy link</button>` +
     `<button type="button" class="btn" data-act="again">New study</button></div>` +
     (docs.length ? `<p class="study-docs muted">${docs.map(([id, label]) => `<a href="#" data-file="${id}">${label}</a>`).join(" · ")}</p>` : "") +
     `<p class="study-foot muted">${escapeHtml(footLine())}</p>` +
@@ -494,6 +498,7 @@ const BOARDS = {
   intake: intakeHtml, review: planHtml, waiting: waitingHtml, running: runningHtml, done: doneHtml,
   declined: declinedHtml,
 };
+BOARDS.shared = () => sharedBoardHtml(S.shared, { escapeHtml, stepHtml });   // study links (study-link.js)
 
 function renderBoard() {
   const status = boardStatus();
@@ -644,7 +649,9 @@ function applyReply(res, op) {
   if (r.kind === "plan") { S.proposal = null; S.planLine = null; S.proseLine = null; }
   if (r.kind === "report" && (op === "approve" || op === "follow_up")) {
     S.proposal = null;
-    if (p.plan_used && S.planSource === "recorded") {
+    if (p.plan_used && S.planSource === "shared") {
+      S.planLine = sharedPlanLine({ used: p.plan_used, errors: p.plan_errors || [] });
+    } else if (p.plan_used && S.planSource === "recorded") {
       S.planLine = recordedPlanLine({ used: p.plan_used, errors: p.plan_errors || [], model: S.planModel });
     } else if (p.plan_used) {
       S.planLine = planLine({ used: p.plan_used, errors: p.plan_errors || [], model: deviceLabel() });
@@ -995,6 +1002,8 @@ function reset() {
   S.recorded = null;
   state.study.recorded = null;
   clearStudyMap();
+  S.shared = null;
+  state.study.link = null;
   note("");
   renderAll();
   refreshResume();
@@ -1266,6 +1275,87 @@ function appendFigure(f) {
   if (box) box.insertAdjacentHTML("beforeend", figHtml(f));
 }
 
+// ── study links ─────────────────────────────────────────────────────────────
+// Copy link at the end of a study: the worker turns the approved plan (never
+// the results) into a token and checks it the way a recipient would. Opening
+// #study=<token> or ?study_url=<https study.yaml> shows the plan, checked
+// against the method catalogue in the worker, with a "shared study" label;
+// Run starts the same study at the same place and approves that plan, which
+// the engine validates again at the site, keyless (aquascope.study_link).
+
+async function copyStudyLink() {
+  if (!S.ws) return;
+  note("Making the link…");
+  let res;
+  try {
+    res = await call("studio", { op: "link", workspace: S.ws, name: S.site && S.site.text });
+  } catch (err) {
+    res = { ok: false, errors: [err.message] };
+  }
+  if (!res || !res.ok) { note(`No link: ${((res && res.errors) || ["unknown reason"])[0]}`, "warn"); return; }
+  const url = linkUrl(canonicalUrl(), res.token);
+  try {
+    await navigator.clipboard.writeText(url);
+    note("Link copied. Whoever opens it sees this plan and can rerun it in their browser.");
+  } catch {
+    window.prompt("Copy this link", url);
+    note("");
+  }
+}
+
+export async function openSharedStudy({ link = null, studyUrl = null } = {}) {
+  if (S.busy) { note("A study is running; stop it before opening a shared one.", "warn"); return; }
+  reset();
+  const my = S.run;
+  state.study.link = link;
+  S.shared = { loading: true };
+  openDrawer({ mode: "study" });
+  renderAll();
+  if (studyUrl && studyUrl.error) {
+    S.shared = { ok: false, errors: [studyUrl.error] };
+    renderAll();
+    return;
+  }
+  note(state.workerReady ? "" : "Loading Python in your browser (about 15 MB, once)…");
+  let res;
+  try {
+    res = await call("studio", link ? { op: "open_link", token: link }
+      : { op: "open_link", yaml: await fetchStudyYaml(studyUrl) });
+  } catch (err) {
+    res = { ok: false, errors: [err.message] };
+  }
+  if (my !== S.run) return;
+  S.shared = { ...(res || { ok: false, errors: ["no reply"] }), from: studyUrl || null };
+  note("");
+  if (S.shared.ok) {
+    try { actions.selectPoint(S.shared.study.lat, S.shared.study.lon, { fly: true, push: false }); } catch (err) { console.warn(err); }
+  }
+  openDrawer({ mode: "study" });
+  renderAll();
+  writeUrl();   // the point and the shared study, so a reload opens it again
+  focusBoard(".study-shared");
+  announce(S.shared.ok ? "A shared study is open; Run reruns it here." : "The shared study cannot be opened.");
+}
+
+// The shared plan, run here: the same brief at the same place, the defaults for any question, the plan
+// approved as source "shared" (the engine's validator decides whether it runs or the tree stands).
+async function runShared() {
+  const sh = S.shared && S.shared.ok ? S.shared.study : null;
+  if (!sh || S.busy) return;
+  S.shared = null;
+  S.ws = null;
+  S.figures = new Map();
+  S.files = [];
+  S.useMyData = false;
+  try { actions.selectPoint(sh.lat, sh.lon, { fly: true, push: true }); } catch (err) { console.warn(err); }
+  openDrawer({ mode: "study" });
+  await start(sh.text, { intake: sh.intake });
+  if (S.ws && S.ws.status === "intake" && openQuestions().length) await callStudio("say", { text: "just go" });
+  if (!S.ws || S.ws.status !== "review") return;
+  S.planSource = "shared";
+  await callStudio("approve", { plan: { ...sh.plan, source: "shared" }, edits: null });
+}
+
 // ── open, wire ──────────────────────────────────────────────────────────────
 
 export function openStudy({ fresh = false, recorded = null } = {}) {
@@ -1299,6 +1389,8 @@ function onBoardClick(e) {
     else if (what === "resume") resumeSaved();
     else if (what === "rerun") rerunRecorded();
     else if (what === "more-recorded") { S.moreRecorded = true; renderBoard(); }
+    else if (what === "copy-link") copyStudyLink();
+    else if (what === "run-shared") runShared();
     return;
   }
   const onMap = e.target.closest("[data-map-step]");

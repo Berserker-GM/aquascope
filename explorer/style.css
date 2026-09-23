@@ -851,6 +851,11 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
 .study-grade.grade-indicative { color: var(--blue-dark); border-color: var(--blue); background: var(--blue-soft); }
 .study-grade.grade-screening { color: var(--warn-ink); border-color: var(--warn-ink); background: var(--warn-bg); }
 .study-grade.grade-not_established { color: var(--err-ink); border-color: var(--err-ink); background: var(--err-bg); }
+/* a shared study (study-link.js): the label, and the reasons a link was refused */
+.study-shared { outline: none; }
+.study-shared-label { margin: 0 0 .35rem; }
+.study-shared-label .study-grade { cursor: default; }
+.study-shared-errors { font-size: .8rem; line-height: 1.5; color: var(--err-ink); margin: .35rem 0; padding-left: 1.1rem; }
 .study-decision { font-size: .8rem; line-height: 1.5; margin: .4rem 0; }
 .study-decision-answer { margin: 0 0 .3rem; font-weight: 620; }
 .study-decision ul { padding-left: 1.1rem; margin: .1rem 0 .4rem; color: var(--ink-2); }
