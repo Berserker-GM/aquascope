@@ -676,11 +676,13 @@ def _cmd_harvest_obs(args: argparse.Namespace) -> None:
         max_stations=args.max_stations,
         refresh_days=args.refresh_days,
         only_stations=args.station or None,
+        max_seconds=args.max_seconds,
     )
     for h in report.sources:
         print(
             f"  {h.source:<20} {h.variable:<14} harvested {h.harvested:>4}  empty {h.empty:>4}  "
             f"failed {h.failed:>3}  of {h.attempted:>4} picked  ({h.seconds:.0f}s)"
+            + (f"  stopped: {h.stopped}" if h.stopped else "")
         )
         for err in h.errors[:3]:
             print(f"      {err}")
@@ -2559,6 +2561,10 @@ def main() -> None:
     )
     p_harvest.add_argument("--max-stations", type=int, default=100, help="obs: stations per source per run")
     p_harvest.add_argument("--refresh-days", type=int, default=30, help="obs: re-harvest a station older than this")
+    p_harvest.add_argument(
+        "--max-seconds", type=float, default=None,
+        help="obs: time budget per source and variable; stations not reached wait for the next run",
+    )
     p_harvest.add_argument("--station", action="append", help="obs: only these station ids (repeatable)")
     p_harvest.add_argument(
         "--sync-from",

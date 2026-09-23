@@ -269,3 +269,64 @@ def test_openhi_is_harvestable_because_the_browser_cannot_call_it():
     assert meta.redistributable and not meta.browser_reachable
     assert set(obs.HARVESTABLE["greece_openhi"]) <= set(meta.variables)
     assert all(SOURCES[k].redistributable for k in obs.HARVESTABLE)
+
+
+def _rate_limited_error():
+    from aquascope.utils.http_client import RateLimitedError
+
+    try:
+        raise RateLimitedError("https://api.waterdata.usgs.gov/ogcapi/v0/collections/daily/items")
+    except RateLimitedError as inner:
+        try:
+            raise RuntimeError("collector wrapped it") from inner
+        except RuntimeError as outer:
+            return outer
+
+
+def test_a_rate_limited_source_stops_for_the_run_and_leaves_the_rest_for_next_time(tmp_path):
+    """The 2026-09-14 and 09-21 harvests spent two hours retrying a spent USGS quota, station after station."""
+    calls = []
+
+    def fake_fetch(source, sid, *, years, prefer_archive, variable=None):
+        calls.append(sid)
+        if sid == "A2":
+            raise _rate_limited_error()
+        return {"series": _series(), "variable": "discharge", "unit": "m3/s", "note": ""}
+
+    with patch("aquascope.explore.fetch_series", side_effect=fake_fetch):
+        report = obs.harvest_observations(tmp_path, sources=["hubeau_hydrometrie"], variable="discharge",
+                                          catalog=CATALOG, max_stations=10)
+    h = report.sources[0]
+    assert calls == ["A1", "A2"]  # A3 never asked
+    assert (h.harvested, h.failed, h.stopped) == (1, 1, "rate limited")
+    stations = json.loads((tmp_path / "obs" / "manifest.json").read_text())["sources"][
+        "hubeau_hydrometrie/discharge"]["stations"]
+    assert set(stations) == {"A1"}  # A2 and A3 stay fresh, so the next run picks them first
+
+    with patch("aquascope.explore.fetch_series", side_effect=lambda *a, **k: {
+            "series": _series(), "variable": "discharge", "unit": "m3/s", "note": ""}) as again:
+        obs.harvest_observations(tmp_path, sources=["hubeau_hydrometrie"], variable="discharge",
+                                 catalog=CATALOG, max_stations=2)
+    assert [c.args[1] for c in again.call_args_list] == ["A2", "A3"]
+
+
+def test_an_ordinary_failure_does_not_stop_the_source(tmp_path):
+    def fake_fetch(source, sid, *, years, prefer_archive, variable=None):
+        if sid == "A1":
+            raise RuntimeError("All 3 attempts failed for https://example.test")
+        return {"series": _series(), "variable": "discharge", "unit": "m3/s", "note": ""}
+
+    with patch("aquascope.explore.fetch_series", side_effect=fake_fetch):
+        report = obs.harvest_observations(tmp_path, sources=["hubeau_hydrometrie"], variable="discharge",
+                                          catalog=CATALOG, max_stations=10)
+    h = report.sources[0]
+    assert (h.attempted, h.harvested, h.failed, h.stopped) == (3, 2, 1, "")
+
+
+def test_the_time_budget_stops_a_source(tmp_path):
+    with patch("aquascope.explore.fetch_series") as fake:
+        fake.return_value = {"series": _series(), "variable": "discharge", "unit": "m3/s", "note": ""}
+        report = obs.harvest_observations(tmp_path, sources=["hubeau_hydrometrie"], variable="discharge",
+                                          catalog=CATALOG, max_stations=10, max_seconds=0)
+    h = report.sources[0]
+    assert fake.call_count == 0 and h.stopped == "time budget"  # a spent budget asks nothing more
