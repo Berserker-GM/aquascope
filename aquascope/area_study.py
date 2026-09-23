@@ -759,6 +759,33 @@ def study_area(
     return result
 
 
+def apply_areas(result: dict[str, Any], areas: dict[str, float | None]) -> dict[str, Any]:
+    """Fill in catchment areas the caller learnt after the study (the Explorer reads them from the Archive's
+    station_catchments table on the page) and recompute Q100 per km2 in the rows, table and GeoJSON.
+
+    ``areas`` maps ``"source/station_id"`` to km2. A site keeps an area it already had. Returns ``result``.
+    """
+    by_key: dict[str, dict[str, Any]] = {}
+    for r in result.get("sites") or []:
+        a = areas.get(r["key"])
+        try:
+            a = float(a) if a is not None else None
+        except (TypeError, ValueError):
+            a = None
+        if r.get("area_km2") is None and a and a > 0:
+            r["area_km2"] = _num(a)
+        if r.get("area_km2") and r.get("q100") is not None:
+            r["q100_per_km2"] = _num(float(r["q100"]) / float(r["area_km2"]))
+        by_key[r["key"]] = r
+    cols = (result.get("table") or {}).get("columns") or TABLE_COLUMNS
+    result["table"] = {"columns": cols, "rows": [[r.get(c) for c in cols] for r in result.get("sites") or []]}
+    for f in (result.get("geojson") or {}).get("features") or []:
+        r = by_key.get(f["properties"].get("key"))
+        if r:
+            f["properties"].update(area_km2=r.get("area_km2"), q100_per_km2=r.get("q100_per_km2"))
+    return result
+
+
 # ── downloads ───────────────────────────────────────────────────────────────
 
 
@@ -825,7 +852,7 @@ def to_xlsx(result: dict[str, Any]) -> bytes:
 
 
 __all__ = [
-    "MAX_LIVE_FETCHES", "MAX_SITES", "METHODS", "TABLE_COLUMNS", "analyse_sites", "benjamini_hochberg",
+    "MAX_LIVE_FETCHES", "MAX_SITES", "METHODS", "TABLE_COLUMNS", "analyse_sites", "apply_areas", "benjamini_hochberg",
     "field_significance", "gather_series", "index_flood_rfa", "inventory", "site_summary", "study_area",
     "to_csv", "to_xlsx",
 ]

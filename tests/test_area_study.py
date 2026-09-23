@@ -193,3 +193,16 @@ def test_downloads():
 
     wb = load_workbook(BytesIO(data))
     assert wb.sheetnames == ["Sites", "Regional growth curve", "Field significance", "Notes"]
+
+
+def test_apply_areas_fills_q100_per_km2_everywhere():
+    res = aa.study_area([_station(i) for i in range(3)], archive_reader=lambda s, sid, v: _daily(int(sid[1:])),
+                        n_sim=20)
+    assert all(r["q100_per_km2"] is None for r in res["sites"])
+    aa.apply_areas(res, {"usgs/S00": 100.0, "usgs/S01": None, "usgs/S02": "bad"})
+    row = next(r for r in res["sites"] if r["key"] == "usgs/S00")
+    assert row["q100_per_km2"] == pytest.approx(row["q100"] / 100.0, rel=1e-3)
+    col = res["table"]["columns"].index("q100_per_km2")
+    assert [r[col] for r in res["table"]["rows"]].count(None) == 2
+    feat = next(f for f in res["geojson"]["features"] if f["properties"]["key"] == "usgs/S00")
+    assert feat["properties"]["area_km2"] == 100.0
