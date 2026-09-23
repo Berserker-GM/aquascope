@@ -3,7 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  boundsOf, drawnOnMap, featuresFromArtifact, featuresFromWorkspace, stepsOnMap, stepsOnMapHtml,
+  boundsOf, drawnOnMap, featuresFromArtifact, featuresFromWorkspace, highlightFilters, stepsOnMap, stepsOnMapHtml,
+  studyLayers,
 } from "../src/study-map-data.js";
 
 const pt = (lon, lat, props) => ({ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: props });
@@ -62,6 +63,14 @@ test("the site and donor scatter figures are left to the map; the others stay", 
   assert.equal(drawnOnMap({ id: "x", meta: { kind: "site_map" } }), true);
   assert.equal(drawnOnMap({ id: "fig-s1-site_map", meta: { kind: "series" } }), false, "the kind the artifact states wins");
   assert.equal(drawnOnMap(null), false);
+});
+
+test("the layers are all study-* on one source, and the highlight follows one step", () => {
+  const layers = studyLayers("study-map");
+  assert.deepEqual(layers.map((l) => l.id), ["study-fill", "study-line", "study-points", "study-hl-line", "study-hl-points"]);
+  assert.ok(layers.every((l) => l.source === "study-map"));
+  assert.deepEqual(highlightFilters("s3").line[2], ["==", ["get", "step_id"], "s3"]);
+  assert.deepEqual(highlightFilters(null).points[2], ["==", ["get", "step_id"], ""], "nothing picked, nothing lit");
 });
 
 test("the finished board lists the steps on the map, escaped, with what each placed", () => {

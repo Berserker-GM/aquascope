@@ -58,6 +58,40 @@ export function featuresFromWorkspace(ws) {
   return { type: "FeatureCollection", features };
 }
 
+// The layers study-map.js adds, as plain MapLibre specs (checked against the style spec): areas (the
+// catchment polygon, the grid cells) as a wash and a dashed line, points by role, and a highlight pair
+// filtered to one step.
+const INK = "#c2185b";      // the study's colour: distinct from the gauge styles and the catchment blue
+const DONOR = "#6a1b9a";
+const HL = "#ff9800";
+const IS_AREA = ["in", ["geometry-type"], ["literal", ["Polygon", "MultiPolygon"]]];
+const IS_POINT = ["==", ["geometry-type"], "Point"];
+const stepIs = (id) => ["==", ["get", "step_id"], id === null || id === undefined ? "" : String(id)];
+
+export function highlightFilters(stepId) {
+  return { line: ["all", IS_AREA, stepIs(stepId)], points: ["all", IS_POINT, stepIs(stepId)] };
+}
+
+export function studyLayers(source) {
+  const hl = highlightFilters(null);
+  return [
+    { id: "study-fill", type: "fill", source, filter: IS_AREA,
+      paint: { "fill-color": INK, "fill-opacity": ["case", ["==", ["get", "role"], "catchment"], 0.12, 0.06] } },
+    { id: "study-line", type: "line", source, filter: IS_AREA,
+      paint: { "line-color": INK, "line-width": 1.4, "line-dasharray": [3, 2] } },
+    { id: "study-points", type: "circle", source, filter: IS_POINT,
+      paint: {
+        "circle-radius": ["match", ["get", "role"], "site", 5, "gauge", 7, "catchment", 6, 4.5],
+        "circle-color": ["match", ["get", "role"], "donor", DONOR, "station", "#ffffff", "site", "#ffffff", INK],
+        "circle-stroke-color": ["match", ["get", "role"], "donor", "#ffffff", INK],
+        "circle-stroke-width": ["match", ["get", "role"], "site", 2.5, "station", 1.5, 1.2],
+      } },
+    { id: "study-hl-line", type: "line", source, filter: hl.line, paint: { "line-color": HL, "line-width": 3 } },
+    { id: "study-hl-points", type: "circle", source, filter: hl.points,
+      paint: { "circle-radius": 10, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": HL, "circle-stroke-width": 3 } },
+  ];
+}
+
 function walk(coords, out) {
   if (!Array.isArray(coords)) return;
   if (coords.length >= 2 && typeof coords[0] === "number" && typeof coords[1] === "number") { out.push(coords); return; }

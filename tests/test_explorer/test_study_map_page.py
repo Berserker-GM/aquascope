@@ -20,8 +20,10 @@ def test_the_study_draws_on_the_map_through_its_own_module():
     mod = _read("src", "study-map.js")
     assert 'const SRC = "study-map"' in mod and "fitBoundsTo" in mod and "map.flyTo" in mod
     # the module owns its layers and names them study-*, which map.js carries across a basemap change
+    assert "studyLayers(SRC)" in mod and "highlightFilters(id)" in mod
+    specs = _read("src", "study-map-data.js")
     for layer in ("study-fill", "study-line", "study-points", "study-hl-line", "study-hl-points"):
-        assert f'id: "{layer}"' in mod, layer
+        assert f'id: "{layer}"' in specs, layer
     m = _read("src", "map.js")
     assert 'id.startsWith("study-")' in m
     # the engine places the features; the page never computes a place
