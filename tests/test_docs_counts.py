@@ -74,7 +74,7 @@ TEST_FLOOR_PATTERNS = {
     "README.md": [
         r"tests-(\d+)%2B%20passing",
         r"CAMELS benchmark with ([\d,]+)\+ tests",
-        r"\*\*([\d,]+)\+ tests\*\* — covering",
+        r"\*\*([\d,]+)\+ tests\*\* covering",
     ],
     "docs/index.md": [
         r"tests-(\d+)%2B%20passing",

@@ -13,7 +13,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21903143.svg)](https://doi.org/10.5281/zenodo.21903143)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
-[![Tests](https://img.shields.io/badge/tests-2800%2B%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-3100%2B%20passing-brightgreen.svg)](#)
 [![Live Explorer Demo – Runs in Your Browser](https://img.shields.io/badge/%F0%9F%8C%8A%20Live%20Demo-AquaScope%20Explorer-blue)](https://rekin226-aquascope-explorer.static.hf.space/)
 
 [![GitHub stars](https://img.shields.io/github/stars/Rekin226/aquascope?style=social)](https://github.com/Rekin226/aquascope/stargazers)
@@ -36,15 +36,15 @@
 
 ---
 
-AquaScope unifies **37 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top — from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements** — wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,800+ tests.
+AquaScope unifies **37 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top, from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements**, wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 3,100+ tests.
 
 ---
 
 ## 🌍 Try it without installing anything
 
 **[AquaScope Explorer](https://rekin226-aquascope-explorer.static.hf.space/)**: every public gauge we can reach on one map
-(more than 60,000 stations from USGS, Brazil ANA, UK EA, Australia BOM, Hub'Eau, Taiwan CWA,
-PEGELONLINE, Greece and Ireland OPW; the dataset below carries the live count). Click one and get the observed record,
+(more than 75,000 stations from USGS, Brazil ANA, UK EA, Australia BOM, Hub'Eau, Taiwan CWA,
+PEGELONLINE, Poland IMGW, Greece and Ireland OPW; the dataset below carries the live count). Click one and get the observed record,
 flood frequency with confidence limits, flow duration and trend, computed in your browser by aquascope on Pyodide.
 The catalog behind it is an open GeoParquet dataset, [`Rekin226/aquascope-gauges`](https://huggingface.co/datasets/Rekin226/aquascope-gauges), harvested weekly.
 Press **Ask ✨** to type a question in plain language (bring your own key, Groq and Hugging Face are free): the model picks the
@@ -58,6 +58,11 @@ hands back a zip with a Word report, an Excel workbook, PNG and SVG figures, a n
 study.yaml. Keyless it still does all of that from the playbooks, and with the on-device
 model Ask already loads it plans and writes on your machine; your own key puts a model behind every role. Twelve
 recorded studies on the board show what a full run looks like and re-run live in your browser ([docs](docs/studio.md)).
+The study draws its places on the map as the steps land, a step can be adjusted and rerun after the report, and
+**Copy link** shares the plan so anyone can rerun it keyless. Select an area and press **Study this area** for a flood
+study over many gauges at once (flood trends with field significance, a regional growth curve), keep gauges in
+**My places** to compare their hydrographs and flood curves side by side, or filter the map by record length, flood
+trend and baseflow index.
 Not a Python user? The same files open in [R, QGIS, DuckDB and Julia](docs/readers.md) in place; `integrations/qgis/` has a
 drag-and-drop layer definition.
 
@@ -304,6 +309,7 @@ aquascope agri plan --crop maize --planting-date 2026-04-01 --lat 30.0 --lon 31.
 aquascope recommend --parameters DO,BOD5,COD --goal "pollution trend detection" -o recommendations.json
 aquascope solve "Design flow for a road crossing, 100-year return period" --lat 51.415 --lon -0.308
 aquascope studio "Design flow for a road crossing, 100-year, and how sure can we be" --lat 51.415 --lon -0.308 --out kingston/   # the crew: brief, plan, run, bundle
+aquascope area-study --bbox=-0.9,51.2,0.3,51.8       # a flood study over every gauge in a box: Q100, flood trends, a regional curve
 
 # Interactive Streamlit dashboard — multipage workspace with 37 live sources,
 # smart auto-insights, and fully interactive Plotly charts
@@ -333,7 +339,7 @@ Full details, endpoints, and API-key requirements: [docs/data_sources.md](docs/d
 
 ## 🧪 Scientifically validated
 
-- **2,800+ tests** — covering every collector, hydrology method, and pipeline (spatial and ARIMA tests require the optional `[all]` / `[ml]` extras)
+- **3,100+ tests** covering every collector, hydrology method, and pipeline (spatial and ARIMA tests require the optional `[all]` / `[ml]` extras)
 - **CAMELS benchmark** — a 10-catchment validation subset of the [CAMELS dataset](https://ral.ucar.edu/solutions/products/camels) ships with the repo at `data/camels_benchmark/` and runs as part of CI
 - **Every method cited** — equations, decision trees, and DOI references for all 27 methodologies live in the [theory guide](docs/theory.md)
 - **JOSS paper in preparation** — see [`paper.md`](paper.md) and [`paper.bib`](paper.bib)
@@ -462,7 +468,7 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.18.0},
+  version = {0.19.0},
   doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }

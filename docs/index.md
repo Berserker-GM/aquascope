@@ -5,10 +5,10 @@
 [![PyPI version](https://img.shields.io/pypi/v/aquascope.svg?color=blue)](https://pypi.org/project/aquascope/)
 [![Python](https://img.shields.io/pypi/pyversions/aquascope.svg?color=informational)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/Rekin226/aquascope/blob/main/LICENSE)
-[![Tests](https://img.shields.io/badge/tests-2800%2B%20passing-brightgreen.svg)](https://github.com/Rekin226/aquascope/actions)
+[![Tests](https://img.shields.io/badge/tests-3100%2B%20passing-brightgreen.svg)](https://github.com/Rekin226/aquascope/actions)
 [![GitHub stars](https://img.shields.io/github/stars/Rekin226/aquascope?style=social)](https://github.com/Rekin226/aquascope/stargazers)
 
-AquaScope unifies **37 global water-data sources** behind one Python schema. On top of that it layers a full scientific computing stack, from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements**, wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 2,800+ tests.
+AquaScope unifies **37 global water-data sources** behind one Python schema. On top of that it layers a full scientific computing stack, from **Bulletin 17C flood frequency** to **FAO-56 crop water requirements**, wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Validated against the CAMELS benchmark with 3,100+ tests.
 
 ---
 
@@ -76,7 +76,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
 
 ## Scientifically validated
 
-- **2,800+ tests** across every collector, hydrology method, and pipeline.
+- **3,100+ tests** across every collector, hydrology method, and pipeline.
 - **CAMELS benchmark**: a 10-catchment validation subset bundled at `data/camels_benchmark/`, run on every CI build.
 - **Every method cited**: equations, decision trees, and DOI references for all 27 methodologies live in the [theory guide](theory.md).
 - **JOSS paper in preparation**: see [`paper.md`](https://github.com/Rekin226/aquascope/blob/main/paper.md) and [`paper.bib`](https://github.com/Rekin226/aquascope/blob/main/paper.bib).
@@ -92,7 +92,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
   author  = {AquaScope Contributors},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.18.0},
+  version = {0.19.0},
   doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }
