@@ -477,7 +477,7 @@ If you use AquaScope in your research, please cite:
 Machine-readable metadata lives in [CITATION.cff](CITATION.cff); GitHub's "Cite this
 repository" button renders it in APA and BibTeX. Every tagged release is archived on
 Zenodo; `10.5281/zenodo.21903143` is the concept DOI that always resolves to the latest
-version (v0.18.0 is [10.5281/zenodo.22787700](https://doi.org/10.5281/zenodo.22787700)).
+version (v0.19.0 is [10.5281/zenodo.22930129](https://doi.org/10.5281/zenodo.22930129)).
 
 ## 📄 License
 
