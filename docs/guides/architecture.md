@@ -14,7 +14,7 @@ flowchart TB
 
     subgraph Intelligence["Intelligence Layer"]
         AI["AI Engine<br/>26 methodologies"]
-        PIPE["Pipelines<br/>7 auto-executable"]
+        PIPE["Pipelines<br/>26 auto-executable"]
         CHAL["Challenges<br/>flood / drought / WQ"]
     end
 
