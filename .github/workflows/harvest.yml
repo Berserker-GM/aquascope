@@ -46,7 +46,7 @@ concurrency:
 jobs:
   harvest:
     runs-on: ubuntu-latest
-    timeout-minutes: 230
+    timeout-minutes: 240
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_DATASET: Rekin226/aquascope-gauges
@@ -115,9 +115,9 @@ jobs:
       - name: Harvest daily observations (budgeted; the archive fills up over weeks)
         id: obs
         if: ${{ !inputs.skip_obs }}
-        # Every phase below carries --max-seconds (the uk_ea + hubeau line once per source): about 156 min if
-        # every budget were spent, well above a normal run (92 min on 2026-09-23), inside this.
-        timeout-minutes: 170
+        # Every phase below carries --max-seconds (the uk_ea + hubeau line once per source): about 166 min if
+        # every budget were spent, well above a normal run (83 min on 2026-09-24), inside this.
+        timeout-minutes: 180
         run: |
           set +e
           B=${{ inputs.obs_budget || 150 }}
@@ -130,7 +130,7 @@ jobs:
           aquascope harvest obs --out archive --variable precipitation --source uk_ea --max-stations $((B / 3)) --max-seconds 400
           aquascope harvest obs --out archive --variable water_level --source uk_ea --max-stations $((B / 3)) --max-seconds 400
           aquascope harvest obs --out archive --variable precipitation --source taiwan_cwa --max-stations 15 \
-            --max-seconds 300  # 2026-09-23: 15.5 min for 15 empty stations
+            --max-seconds 900  # CODIS: one request per year, ~60 s a station
           # Greece OpenHi: 65 telemetry stations the browser cannot call (#408); small enough to mirror whole.
           aquascope harvest obs --out archive --variable discharge --source greece_openhi --max-stations 65 \
             --max-seconds 300
