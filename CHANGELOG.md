@@ -4,6 +4,10 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Added
+- **The Studio asks what the study needs, one question at a time, as a pick list.** A playbook can now carry a `checklist`: the things the study must know before it plans, each with the question, one line on what the answer changes, the options and the words in a question that already answer it (`aquascope.playbooks.ChecklistItem`, `checklist_open`). The Consultant reads the question first, asks only what is still open, one at a time with its reason, and a reply that names no option is asked again; the model's own extra questions are dropped for a checklist playbook, and a model reads its answers into the same values. The flood playbook is the first: "Is flooding here getting worse?" is read as a trend question and asks only which period, while "design flow for a crossing, 100-year" asks nothing. In the terminal the options are an arrow-key list with an "Other" row (`questionary`, added to the `studio` extra; numbers without it); in the Explorer they are the chips, with the reason under the question.
+- **A flood trend question gets a trend study and a trend answer.** A new `trend` branch of the flood playbook (for the "flood trend" goal) runs Mann-Kendall with Sen's slope on the annual flood peaks over the chosen window, with a frequency fit for scale, and without the GloFAS return-level cross-check or the gate that treats a significant trend as a warning. The answer leads with the slope and whether it is significant ("Sen's slope 0.24 m3/s per year, Mann-Kendall p = 0.32: no significant trend at 5 %"), not with a 100-year flow.
+
 ### Changed
 - **Infer `site_id` for co-located stations at harvest time** (#455). Group stations sharing a source, folded name, and coordinates rounded to 3 decimal places (~100 m) under a synthetic `site_id` (`syn:<source>:<hash>`). Collapses duplicate co-located records in sources without agency site identifiers (such as Taiwan CWA's replaced Taipei gauge pairs and USGS nested well sensors) while preserving any collector-supplied agency identifiers.
 
@@ -45,6 +49,7 @@ All notable changes to AquaScope are documented here.
 >>>>>>> origin/main
 
 ### Fixed
+- **A "last N years" window longer than the archive copy now comes from the agency.** The archive mirror holds 40 years for many gauges; asking for the last 50 served those 40 and said so. The agency is now asked for the window when it reaches more than a year before the archive copy, as the full record already was.
 - **The cross-check gate no longer says "within" when it failed.** A failing `cross_check_ratio` read "ratio 1.82 (within a factor 1.50 allowed): the cross-check disagrees"; it now reads "ratio 1.82, outside the allowed factor of 1.50: the cross-check disagrees", and a passing one "within the allowed factor". The recorded Kingston study carries the new wording.
 - **UK EA collector: distinguish 'no data' from 'endpoint failed'** (#463). `_fetch_paginated_items` now propagates failed requests as `CollectorError` with causal HTTP status resolution, rather than returning `None` and masking failed requests as empty stations. Genuinely empty reading pages continue to return empty lists. Station metadata lookup catches only `(RuntimeError, ValueError)` and returns `None` with an explanatory note since metadata enrichment is optional for reading queries.
 
