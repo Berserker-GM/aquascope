@@ -16,7 +16,7 @@ from aquascope.studio.deliverables.tables import frame_of
 from aquascope.studio.workspace import Workspace
 
 _BAD_SHEET_CHARS = re.compile(r"[\[\]:*?/\\]")
-_MAX_ROWS = 100_000
+_ROWS_PER_SHEET = 100_000
 
 
 def sheet_title(name: str, taken: set[str]) -> str:
@@ -49,7 +49,7 @@ def _fill(sheet: Any, columns: list[str], rows: list[list[Any]], *, freeze: bool
     sheet.append([str(col) for col in columns])
     for cell in sheet[1]:
         cell.font = Font(bold=True)
-    for r in rows[:_MAX_ROWS]:
+    for r in rows:
         sheet.append([_cell(v) for v in r])
     if freeze:
         sheet.freeze_panes = "A2"
@@ -83,7 +83,8 @@ def _readme_rows(ws: Workspace) -> list[list[Any]]:
     rows += [
         ["", ""],
         ["Sheets", "Inventory (the datasets), Plan (the steps), Gates (every gate outcome), one sheet per result "
-                   "table, Figures (the figure index), Ledger (tokens per role)"],
+                   "table, Figures (the figure index), Ledger (tokens per role). Tables over 100,000 rows "
+                   "continue in numbered sheets; no observations are omitted."],
         ["Reproduce", "aquascope run study.yaml (the study.yaml in the bundle), or open study.ipynb"],
         ["How to cite", c.citation()],
     ]
@@ -171,9 +172,17 @@ def workbook_bytes(ws: Workspace) -> bytes:
             sheet.append([f"{a.id}: the CSV could not be read"])
             continue
         columns, values = c.frame_cells(df)
-        _fill(sheet, columns, values)
-        if a.caption:
-            sheet.cell(row=1, column=len(df.columns) + 2, value=a.caption).font = Font(italic=True)
+        for start in range(0, max(1, len(values)), _ROWS_PER_SHEET):
+            if start:
+                sheet = wb.create_sheet(sheet_title(f"{stem}_part{start // _ROWS_PER_SHEET + 1}", taken))
+            part = values[start:start + _ROWS_PER_SHEET]
+            _fill(sheet, columns, part)
+            if a.caption:
+                sheet.cell(row=1, column=len(df.columns) + 2, value=a.caption).font = Font(italic=True)
+            if len(values) > _ROWS_PER_SHEET:
+                sheet.cell(row=2, column=len(df.columns) + 2,
+                           value=f"Rows {start + 1}–{start + len(part)} of {len(values)}; "
+                                 "all parts retain the full table.")
 
     figs = [[a.id, a.name, a.caption, a.step, (a.meta or {}).get("kind"), a.media_type, a.size]
             for a in ws.figures()]

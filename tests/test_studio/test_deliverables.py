@@ -424,9 +424,13 @@ def test_tables_for_headers_match_meta(station, drought, donors, samples, recon,
 def test_return_levels_table_columns(station) -> None:
     art = tables.tables_for("s2", "analyze_station", station, names=["return_levels"])[0]
     df = tables.frame_of(art)
-    assert list(df.columns) == ["T", "GEV", "LP3", "lower", "upper"]
-    assert df["T"].tolist() == RP
-    assert df["upper"].iloc[-1] == 72  # the bootstrap band wins over the LP3 band
+    assert list(df.columns) == ["T", "estimator", "unit", "estimate", "lower", "upper",
+                                "interval_method", "confidence_level"]
+    lm = df[df.estimator == "gev_lmoments"]
+    lp3 = df[df.estimator == "lp3"]
+    boot = df[df.estimator == "gev_bootstrap"]
+    assert lm["T"].tolist() == RP and lm["lower"].isna().all() and lm["upper"].isna().all()
+    assert lp3["upper"].iloc[-1] == 69 and boot["upper"].iloc[-1] == 72
     series = tables.tables_for("s2", "analyze_station", station, names=["series"])[0]
     assert series.meta["columns"] == ["datetime", "value"] and series.meta["rows"] == station["n"]
 
@@ -488,7 +492,7 @@ def test_report_markdown_has_sections_numbers_and_figures(ws) -> None:
     assert "## Caveats" in md and "## References" in md and "Hosking" in md
     assert "Produced by AquaScope Studio" in md
     assert "](figures/s2_frequency_curve.png)" in md and "](figures/s3_drought_strip.png)" in md
-    assert "| T | GEV | LP3 | lower | upper |" in md
+    assert "| T | estimator | unit | estimate | lower | upper | interval_method | confidence_level |" in md
     assert "nan" not in md
     order = [md.index(h) for h in ("## Limitations", "## What this study does not establish", "## Caveats",
                                    "## Recommendations", "## References", "## Appendix")]
@@ -613,7 +617,7 @@ def test_export_writes_every_artifact(ws, tmp_path) -> None:
     assert set(paths) == {a.id for a in ws.artifacts}
     assert (tmp_path / "out" / "figures" / "s2_frequency_curve.png").read_bytes().startswith(PNG)
     csv_text = (tmp_path / "out" / "tables" / "s2_return_levels.csv").read_text(encoding="utf-8")
-    assert csv_text.startswith("T,GEV,LP3,lower,upper")
+    assert csv_text.startswith("T,estimator,unit,estimate,lower,upper,interval_method,confidence_level")
     assert (tmp_path / "out" / "report.html").stat().st_size > 10_000
     assert (tmp_path / "out" / "bundle.zip").exists()
 

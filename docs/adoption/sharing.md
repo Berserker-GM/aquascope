@@ -16,6 +16,22 @@ or the original complete study if that happens.
 completed result. The recipient may get different observations from live agencies.
 **Download bundle** contains reports, tables, figures, the notebook and workspace.
 
+## Retained data and result tables
+
+Station and flood-analysis steps retain their own full observation CSVs, including
+subdaily timestamps. Plotting decimation does not change these inputs. Check the
+step's input hash and observation count when reproducing a result.
+
+Flood result CSVs use one row per estimator and return period. `lower`, `upper`,
+`interval_method` and `confidence_level` belong to that row's `estimator` and
+`estimate`. Empty bounds mean that estimator has no recorded interval; an interval
+from another fit is not substituted. This replaces the older wide table with
+generic GEV/LP3 columns and one ambiguous pair of bounds.
+
+Workbook data tables over 100,000 rows continue in numbered sheets. Keep all parts
+when importing them elsewhere. The CSV retains the original serialized precision;
+spreadsheet applications impose their usual numeric precision limits.
+
 ## Publish an explicit, versioned report
 
 For a public result, review the complete file or self-contained HTML report for

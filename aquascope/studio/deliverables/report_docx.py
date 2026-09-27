@@ -13,6 +13,7 @@ leaves a note event on the workspace.
 from __future__ import annotations
 
 import io
+import json
 import re
 from typing import Any
 
@@ -54,7 +55,7 @@ def _style_or_default(doc: Any, name: str) -> str | None:
 
 
 def markdown_to_docx(doc: Any, text: str) -> None:
-    """A small converter: headings, bullet and numbered lists, paragraphs; inline bold, italic and code."""
+    """Render headings, lists, fenced code and Markdown tables as native Word content."""
     bullet = _style_or_default(doc, "List Bullet")
     numbered = _style_or_default(doc, "List Number")
     buffer: list[str] = []
@@ -64,7 +65,31 @@ def markdown_to_docx(doc: Any, text: str) -> None:
             _runs(doc.add_paragraph(), " ".join(buffer))
             buffer.clear()
 
-    for line in text.splitlines():
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        i += 1
+        if line.lstrip().startswith("```"):
+            flush()
+            code = []
+            while i < len(lines) and not lines[i].lstrip().startswith("```"):
+                code.append(lines[i])
+                i += 1
+            i += i < len(lines)
+            _monospace(doc, "\n".join(code))
+            continue
+        if ("|" in line and i < len(lines)
+                and re.fullmatch(r"\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*", lines[i])):
+            flush()
+            columns = [v.strip() for v in line.strip().strip("|").split("|")]
+            i += 1
+            rows = []
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                rows.append([v.strip() for v in lines[i].strip().strip("|").split("|")])
+                i += 1
+            _add_table(doc, columns, rows, None)
+            continue
         if not line.strip():
             flush()
             continue
@@ -88,17 +113,42 @@ def markdown_to_docx(doc: Any, text: str) -> None:
 
 
 def _add_table(doc: Any, columns: list[str], rows: list[list[Any]], caption: str | None) -> None:
-    from docx.shared import Pt
+    from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    from docx.shared import Inches, Pt
 
+    if len(columns) > 6:
+        # Repeat the first two identifying fields in each panel. This keeps
+        # wide inventories and estimator/interval tables readable in portrait.
+        for start in range(2, len(columns), 4):
+            indices = [0, 1, *range(start, min(start + 4, len(columns)))]
+            _add_table(doc, [columns[i] for i in indices],
+                       [[r[i] if i < len(r) else None for i in indices] for r in rows],
+                       (caption + " — " if caption else "") + f"Fields {start + 1}–{indices[-1] + 1}")
+        return
     if caption:
         p = doc.add_paragraph()
+        p.paragraph_format.keep_with_next = True
         p.add_run(caption).italic = True
     table = doc.add_table(rows=1, cols=len(columns))
     style = _style_or_default(doc, "Table Grid")
     if style:
         table.style = style
+    table.autofit = False
+    weights = [min(34, max(8, len(str(col)),
+                          *(min(34, len(str(r[i]))) for r in rows[:MAX_TABLE_ROWS] if i < len(r))))
+               for i, col in enumerate(columns)]
+    section = doc.sections[-1]
+    available = (section.page_width - section.left_margin - section.right_margin) / 914400
+    minimum = min(.55, available / len(columns))
+    for column, weight in zip(table.columns, weights):
+        column.width = Inches(minimum + (available - minimum * len(columns)) * weight / sum(weights))
+    repeat = OxmlElement("w:tblHeader")
+    table.rows[0]._tr.get_or_add_trPr().append(repeat)
     for i, col in enumerate(columns):
         cell = table.rows[0].cells[i]
+        cell.width = table.columns[i].width
         cell.text = str(col)
         for run in cell.paragraphs[0].runs:
             run.bold = True
@@ -106,9 +156,27 @@ def _add_table(doc: Any, columns: list[str], rows: list[list[Any]], caption: str
     for r in rows[:MAX_TABLE_ROWS]:
         cells = table.add_row().cells
         for i, v in enumerate(r[: len(columns)]):
+            cells[i].width = table.columns[i].width
             cells[i].text = "" if v is None else str(v)
             for run in cells[i].paragraphs[0].runs:
                 run.font.size = Pt(9)
+    for row_index, row in enumerate(table.rows):
+        for cell in row.cells:
+            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            props = cell._tc.get_or_add_tcPr()
+            shading = OxmlElement("w:shd")
+            shading.set(qn("w:fill"), "DCE6F1" if row_index == 0 else ("F5F5F5" if row_index % 2 == 0 else "FFFFFF"))
+            props.append(shading)
+            borders = OxmlElement("w:tcBorders")
+            for edge in ("top", "left", "bottom", "right"):
+                border = OxmlElement(f"w:{edge}")
+                for key, value in (("val", "single"), ("sz", "4"), ("color", "D9D9D9")):
+                    border.set(qn(f"w:{key}"), value)
+                borders.append(border)
+            props.append(borders)
+            for paragraph in cell.paragraphs:
+                paragraph.paragraph_format.space_before = Pt(3)
+                paragraph.paragraph_format.space_after = Pt(3)
     if len(rows) > MAX_TABLE_ROWS:
         note = doc.add_paragraph()
         note.add_run(f"First {MAX_TABLE_ROWS} of {len(rows)} rows; the full table is in the workbook and the "
@@ -142,8 +210,20 @@ def report_docx_bytes(ws: Workspace) -> bytes | None:
                                    "(pip install python-docx, or aquascope[studio])")
         return None
 
+    from docx.oxml.ns import qn
+    from docx.shared import Pt, RGBColor
+
     doc = Document()
-    doc.add_heading(c.title_of(ws), level=0)
+    for name in ("Title", "Subtitle", "Heading 1", "Heading 2", "Heading 3", "Heading 4"):
+        style = doc.styles[name]
+        style.font.color.rgb = RGBColor(0, 0, 0)
+        for border in list(style.element.iter(qn("w:pBdr"))):
+            border.getparent().remove(border)
+    doc.styles["Title"].font.size = Pt(24)
+    title = c.title_of(ws)
+    if c.site_text(ws):
+        title = re.sub(r"\s*\(-?\d+\.\d+,\s*-?\d+\.\d+\)\s*$", "", title)
+    doc.add_heading(title, level=0)
     site = c.site_text(ws)
     if site:
         doc.add_paragraph(f"Site: {site}")
@@ -203,8 +283,15 @@ def report_docx_bytes(ws: Workspace) -> bytes | None:
     doc.add_paragraph(f"How to cite: {c.citation()}")
     footer = c.footer_of(ws)
     if footer:
-        p = doc.add_paragraph()
-        p.add_run(footer).italic = True
+        details = (ws.report or {}).get("footer")
+        if isinstance(details, dict):
+            doc.add_heading("Production details", level=1)
+            _add_table(doc, ["Field", "Value"], [[str(k).replace("_", " "),
+                       json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else v]
+                       for k, v in details.items()], None)
+        else:
+            p = doc.add_paragraph()
+            p.add_run(footer).italic = True
 
     buf = io.BytesIO()
     doc.save(buf)

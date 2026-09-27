@@ -232,7 +232,7 @@ def _frequency_curve(payload: dict[str, Any], unit: str | None, site: dict[str, 
     if rl["lp3"] is not None:
         curves.append(("Log-Pearson III", _floats(rl["lp3"]), DARK, "--"))
     if rl["boot"] is not None:
-        curves.append(("GEV (MLE, bootstrap interval)", _floats(rl["boot"]), SECONDARY, ":"))
+        curves.append(("GEV (MLE with L-moments fallback)", _floats(rl["boot"]), SECONDARY, ":"))
     for label, q, colour, style in curves:
         ax.plot(t, q, style, color=colour, linewidth=1.8, marker="o", markersize=4, label=label)
     emp = rl["empirical"]

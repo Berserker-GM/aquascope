@@ -268,6 +268,11 @@ def flood_frequency(
     full record is requested.
     """
     res = analyze_station(source, station_id, years=years, bootstrap_ci=bootstrap_ci, return_periods=return_periods)
+    return _flood_result(res)
+
+
+def _flood_result(res: dict[str, Any]) -> dict[str, Any]:
+    """The compact flood payload, also used by Studio before retaining its input separately."""
     if "error" in res:
         return res
     keep = {k: res.get(k) for k in ("source", "station_id", "agency", "license", "attribution", "unit",
