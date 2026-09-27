@@ -16,7 +16,7 @@ No installation; core Explorer workflows need no API key.
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21903143.svg)](https://doi.org/10.5281/zenodo.21903143)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230.svg)](https://github.com/astral-sh/ruff)
-[![Tests](https://img.shields.io/badge/tests-2800%2B%20passing-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-3100%2B%20passing-brightgreen.svg)](#)
 [![Live Explorer Demo – Runs in Your Browser](https://img.shields.io/badge/%F0%9F%8C%8A%20Live%20Demo-AquaScope%20Explorer-blue)](https://rekin226-aquascope-explorer.static.hf.space/)
 
 [![GitHub stars](https://img.shields.io/github/stars/Rekin226/aquascope?style=social)](https://github.com/Rekin226/aquascope/stargazers)
@@ -39,7 +39,7 @@ No installation; core Explorer workflows need no API key.
 
 ---
 
-AquaScope unifies **37 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top — from **flood-frequency methods** to **FAO-56 crop water requirements** — wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Regression checks include the CAMELS benchmark with 2,800+ tests across the project.
+AquaScope unifies **37 global water-data sources** behind one Python schema, then layers a full scientific computing stack on top — from **flood-frequency methods** to **FAO-56 crop water requirements** — wrapped in an AI engine that scores **27 research methodologies** against your dataset and auto-executes **26 analysis pipelines**. Regression checks include the CAMELS benchmark with 3,100+ tests across the project.
 The daily benchmark inputs are synthetic; flood benchmarks also use observed USGS annual peaks.
 See [validation scope](docs/validation_scope.md) for comparators and limitations.
 
@@ -71,6 +71,32 @@ See the [executable Python quickstart](docs/getting_started.md) and
 Prefer an assistant? `pip install "aquascope[mcp]"` then `claude mcp add aquascope -- aquascope mcp` gives Claude (or any
 MCP client) `find_stations`, `get_timeseries`, `analyze_station` and `flood_frequency` over the same catalog and methods
 ([docs](docs/mcp.md)).
+
+## 🧑‍🔬 Run a study on your machine
+
+```bash
+pip install "aquascope[studio,basins]"   # the Word report, workbook, figures, notebook and the catchment step
+aquascope studio
+```
+
+That is all. The Studio asks where (a gauge name like `Fish River Fort Kent`, a station id like `USGS-01013500`,
+or `lat, lon`) and what you want to know ("Is flooding here getting worse?"), asks what the question leaves open,
+shows the plan, and runs only when you approve it (`e` edits a step, e.g. `s3.return_period=200`). The bundle lands in
+`./studio-<id>/`: `report.docx`, `workbook.xlsx`, `study.ipynb`, `figures/`, `findings.json` and `study.yaml`,
+which re-runs the whole study with `aquascope run study.yaml`. After the report, ask a follow-up (another gauge, a
+trend, the flow duration curve) and the bundle is updated.
+
+It needs no key: the playbooks plan and the templates write. With a key in your environment
+(`ANTHROPIC_API_KEY`, or `GROQ_API_KEY` on Groq's free tier) the Studio offers to put the model behind the brief,
+the plan and the prose, with a $1 spend ceiling. The numbers are the same either way: they come from the tools, and a
+sentence whose number is in no result is dropped. One line, no questions:
+
+```bash
+aquascope studio "Is flooding getting worse?" --at USGS-01013500 --provider anthropic --max-usd 1 --yes
+```
+
+On macOS with Homebrew or python.org Python, `pip install` may refuse ("externally managed environment"); make a
+virtual environment first: `python3 -m venv .venv && source .venv/bin/activate`. More in [docs/studio.md](docs/studio.md).
 
 ## ✨ What you can do
 
@@ -116,6 +142,8 @@ pip install "aquascope[interop]"      # xarray + geopandas (collect as_xarray / 
 pip install "aquascope[spatial]"      # rasterio, geopandas, shapely
 pip install "aquascope[dashboard]"    # streamlit
 pip install "aquascope[forecast]"     # prophet, torch (for LSTM)
+pip install "aquascope[studio]"       # matplotlib, openpyxl, python-docx (the Studio's Word, Excel, figures)
+pip install "aquascope[basins]"       # pyogrio, geopandas (BasinATLAS catchments, similar basins)
 ```
 
 For development:
@@ -310,7 +338,9 @@ aquascope agri plan --crop maize --planting-date 2026-04-01 --lat 30.0 --lon 31.
 # AI recommendation + natural-language problem solving
 aquascope recommend --parameters DO,BOD5,COD --goal "pollution trend detection" -o recommendations.json
 aquascope solve "Design flow for a road crossing, 100-year return period" --lat 51.415 --lon -0.308
-aquascope studio "Design flow for a road crossing, 100-year, and how sure can we be" --lat 51.415 --lon -0.308 --out kingston/   # the crew: brief, plan, run, bundle
+aquascope studio                                     # the crew: asks where and what, then brief, plan, run, bundle
+aquascope studio "Design flow for a road crossing, 100-year, and how sure can we be" --at "Thames Kingston" --out kingston/
+aquascope area-study --bbox=-0.9,51.2,0.3,51.8       # a flood study over every gauge in a box: Q100, flood trends, a regional curve
 
 # Interactive Streamlit dashboard — multipage workspace with 37 live sources,
 # smart auto-insights, and fully interactive Plotly charts
@@ -340,7 +370,7 @@ Full details, endpoints, and API-key requirements: [docs/data_sources.md](docs/d
 
 ## 🧪 Scientifically validated
 
-- **2,800+ tests** — covering every collector, hydrology method, and pipeline (spatial and ARIMA tests require the optional `[all]` / `[ml]` extras)
+- **3,100+ tests** covering every collector, hydrology method, and pipeline (spatial and ARIMA tests require the optional `[all]` / `[ml]` extras)
 - **CAMELS benchmark** — a 10-catchment validation subset of the [CAMELS dataset](https://ral.ucar.edu/solutions/products/camels) ships with the repo at `data/camels_benchmark/` and runs as part of CI
 - **Every method cited** — equations, decision trees, and DOI references for all 27 methodologies live in the [theory guide](docs/theory.md)
 - **JOSS paper in preparation** — see [`paper.md`](paper.md) and [`paper.bib`](paper.bib)
@@ -447,6 +477,11 @@ Thanks to these wonderful people who make AquaScope possible ([emoji key](CONTRI
       <td align="center" valign="top" width="20%"><a href="https://github.com/itsnevu"><img src="https://avatars.githubusercontent.com/u/129736887?v=4?s=100" width="100px;" alt="0x"/><br /><sub><b>0x</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=itsnevu" title="Code">💻</a></td>
       <td align="center" valign="top" width="20%"><a href="https://travelsafepilot.com"><img src="https://avatars.githubusercontent.com/u/241781992?v=4?s=100" width="100px;" alt="bazinga0027-gif"/><br /><sub><b>bazinga0027-gif</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Tests">⚠️</a> <a href="https://github.com/Rekin226/aquascope/commits?author=bazinga0027-gif" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="20%"><a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=100" width="100px;" alt="Harsh Raj Singhania"/><br /><sub><b>Harsh Raj Singhania</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=HarshRajSinghania" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=HarshRajSinghania" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://bharani-kudala.me/"><img src="https://avatars.githubusercontent.com/u/121555407?v=4?s=100" width="100px;" alt="Kudala Bharani Kumar Reddy"/><br /><sub><b>Kudala Bharani Kumar Reddy</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=kudala-bharani" title="Tests">⚠️</a> <a href="https://github.com/Rekin226/aquascope/commits?author=kudala-bharani" title="Documentation">📖</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="20%"><a href="https://github.com/Berserker-GM"><img src="https://avatars.githubusercontent.com/u/229895835?v=4?s=100" width="100px;" alt="Berserker-GM"/><br /><sub><b>Berserker-GM</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=Berserker-GM" title="Code">💻</a> <a href="https://github.com/Rekin226/aquascope/commits?author=Berserker-GM" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="20%"><a href="https://galabavamsi.github.io/portfolio/"><img src="https://avatars.githubusercontent.com/u/51828882?v=4?s=100" width="100px;" alt="GALABA VAMSI"/><br /><sub><b>GALABA VAMSI</b></sub></a><br /><a href="https://github.com/Rekin226/aquascope/commits?author=Galabavamsi" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
@@ -468,7 +503,7 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.18.0},
+  version = {0.19.0},
   doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }
@@ -477,7 +512,7 @@ If you use AquaScope in your research, please cite:
 Machine-readable metadata lives in [CITATION.cff](CITATION.cff); GitHub's "Cite this
 repository" button renders it in APA and BibTeX. Every tagged release is archived on
 Zenodo; `10.5281/zenodo.21903143` is the concept DOI that always resolves to the latest
-version (v0.18.0 is [10.5281/zenodo.22787700](https://doi.org/10.5281/zenodo.22787700)).
+version (v0.19.0 is [10.5281/zenodo.22930129](https://doi.org/10.5281/zenodo.22930129)).
 
 ## 📄 License
 

@@ -85,6 +85,9 @@ class ObsHealth:
     seconds: float = 0.0
     errors: list[str] = field(default_factory=list)
     budget_exhausted: bool = False
+    #: Why the source stopped before its budget of stations: "rate limited" or "time budget", else "".
+    #: The stations it did not reach keep no manifest entry, so the next run picks them first.
+    stopped: str = ""
 
 
 @dataclass
@@ -154,22 +157,6 @@ def _daily_agg(variable: str, s: pd.Series) -> str:
     step = pd.Series(s.index).diff().dropna().median()
     return "sum" if step < pd.Timedelta(days=1) else "mean"
 
-
-def series_to_csv_gz(s: pd.Series, agg: str = "mean") -> bytes:
-    """Gzipped daily CSV. ``agg`` is ``"mean"`` (flows, levels) or ``"sum"`` (sub-daily rainfall totals)."""
-    daily = s.resample("D").sum(min_count=1).dropna() if agg == "sum" else s.resample("D").mean().dropna()
-    buf = io.StringIO()
-    buf.write("date,value\n")
-    for d, v in daily.items():
-        buf.write(f"{d.strftime('%Y-%m-%d')},{float(v):.6g}\n")
-    return gzip.compress(buf.getvalue().encode("utf-8"), mtime=0)
-
-
-def read_csv_gz(data: bytes) -> pd.Series:
-    df = pd.read_csv(io.BytesIO(data), compression="gzip", parse_dates=["date"])
-    return pd.Series(df["value"].to_numpy(dtype=float), index=pd.DatetimeIndex(df["date"]), name="value")
-
-
 def sync_from_hub(out_dir: str | Path, repo_id: str, *, token: str | None = None) -> Path:
     """Sync observations and the last good catalog before incremental publication.
 
@@ -235,6 +222,20 @@ def _pick_stations(
     return (fresh + stale)[:max_stations]
 
 
+def _rate_limited(exc: BaseException) -> bool:
+    """True when ``exc`` is, or was raised from, a 429 the HTTP client gave up on."""
+    from aquascope.utils.http_client import RateLimitedError
+
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        if isinstance(cur, RateLimitedError):
+            return True
+        seen.add(id(cur))
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 def _harvest_one(
     out: Path,
     catalog: list[dict[str, Any]],
@@ -248,7 +249,12 @@ def _harvest_one(
     only_stations: list[str] | None,
     max_seconds: float | None = None,
 ) -> ObsHealth:
-    """Harvest one (source, variable) budget; updates ``manifest`` in place."""
+    """Harvest one (source, variable) budget; updates ``manifest`` in place.
+
+    Stops early, and says why in ``health.stopped``, when the agency rate-limits the run (its quota is spent,
+    so every station after would fail too) or when ``max_seconds`` has passed, so one throttled agency costs
+    its own rows and not the whole weekly run.
+    """
     health = ObsHealth(source=key, variable=var)
     t0 = time.perf_counter()
     picked = _pick_stations(catalog, manifest, key, var, max_stations, refresh_days, only_stations, years)
@@ -256,6 +262,9 @@ def _harvest_one(
     for row in picked:
         if max_seconds is not None and time.perf_counter() - t0 >= max_seconds:
             health.budget_exhausted = True
+            health.stopped = "time budget"
+            logger.warning("[%s/%s] time budget of %.0fs spent after %d stations; the rest wait for the next run",
+                           key, var, max_seconds, health.attempted)
             break
         sid = row["station_id"]
         previous = src_entry["stations"].get(sid) or {}
@@ -269,6 +278,11 @@ def _harvest_one(
             if len(health.errors) < 10:
                 health.errors.append(f"{sid}: {type(exc).__name__}: {str(exc)[:160]}")
             logger.warning("[%s/%s] %s failed: %s", key, var, sid, exc)
+            if _rate_limited(exc):
+                health.stopped = "rate limited"
+                logger.warning("[%s/%s] rate limited after %d stations; stopping this source for the run",
+                               key, var, health.attempted)
+                break
             src_entry["stations"][sid] = {**previous, "last_attempt_at": attempted_at,
                                           "last_attempt_status": "failed"}
             save_manifest(out, manifest)
@@ -319,8 +333,9 @@ def _harvest_one(
         "n_stations": sum(1 for v in src_entry["stations"].values() if v.get("n")),
     })
     logger.info(
-        "[%s/%s] %d harvested, %d empty, %d failed of %d picked in %.0fs",
+        "[%s/%s] %d harvested, %d empty, %d failed of %d picked in %.0fs%s",
         key, var, health.harvested, health.empty, health.failed, health.attempted, health.seconds,
+        f" (stopped: {health.stopped})" if health.stopped else "",
     )
     return health
 
@@ -335,7 +350,7 @@ def harvest_observations(
     refresh_days: int = 30,
     catalog: list[dict[str, Any]] | None = None,
     only_stations: list[str] | None = None,
-    max_seconds_per_source: float | None = None,
+    max_seconds: float | None = None,
 ) -> ObsReport:
     """Harvest up to ``max_stations`` stations per source and variable into ``out_dir/obs``.
 
@@ -343,7 +358,8 @@ def harvest_observations(
     every source given); by default every variable in :data:`HARVESTABLE` is
     harvested for each source, each with its own budget and manifest cursor.
     ``years`` caps the record asked for to the last N years; by default the full
-    record is requested, from the catalog's first date (#270). ``catalog``
+    record is requested, from the catalog's first date (#270). ``max_seconds``
+    caps the time spent on each source and variable. ``catalog``
     defaults to the published station catalog. Failures are recorded per source
     and never raised. Returns an :class:`ObsReport`.
     """
@@ -370,7 +386,7 @@ def harvest_observations(
     for key in keys:
         for var in (variable,) if variable else HARVESTABLE[key]:
             health = _harvest_one(out, catalog, manifest, key, var, fetch_series, years, max_stations,
-                                  refresh_days, only_stations, max_seconds_per_source)
+                                  refresh_days, only_stations, max_seconds)
             report.sources.append(health)
 
     save_manifest(out, manifest)
@@ -423,3 +439,66 @@ def fetch_archived_series(source: str, station_id: str, variable: str, *, timeou
     except Exception as exc:  # noqa: BLE001 - archive is a fast path, never a hard dependency
         logger.info("archive read failed for %s/%s: %s", source, station_id, exc)
         return None
+
+def series_to_csv_gz(
+        s: pd.Series,
+        agg: str = "mean",
+        quality: pd.Series | None = None,
+    ) -> bytes:
+        """Gzipped daily CSV. ``agg`` is "mean" (flows, levels) or "sum"
+        (sub-daily rainfall totals).
+
+        ``quality``, if given, must already be aligned to the SAME daily
+        DatetimeIndex this function resamples ``s`` onto (i.e. already
+        resolved to one quality value per calendar day) — this function
+        does not itself decide how to collapse multiple same-day readings
+        with different quality flags into one; that policy is the
+        caller's job. Dates in ``s`` with no matching entry in ``quality``
+        get "unknown".
+        """
+        daily = s.resample("D").sum(min_count=1).dropna() if agg == "sum" else s.resample("D").mean().dropna()
+        buf = io.StringIO()
+        if quality is not None:
+            daily_quality = quality.reindex(daily.index)
+            buf.write("date,value,quality\n")
+            for d, v in daily.items():
+                q = daily_quality.loc[d] if d in daily_quality.index else None
+                # Quality is `str, Enum` — pull .value explicitly rather
+                # than relying on str()/f-string on a live enum member
+                # str() on a str, Enum member returns "Quality.APPROVED",
+                if q is None or (isinstance(q, float) and pd.isna(q)):
+                    q_str = "unknown"
+                else:
+                    q_str = q.value if hasattr(q, "value") else str(q)
+                buf.write(f"{d.strftime('%Y-%m-%d')},{float(v):.6g},{q_str}\n")
+        else:
+            buf.write("date,value\n")
+            for d, v in daily.items():
+                buf.write(f"{d.strftime('%Y-%m-%d')},{float(v):.6g}\n")
+        return gzip.compress(buf.getvalue().encode("utf-8"), mtime=0)
+
+def read_csv_gz(
+    data: bytes,
+    include_quality: bool = False,
+) -> pd.Series | tuple[pd.Series, pd.Series]:
+    """Read a gzipped daily CSV back to a value Series.
+
+    With ``include_quality=True``, returns ``(value, quality)`` — the
+    quality Series is all "unknown" when the file predates this
+    column, so old archive files keep reading correctly either way.
+    Default behaviour (a bare value Series) is UNCHANGED from before
+    this column existed — every existing caller keeps working as-is.
+    """
+    df = pd.read_csv(io.BytesIO(data), compression="gzip", parse_dates=["date"])
+    value = pd.Series(df["value"].to_numpy(dtype=float), index=pd.DatetimeIndex(df["date"]), name="value")
+    if not include_quality:
+        return value
+    if "quality" in df.columns:
+        quality = pd.Series(
+            df["quality"].fillna("unknown").to_numpy(dtype=str),
+            index=pd.DatetimeIndex(df["date"]),
+            name="quality",
+        )
+    else:
+        quality = pd.Series("unknown", index=value.index, name="quality")
+    return value, quality

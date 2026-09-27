@@ -80,3 +80,13 @@ def test_corrupt_manifest_is_not_silently_replaced(tmp_path):
     with pytest.raises(ValueError, match="last good manifest"):
         obs.load_manifest(tmp_path)
     assert path.read_text(encoding="utf-8") == '{"sources":'
+
+
+def test_scheduled_refresh_preserves_source_budgets_and_processes_usgs_last(tmp_path):
+    pairs = [('usgs', 'discharge'), ('poland_imgw', 'discharge'), ('uk_ea', 'groundwater_level')]
+    with patch('aquascope.archive.refresh.subprocess.run', return_value=SimpleNamespace(returncode=0)) as run:
+        result = refresh(tmp_path, pairs=pairs, budget=150, scheduled_budgets=True)
+    assert [r['source'] for r in result['sources']] == ['poland_imgw', 'uk_ea', 'usgs']
+    assert [r['station_budget'] for r in result['sources']] == [150, 75, 150]
+    assert [c.kwargs['timeout'] for c in run.call_args_list] == [1515, 615, 2115]
+    assert all('--worker' in c.args[0] for c in run.call_args_list)

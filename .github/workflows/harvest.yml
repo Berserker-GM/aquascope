@@ -30,6 +30,10 @@ on:
         description: "Skip the observation harvest (catalog, station catchments and bundles only)"
         type: boolean
         default: false
+      health_issues:
+        description: "Open / update / close collector-health issues, as the Monday run does"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -42,7 +46,7 @@ concurrency:
 jobs:
   harvest:
     runs-on: ubuntu-latest
-    timeout-minutes: 170
+    timeout-minutes: 240
     env:
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_DATASET: Rekin226/aquascope-gauges
@@ -97,14 +101,25 @@ jobs:
           print(f"{len(table):,} of {len(catalog):,} stations assigned")
           EOF
 
+      # Poland IMGW's daily archive is ~870 zips (~180 MB), one request each; finished hydrological years never
+      # change. Keeping them between runs turns a 15-minute download into a restore. The key changes every
+      # run so the newest copy is saved; restore-keys picks up the last one.
+      - name: Restore the IMGW archive zips
+        if: ${{ !inputs.skip_obs }}
+        uses: actions/cache@v4
+        with:
+          path: data/cache/poland_imgw
+          key: imgw-archive-${{ github.run_id }}
+          restore-keys: imgw-archive-
+
       - name: Harvest daily observations with isolated source deadlines
         id: obs
         if: ${{ !inputs.skip_obs }}
-        timeout-minutes: 120
+        timeout-minutes: 180
         continue-on-error: true
         env:
           OBS_BUDGET: ${{ inputs.obs_budget || '150' }}
-        run: python -m aquascope.archive.refresh --out archive --budget "$OBS_BUDGET" --timeout 480
+        run: python -m aquascope.archive.refresh --out archive --budget "$OBS_BUDGET" --scheduled-budgets
 
       - name: Roll the per-station files into Parquet bundles (one per variable and source)
         id: bundles
@@ -187,7 +202,7 @@ jobs:
           EOF
 
       - name: Open / update / close collector-health issues from health.json
-        if: always() && github.event_name == 'schedule'
+        if: always() && (github.event_name == 'schedule' || inputs.health_issues == true)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
