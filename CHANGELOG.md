@@ -6,6 +6,7 @@ All notable changes to AquaScope are documented here.
 
 
 ### Adoption and reproducibility
+- Exported notebooks rerun through Studio in a fresh workspace, regenerate findings/gates/full input tables together, and save under a new directory instead of mixing current results with old claims or overwriting the original bundle.
 - Reports distinguish skipped comparisons from passed gates and unavailable model statistics from numeric results. Word exports keep table rows and figure captions together, restart numbered lists, and include the reproducibility appendix once.
 - Study bundles and workbooks retain full observation timestamps and precision; large tables continue across numbered sheets. Flood tables keep each estimator's own interval and confidence metadata. Word reports render Markdown tables and fenced code as native content, with readable panels for wide tables.
 - Explorer now leads with three entry routes, usable observation coverage, a mobile Tools menu, and a bundled synthetic sample. Catalog availability and observation freshness are described separately.

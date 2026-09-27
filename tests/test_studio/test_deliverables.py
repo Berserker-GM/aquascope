@@ -571,9 +571,9 @@ def test_notebook_is_valid_nbformat(ws) -> None:
         if c["cell_type"] == "code":
             assert c["outputs"] == [] and c["execution_count"] is None
     code = "\n".join(c["source"] for c in cells if c["cell_type"] == "code")
-    assert "run_study" in code and 'load("study.yaml")' in code and "workbook_bytes" in code
-    assert code.count("results.get(") == 3 and "draw(kind, payload" in code
-    assert "'frequency_curve'" in code
+    assert 'rerun_workspace("study.yaml", "workspace.json")' in code and "export(ws, out)" in code
+    assert code.count("results.get(") == 3 and "plt.imread(io.BytesIO(artifact.data)" in code
+    assert 'rerun-{ws.id}' in code
     nbformat = pytest.importorskip("nbformat")
     nbformat.validate(nbformat.reads(text, as_version=4))
 
