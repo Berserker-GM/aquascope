@@ -4,6 +4,18 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+
+### Adoption and reproducibility
+- Exported notebooks rerun through Studio in a fresh workspace, regenerate findings/gates/full input tables together, and save under a new directory instead of mixing current results with old claims or overwriting the original bundle.
+- Reports distinguish skipped comparisons from passed gates and unavailable model statistics from numeric results. Word exports keep table rows and figure captions together, restart numbered lists, and include the reproducibility appendix once.
+- Study bundles and workbooks retain full observation timestamps and precision; large tables continue across numbered sheets. Flood tables keep each estimator's own interval and confidence metadata. Word reports render Markdown tables and fenced code as native content, with readable panels for wide tables.
+- Explorer now leads with three entry routes, usable observation coverage, a mobile Tools menu, and a bundled synthetic sample. Catalog availability and observation freshness are described separately.
+- Scientific flood claims carry estimator-specific result identities and uncertainty. Model-written intervals must name and match their estimator; an annual-mean trend cannot substitute for an unavailable annual-maxima trend. Unverified catchment comparisons remain unestablished.
+- CSV downloads, uploaded-table ingestion and station-to-workbench handoff preserve the full observed record. Chart decimation and display rounding no longer silently remove observations from exports; snapshot hashes retain input precision.
+- Completed studies can be saved and reopened with inputs, results and artifact bytes. Plan links are labelled separately. Optional local usage logs are off by default, inspectable, deletable and never sent automatically.
+- Observation harvests checkpoint completed stations, retain last-good data and continue across source timeouts. Failed/unrequested catalogs retain their previous pins. An unreadable manifest stops a refresh rather than resetting archive history.
+- Added daily regional browser record-to-export checks, a fixture-backed executable quickstart, explicit validation scope, pilot/review protocols, and local preparation of versioned archive deposits. Independent scientific review, real-user adoption and a dataset DOI remain external acceptance gates.
+
 ### Added
 - **Harmonized data-quality flags across the schema and Archive**
   (#374). Readings now carry a `Quality` enum (`approved`,
