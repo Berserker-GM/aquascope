@@ -1,7 +1,7 @@
 # Screen the 100-year daily-mean flood at Fish River, Maine; identify estimator un (47.2375, -68.5827777777778)
 
 **Author:** AquaScope Studio  
-**Date:** 2026-09-23  
+**Date:** 2026-09-27  
 **Description:** Screen the 100-year daily-mean flood at Fish River, Maine; identify estimator uncertainty and limitations.  
 **Version:** 1.0  
 
@@ -95,8 +95,8 @@ Assumptions: Independent stationary annual maxima..
 
 The record at Fish River, Maine (usgs USGS-01013500) runs from 1903-07-29 to 2026-09-21 (123.1 years, discharge in m3/s). Mann-Kendall on the annual maxima: not significant at the 5 % level (p = 0.32, Sen's slope 0.24 m3/s per year over 100 years). The 100-year return level from 100 annual maxima: GEV by L-moments 463.9 m3/s; Log-Pearson III 445.4 m3/s (90 % confidence interval 404.7 to 490.2 m3/s); bootstrap GEV 458.8 m3/s (90 % confidence interval 400.9 to 514.1 m3/s). The two fits differ by 4%. Flow duration: the flow exceeded on 95 % of days is 4.67 m3/s, the median 21.9 m3/s, the flow exceeded on 10 % of days 101 m3/s. Gates: min_years passed (100 years of record, 20 needed); unit_present passed (unit m3/s); max_return_period_factor passed (T = 100 years against a cap of about 300 years (3 times 100 years of record)); spread_within passed (spread 4% between 463.9, 445.4 (25% allowed) at T = 100 years); trend_on_series passed (Mann-Kendall on the annual maxima: p = 0.32, tau = 0.07: no trend at the 0.05 level).
 
-![Return levels of annual maximum discharge at Fish River, Maine (usgs USGS-01013500): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.](figures/s1_frequency_curve.png)
-*Return levels of annual maximum discharge at Fish River, Maine (usgs USGS-01013500): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.*
+![Return levels of annual maximum discharge at Fish River, Maine (usgs USGS-01013500): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.](figures/s1_frequency_curve.png)
+*Return levels of annual maximum discharge at Fish River, Maine (usgs USGS-01013500): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.*
 
 ![Annual maximum discharge at Fish River, Maine (usgs USGS-01013500), 100 years (1904 to 2025).](figures/s1_annual_maxima.png)
 *Annual maximum discharge at Fish River, Maine (usgs USGS-01013500), 100 years (1904 to 2025).*
@@ -106,14 +106,26 @@ The record at Fish River, Maine (usgs USGS-01013500) runs from 1903-07-29 to 202
 
 *Return levels at Fish River, Maine (usgs USGS-01013500) by return period, with the confidence band.*
 
-| T | GEV | LP3 | lower | upper |
-| --- | --- | --- | --- | --- |
-| 2.0 | 233.3828 | 236.3042 | 222.7553 | 246.047 |
-| 5.0 | 301.044 | 303.8977 | 285.5962 | 317.9906 |
-| 10.0 | 343.338 | 343.0796 | 319.6619 | 365.1152 |
-| 25.0 | 394.0839 | 387.5232 | 357.1478 | 424.0718 |
-| 50.0 | 429.8805 | 417.5643 | 379.8743 | 468.2861 |
-| 100.0 | 463.9272 | 445.3895 | 400.8806 | 514.057 |
+| T | estimator | unit | estimate | lower | upper | interval_method | confidence_level |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | gev_lmoments | m3/s | 233.3828 |  |  |  |  |
+| 5 | gev_lmoments | m3/s | 301.044 |  |  |  |  |
+| 10 | gev_lmoments | m3/s | 343.338 |  |  |  |  |
+| 25 | gev_lmoments | m3/s | 394.0839 |  |  |  |  |
+| 50 | gev_lmoments | m3/s | 429.8805 |  |  |  |  |
+| 100 | gev_lmoments | m3/s | 463.9272 |  |  |  |  |
+| 2 | lp3_log_moments | m3/s | 236.3042 | 224.1971 | 249.0651 | variance_of_estimate | 0.9 |
+| 5 | lp3_log_moments | m3/s | 303.8977 | 285.5826 | 323.3874 | variance_of_estimate | 0.9 |
+| 10 | lp3_log_moments | m3/s | 343.0796 | 319.488 | 368.4132 | variance_of_estimate | 0.9 |
+| 25 | lp3_log_moments | m3/s | 387.5232 | 356.9803 | 420.6793 | variance_of_estimate | 0.9 |
+| 50 | lp3_log_moments | m3/s | 417.5643 | 381.8784 | 456.585 | variance_of_estimate | 0.9 |
+| 100 | lp3_log_moments | m3/s | 445.3895 | 404.6771 | 490.1978 | variance_of_estimate | 0.9 |
+| 2 | gev_mle_with_lmoments_fallback | m3/s | 234.7098 | 222.7553 | 246.047 | nonparametric_bootstrap_percentile | 0.9 |
+| 5 | gev_mle_with_lmoments_fallback | m3/s | 302.8586 | 285.5962 | 317.9906 | nonparametric_bootstrap_percentile | 0.9 |
+| 10 | gev_mle_with_lmoments_fallback | m3/s | 344.483 | 319.6619 | 365.1152 | nonparametric_bootstrap_percentile | 0.9 |
+| 25 | gev_mle_with_lmoments_fallback | m3/s | 393.4015 | 357.1478 | 424.0718 | nonparametric_bootstrap_percentile | 0.9 |
+| 50 | gev_mle_with_lmoments_fallback | m3/s | 427.217 | 379.8743 | 468.2861 | nonparametric_bootstrap_percentile | 0.9 |
+| 100 | gev_mle_with_lmoments_fallback | m3/s | 458.8331 | 400.8806 | 514.057 | nonparametric_bootstrap_percentile | 0.9 |
 
 *Annual maxima at Fish River, Maine (usgs USGS-01013500).*
 
@@ -183,7 +195,7 @@ The record at Fish River, Maine (usgs USGS-01013500) runs from 1903-07-29 to 202
 
 ## Limitations and what this study does not establish
 
-Every gate and check passed.
+No failed or skipped checks are recorded; the scope and caveats below still apply.
 
 Caveats, verbatim from the playbook:
 - Maintainer reproduction; independent hydrologist review pending.
@@ -201,7 +213,7 @@ Caveats, verbatim from the playbook:
 ## Recommendations
 
 - Adopt this as the answer to the decision: Screen the 100-year daily-mean flood at Fish River, Maine; identify estimator uncertainty and limitations: 100-year return level, GEV (L-moments) 463.9 m3/s (established).
-- Quote both fits with their intervals: spread 4% between 463.9, 445.4 (25% allowed) at T = 100 years.
+- Quote both point estimates and only each estimator's own available interval: spread 4% between 463.9, 445.4 (25% allowed) at T = 100 years.
 - Read the numbers with this caveat: Maintainer reproduction; independent hydrologist review pending.
 - Read the numbers with this caveat: Daily mean maxima are not instantaneous annual peaks or a certified design flood.
 - Read the numbers with this caveat: No catchment regulation, channel topology or model/gauge comparability was established.
@@ -214,7 +226,7 @@ Caveats, verbatim from the playbook:
 4. England, J. F. Jr. et al. (2018). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.
 5. Mann, H. B. (1945). Nonparametric tests against trend. Econometrica, 13, 245-259
 6. Sen, P. K. (1968). J. Am. Stat. Assoc., 63, 1379-1389.
-7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes.
+7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes.
 
 ## Appendix: reproducibility
 
@@ -228,7 +240,7 @@ Model: none via none; ledger: no model calls. aquascope 0.18.0.
 version: 3
 title: "Daily-mean flood screening: Fish River, Maine"
 question: "Screen the 100-year daily-mean flood at Fish River, Maine; identify estimator uncertainty and limitations."
-created: "2026-09-23T03:42:54+00:00"
+created: "2026-09-27T04:16:49+00:00"
 aquascope_version: "0.18.0"
 author: "hand"
 problem:
@@ -256,29 +268,29 @@ steps:
       - {"check": "spread_within", "paths": ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"], "value": 0.25, "return_period": 100}
       - {"check": "trend_on_series", "path": "ffa.amax_trend", "value": 0.05}
 results:
-  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "100 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 300 years (3 times 100 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 463.9, 445.4 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.32, tau = 0.07: no trend at the 0.05 level"}], "summary": "source=usgs, station_id=USGS-01013500, variable=discharge, unit=m3/s, years=123.1, start=1903-07-29, end=2026-09-21", "fallback_used": false, "sha256": "7f69289cfe4c5c6a"}
+  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "100 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 300 years (3 times 100 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 463.9, 445.4 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.32, tau = 0.07: no trend at the 0.05 level"}], "summary": "source=usgs, station_id=USGS-01013500, variable=discharge, unit=m3/s, years=123.1, start=1903-07-29, end=2026-09-21", "fallback_used": false, "sha256": "c326b38921d3e880"}
 ```
 
 Result identities (also in findings.json and the Findings worksheet):
-- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [404.6771, 490.1978], method variance_of_estimate, level 0.9.
-- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [400.8806, 514.057], method nonparametric_bootstrap_percentile, level 0.9.
-- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [224.1971, 249.0651], method variance_of_estimate, level 0.9.
-- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [285.5826, 323.3874], method variance_of_estimate, level 0.9.
-- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [319.488, 368.4132], method variance_of_estimate, level 0.9.
-- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [356.9803, 420.6793], method variance_of_estimate, level 0.9.
-- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [381.8784, 456.585], method variance_of_estimate, level 0.9.
+- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [404.6771, 490.1978], method variance_of_estimate, level 0.9.
+- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [400.8806, 514.057], method nonparametric_bootstrap_percentile, level 0.9.
+- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [224.1971, 249.0651], method variance_of_estimate, level 0.9.
+- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [285.5826, 323.3874], method variance_of_estimate, level 0.9.
+- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [319.488, 368.4132], method variance_of_estimate, level 0.9.
+- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [356.9803, 420.6793], method variance_of_estimate, level 0.9.
+- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input usgs/USGS-01013500, discharge, m3/s, 1903-07-29 to 2026-09-21; content sha256:735990f72ac655a5dbd68aae19e42a769abbcf9eb95747702bb582f7ff4d642c. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [381.8784, 456.585], method variance_of_estimate, level 0.9.
 
 ## Cite this software
 
-Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes.
+Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes.
 
 
 ---
 
-*{'model': None, 'provider': None, 'prose': 'template', 'tokens': {}, 'total_tokens': 0, 'total_usd': None, 'budget': None, 'dropped': 0, 'aquascope_version': '0.18.0', 'date': '2026-09-23 03:42 UTC', 'workspace': '453cb36f380a', 'plan_author': 'hand', 'written_by': {'answer': 'template', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*
+*{'model': None, 'provider': None, 'prose': 'template', 'tokens': {}, 'total_tokens': 0, 'total_usd': None, 'budget': None, 'dropped': 0, 'aquascope_version': '0.18.0', 'date': '2026-09-27 04:16 UTC', 'workspace': '10d9ecef6aa8', 'plan_author': 'hand', 'written_by': {'answer': 'template', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*

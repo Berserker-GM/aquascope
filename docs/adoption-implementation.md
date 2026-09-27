@@ -22,7 +22,7 @@ maintainer reproductions and proposed targets do not establish independent adopt
 | Completed-study sharing | Versioned, bounded, checksummed portable file retains inputs/results/artifact bytes; import does not rerun; explicit immutable publishing instructions | User-controlled public publication and real recipient use |
 | Python/R/QGIS handoff | Export schema, unit/CRS guidance and readers documented | Python tutorial executed; practitioner R/QGIS exercise pending |
 | Validation scope | Method/input/comparator/tolerance matrix; synthetic and observed evidence separated; Bulletin 17C scope qualified | Independent scientific review; no blanket certification claimed |
-| Current regional examples | Three retained observed CSVs, generator, reports, figures, complete studies and provenance | Independent review pending; generated at `efe3a0e9f8469011f2f6ad9a8c87967dbf22072a` |
+| Current regional examples | Three retained observed CSVs, generator, reports, figures, complete studies and provenance | Independent review pending; regenerated at `f6ce050` |
 | Software and data citation | Release DOI distinct from concept DOI; source revision and input hash retained; archive snapshot prep command includes agency rights and hashes | Zenodo account and actual dataset DOI registration; no invented DOI |
 | Positioning and discovery | Explorer-first README/package/site/paper; AquaScope Hydrology titles; regional task pages | About metadata updated on GitHub; deployed site verification remains |
 | Existing launch feedback | Actual Reddit requests mapped to replies/issues; focused follow-up drafts prepared | Explicit instruction required before sending outreach |
@@ -41,8 +41,8 @@ no decorative animation or marketing overlay is added.
 
 ## Verification log
 
-- Python 3.12.13 final full suite: **3,109 passed, 11 skipped**. Optional skips
-  and runtime warnings remain disclosed. Final source revision: `efe3a0e`.
+- Python 3.12.13 final full suite: **3,118 passed, 11 skipped**. Optional skips
+  and runtime warnings remain disclosed. Final source revision: `4183f82`.
 - JavaScript contract suite: 62 passed, including privacy consent/retention,
   capability labels and minimum-repetition timing summaries; added to CI.
 - Ruff and whitespace checks passed. Strict documentation build, wheel build and stdlib-only Explorer assembly passed.
@@ -89,3 +89,41 @@ have been requested. Do not mark these complete based on tests or synthetic user
 - Final four-step browser study passed the stronger contract: the headline result
   id is `s3.ffa.fits.gev_lmoments.q.5`, its input hash and variable equal the flood
   tool payload's own fields, and its interval is absent rather than borrowed.
+
+## Export and archive verification on 27 September
+
+- The actual study bundle exposed a second export path that still used plotted
+  points. Station and flood steps now retain their own full observation CSVs;
+  a missing full input cannot silently become a decimated record table.
+- Flood CSVs now use one row per estimator and return period, with that fit's own
+  bounds, interval method and confidence level. Word reports render embedded
+  Markdown tables and fenced code; wide tables repeat identifying columns in panels.
+- Workbook tables over 100,000 rows continue in numbered sheets. A 100,001-row
+  regression confirms no omitted rows. CSV timestamps and serialized precision
+  remain authoritative when a spreadsheet application imposes numeric limits.
+- The repeated four-step browser study at `4183f82` produced 30 artifacts. Steps
+  s2 and s3 each retained 37,538 observations; both CSVs reproduced their respective
+  input hashes exactly and both workbook sheets had 37,538 data rows. Every exported
+  flood estimate and bound matched its own fit. The GEV L-moments headline remained
+  463.9 m³/s, with no borrowed interval.
+- The capped manual archive run [35817109325](https://github.com/Rekin226/aquascope/actions/runs/35817109325)
+  completed with publication disabled. Its refresh status was partial: Poland
+  water-level retrieval timed out; bundling and artifact upload still completed.
+  All 13 Parquet row counts matched the manifest. All 2,185 previously nonempty
+  station files remained present with nondecreasing manifest counts. This checks
+  retention metadata and file presence, not bytewise equivalence of every observation.
+  See [retained run evidence](adoption/archive-dry-run-2026-09-23.json).
+  A capped manual run does not satisfy the two scheduled-publication gate.
+
+- Final report corrections at `f6ce050` distinguish skipped comparisons from
+  passed gates in the summary, step narrative and limitations. Unavailable GloFAS
+  statistics are explicit; the primary estimate's scoped grade is preserved.
+- Re-authored the retained real browser study and visually inspected all 27 Word
+  pages: repeated table headers, unsplit rows, figure/caption placement, reference
+  numbering and a single reproducibility appendix. This is an export-layout check,
+  not independent scientific review. The original downloaded study remains retained.
+- All 30 artifacts, full input tables, run results and report survived the actual
+  browser import/export roundtrip. Three reference examples were regenerated from
+  retained observed CSVs at `f6ce050`; independent review remains pending.
+- Final local validation: Python 3.12 full suite **3,118 passed, 11 skipped**;
+  Ruff, wheel build, strict documentation build and Explorer assembly passed.

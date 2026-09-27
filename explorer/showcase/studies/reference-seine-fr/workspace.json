@@ -1,7 +1,7 @@
 {
  "version": 1,
- "id": "ee1191ce39c4",
- "created": "2026-09-23T03:43:13+00:00",
+ "id": "d428d9364e5d",
+ "created": "2026-09-27T04:17:06+00:00",
  "status": "done",
  "site": {
   "lat": 48.84468962,
@@ -36,7 +36,7 @@
   "version": 3,
   "title": "Daily-mean flood screening: Seine at Paris-Austerlitz, France",
   "question": "Screen the 100-year daily-mean flood at Seine at Paris-Austerlitz, France; identify estimator uncertainty and limitations.",
-  "created": "2026-09-23T03:43:13+00:00",
+  "created": "2026-09-27T04:17:06+00:00",
   "aquascope_version": "0.18.0",
   "author": "hand",
   "model": null,
@@ -141,7 +141,7 @@
     ],
     "summary": "source=hubeau_hydrometrie, station_id=F700000103, variable=discharge, unit=m3/s, years=20.6, start=2006-01-28, end=2026-09-21",
     "fallback_used": false,
-    "sha256": "4fdcb3025763345d",
+    "sha256": "241614c1f43504c7",
     "failed_reason": "gate failed: max_return_period_factor (T = 100 years against a cap of about 60 years (3 times 20 years of record): beyond the cap, an extrapolation)"
    }
   }
@@ -159,7 +159,7 @@
     },
     "ok": true,
     "rationale": null,
-    "sha256": "4fdcb3025763345d",
+    "sha256": "241614c1f43504c7",
     "methods": [
      {
       "name": "Flow-duration curve",
@@ -15954,7 +15954,7 @@
      "source": "hubeau_hydrometrie",
      "station_id": "F700000103",
      "station_name": "Seine at Paris-Austerlitz, France",
-     "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+     "software_revision": "f6ce050",
      "fetch_note": "Retained observed Explorer CSV; no observations refetched during reproduction.",
      "trend_reported": {
       "on": "annual maxima",
@@ -16079,8 +16079,8 @@
    "failed": 1,
    "skipped": 0
   },
-  "started": "2026-09-23T03:43:13+00:00",
-  "finished": "2026-09-23T03:43:13+00:00",
+  "started": "2026-09-27T04:17:06+00:00",
+  "finished": "2026-09-27T04:17:06+00:00",
   "stop_reason": null
  },
  "findings": {
@@ -16156,7 +16156,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -16232,7 +16232,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -16422,7 +16422,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -16867,7 +16867,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -16943,7 +16943,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17031,7 +17031,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17107,7 +17107,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17195,7 +17195,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17271,7 +17271,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17359,7 +17359,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17435,7 +17435,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17523,7 +17523,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17599,7 +17599,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -17720,7 +17720,7 @@
      "end": "2026-09-21",
      "observations": 7542,
      "software_version": "0.18.0",
-     "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+     "software_revision": "f6ce050",
      "archive_revision": null
     },
     "variable": "discharge",
@@ -17848,7 +17848,7 @@
      "end": "2026-09-21",
      "observations": 7542,
      "software_version": "0.18.0",
-     "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+     "software_revision": "f6ce050",
      "archive_revision": null
     },
     "variable": "discharge",
@@ -17991,7 +17991,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18067,7 +18067,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18257,7 +18257,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18702,7 +18702,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18778,7 +18778,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18866,7 +18866,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -18942,7 +18942,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19030,7 +19030,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19106,7 +19106,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19194,7 +19194,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19270,7 +19270,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19358,7 +19358,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19434,7 +19434,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19535,7 +19535,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19568,7 +19568,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19625,7 +19625,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19712,7 +19712,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19745,7 +19745,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19790,7 +19790,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19823,7 +19823,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19868,7 +19868,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19901,7 +19901,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19946,7 +19946,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -19979,7 +19979,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -20024,7 +20024,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -20057,7 +20057,7 @@
       "end": "2026-09-21",
       "observations": 7542,
       "software_version": "0.18.0",
-      "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a",
+      "software_revision": "f6ce050",
       "archive_revision": null
      },
      "variable": "discharge",
@@ -20160,14 +20160,14 @@
    {
     "id": "references",
     "title": "References",
-    "text": "1. England et al. (2019) Bulletin 17C\n2. Hosking, J. R. M. (1990). L-moments: analysis and estimation of distributions using linear combinations of order statistics. J. R. Stat. Soc. B, 52(1), 105-124.\n3. Vogel, R. M., & Fennessey, N. M. (1994). Flow-duration curves I: new interpretation and confidence intervals. J. Water Resour. Plann. Manage., 120(4), 485-504.\n4. England, J. F. Jr. et al. (2018). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.\n5. Mann, H. B. (1945). Nonparametric tests against trend. Econometrica, 13, 245-259\n6. Sen, P. K. (1968). J. Am. Stat. Assoc., 63, 1379-1389.\n7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes.",
+    "text": "1. England et al. (2019) Bulletin 17C\n2. Hosking, J. R. M. (1990). L-moments: analysis and estimation of distributions using linear combinations of order statistics. J. R. Stat. Soc. B, 52(1), 105-124.\n3. Vogel, R. M., & Fennessey, N. M. (1994). Flow-duration curves I: new interpretation and confidence intervals. J. Water Resour. Plann. Manage., 120(4), 485-504.\n4. England, J. F. Jr. et al. (2018). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.\n5. Mann, H. B. (1945). Nonparametric tests against trend. Econometrica, 13, 245-259\n6. Sen, P. K. (1968). J. Am. Stat. Assoc., 63, 1379-1389.\n7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes.",
     "figures": [],
     "tables": []
    },
    {
     "id": "appendix",
     "title": "Appendix: reproducibility",
-    "text": "Re-run the same steps with no model: `aquascope run study.yaml`. Resume the workspace: `aquascope studio --resume workspace.json`.\n\nModel: none via none; ledger: no model calls. aquascope 0.18.0.\n\n```yaml\n# An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.\n#   aquascope run study.yaml\nversion: 3\ntitle: \"Daily-mean flood screening: Seine at Paris-Austerlitz, France\"\nquestion: \"Screen the 100-year daily-mean flood at Seine at Paris-Austerlitz, France; identify estimator uncertainty and limitations.\"\ncreated: \"2026-09-23T03:43:13+00:00\"\naquascope_version: \"0.18.0\"\nauthor: \"hand\"\nproblem:\n  kind: \"flood_risk\"\n  site: {\"lat\": 48.84468962, \"lon\": 2.365510635}\n  params: {\"return_period\": 100}\nplan:\n  playbook: \"flood_risk\"\n  objective: \"Screen the 100-year daily-mean flood at Seine at Paris-Austerlitz, France; identify estimator uncertainty and limitations.\"\n  caveats: [\"Maintainer reproduction; independent hydrologist review pending.\", \"Daily mean maxima are not instantaneous annual peaks or a certified design flood.\", \"No catchment regulation, channel topology or model/gauge comparability was established.\", \"Re-run live uses current observations; use the retained CSV and this script for reproduction.\"]\n  methodology: [\"Compare GEV L-moments, LP3 and GEV MLE quantiles on complete-year daily maxima.\"]\n  assumptions: [\"Independent stationary annual maxima.\"]\nsteps:\n  - tool: \"flood_frequency\"\n    id: \"s1\"\n    method: \"at_site_flood_frequency\"\n    arguments:\n      source: \"hubeau_hydrometrie\"\n      station_id: \"F700000103\"\n      bootstrap_ci: true\n    expects:\n      - {\"check\": \"min_years\", \"path\": \"ffa.n_years\", \"value\": 20}\n      - {\"check\": \"unit_present\", \"path\": \"unit\"}\n      - {\"check\": \"max_return_period_factor\", \"path\": \"ffa.n_years\", \"value\": 3, \"return_period\": 100}\n      - {\"check\": \"spread_within\", \"paths\": [\"ffa.fits.gev_lmoments.q\", \"ffa.fits.lp3.q\"], \"value\": 0.25, \"return_period\": 100}\n      - {\"check\": \"trend_on_series\", \"path\": \"ffa.amax_trend\", \"value\": 0.05}\nresults:\n  s1: {\"ok\": true, \"gates\": [{\"check\": \"min_years\", \"passed\": true, \"detail\": \"20 years of record, 20 needed\"}, {\"check\": \"unit_present\", \"passed\": true, \"detail\": \"unit m3/s\"}, {\"check\": \"max_return_period_factor\", \"passed\": false, \"detail\": \"T = 100 years against a cap of about 60 years (3 times 20 years of record): beyond the cap, an extrapolation\"}, {\"check\": \"spread_within\", \"passed\": true, \"detail\": \"spread 6% between 1,951, 1,828 (25% allowed) at T = 100 years\"}, {\"check\": \"trend_on_series\", \"passed\": true, \"detail\": \"Mann-Kendall on the annual maxima: p = 0.347, tau = 0.16: no trend at the 0.05 level\"}], \"summary\": \"source=hubeau_hydrometrie, station_id=F700000103, variable=discharge, unit=m3/s, years=20.6, start=2006-01-28, end=2026-09-21\", \"fallback_used\": false, \"sha256\": \"4fdcb3025763345d\", \"failed_reason\": \"gate failed: max_return_period_factor (T = 100 years against a cap of about 60 years (3 times 20 years of record): beyond the cap, an extrapolation)\"}\n```\n\nResult identities (also in findings.json and the Findings worksheet):\n- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1513.4511, 2208.4273], method variance_of_estimate, level 0.9.\n- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1375.0989, 2478.0204], method nonparametric_bootstrap_percentile, level 0.9.\n- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [946.4268, 1161.9064], method variance_of_estimate, level 0.9.\n- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1152.1852, 1465.9707], method variance_of_estimate, level 0.9.\n- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1258.3073, 1659.3351], method variance_of_estimate, level 0.9.\n- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1371.9955, 1890.5334], method variance_of_estimate, level 0.9.\n- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [1446.1473, 2053.2546], method variance_of_estimate, level 0.9.",
+    "text": "Re-run the same steps with no model: `aquascope run study.yaml`. Resume the workspace: `aquascope studio --resume workspace.json`.\n\nModel: none via none; ledger: no model calls. aquascope 0.18.0.\n\n```yaml\n# An AquaScope study (version 3): the plan behind an answer, its gates, and what happened.\n#   aquascope run study.yaml\nversion: 3\ntitle: \"Daily-mean flood screening: Seine at Paris-Austerlitz, France\"\nquestion: \"Screen the 100-year daily-mean flood at Seine at Paris-Austerlitz, France; identify estimator uncertainty and limitations.\"\ncreated: \"2026-09-27T04:17:06+00:00\"\naquascope_version: \"0.18.0\"\nauthor: \"hand\"\nproblem:\n  kind: \"flood_risk\"\n  site: {\"lat\": 48.84468962, \"lon\": 2.365510635}\n  params: {\"return_period\": 100}\nplan:\n  playbook: \"flood_risk\"\n  objective: \"Screen the 100-year daily-mean flood at Seine at Paris-Austerlitz, France; identify estimator uncertainty and limitations.\"\n  caveats: [\"Maintainer reproduction; independent hydrologist review pending.\", \"Daily mean maxima are not instantaneous annual peaks or a certified design flood.\", \"No catchment regulation, channel topology or model/gauge comparability was established.\", \"Re-run live uses current observations; use the retained CSV and this script for reproduction.\"]\n  methodology: [\"Compare GEV L-moments, LP3 and GEV MLE quantiles on complete-year daily maxima.\"]\n  assumptions: [\"Independent stationary annual maxima.\"]\nsteps:\n  - tool: \"flood_frequency\"\n    id: \"s1\"\n    method: \"at_site_flood_frequency\"\n    arguments:\n      source: \"hubeau_hydrometrie\"\n      station_id: \"F700000103\"\n      bootstrap_ci: true\n    expects:\n      - {\"check\": \"min_years\", \"path\": \"ffa.n_years\", \"value\": 20}\n      - {\"check\": \"unit_present\", \"path\": \"unit\"}\n      - {\"check\": \"max_return_period_factor\", \"path\": \"ffa.n_years\", \"value\": 3, \"return_period\": 100}\n      - {\"check\": \"spread_within\", \"paths\": [\"ffa.fits.gev_lmoments.q\", \"ffa.fits.lp3.q\"], \"value\": 0.25, \"return_period\": 100}\n      - {\"check\": \"trend_on_series\", \"path\": \"ffa.amax_trend\", \"value\": 0.05}\nresults:\n  s1: {\"ok\": true, \"gates\": [{\"check\": \"min_years\", \"passed\": true, \"detail\": \"20 years of record, 20 needed\"}, {\"check\": \"unit_present\", \"passed\": true, \"detail\": \"unit m3/s\"}, {\"check\": \"max_return_period_factor\", \"passed\": false, \"detail\": \"T = 100 years against a cap of about 60 years (3 times 20 years of record): beyond the cap, an extrapolation\"}, {\"check\": \"spread_within\", \"passed\": true, \"detail\": \"spread 6% between 1,951, 1,828 (25% allowed) at T = 100 years\"}, {\"check\": \"trend_on_series\", \"passed\": true, \"detail\": \"Mann-Kendall on the annual maxima: p = 0.347, tau = 0.16: no trend at the 0.05 level\"}], \"summary\": \"source=hubeau_hydrometrie, station_id=F700000103, variable=discharge, unit=m3/s, years=20.6, start=2006-01-28, end=2026-09-21\", \"fallback_used\": false, \"sha256\": \"241614c1f43504c7\", \"failed_reason\": \"gate failed: max_return_period_factor (T = 100 years against a cap of about 60 years (3 times 20 years of record): beyond the cap, an extrapolation)\"}\n```\n\nResult identities (also in findings.json and the Findings worksheet):\n- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1513.4511, 2208.4273], method variance_of_estimate, level 0.9.\n- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1375.0989, 2478.0204], method nonparametric_bootstrap_percentile, level 0.9.\n- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [946.4268, 1161.9064], method variance_of_estimate, level 0.9.\n- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1152.1852, 1465.9707], method variance_of_estimate, level 0.9.\n- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1258.3073, 1659.3351], method variance_of_estimate, level 0.9.\n- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1371.9955, 1890.5334], method variance_of_estimate, level 0.9.\n- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.\n- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input hubeau_hydrometrie/F700000103, discharge, m3/s, 2006-01-28 to 2026-09-21; content sha256:d4d7063849d42170f8436229fdafe83a286f01c37816bd6ab10bdcbb19393e58. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [1446.1473, 2053.2546], method variance_of_estimate, level 0.9.",
     "figures": [],
     "tables": []
    }
@@ -20189,7 +20189,7 @@
    "England, J. F. Jr. et al. (2018). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.",
    "Mann, H. B. (1945). Nonparametric tests against trend. Econometrica, 13, 245-259",
    "Sen, P. K. (1968). J. Am. Stat. Assoc., 63, 1379-1389.",
-   "Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes."
+   "Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes."
   ],
   "caveats": [
    "Maintainer reproduction; independent hydrologist review pending.",
@@ -20222,8 +20222,8 @@
    "budget": null,
    "dropped": 0,
    "aquascope_version": "0.18.0",
-   "date": "2026-09-23 03:43 UTC",
-   "workspace": "ee1191ce39c4",
+   "date": "2026-09-27 04:17 UTC",
+   "workspace": "d428d9364e5d",
    "plan_author": "hand",
    "written_by": {
     "answer": "template",
@@ -20247,27 +20247,27 @@
    "kind": "figure",
    "name": "figures/s1_frequency_curve.png",
    "media_type": "image/png",
-   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
+   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
    "step": "s1",
    "meta": {
     "kind": "frequency_curve",
     "tool": "flood_frequency"
    },
-   "size": 93149
+   "size": 95100
   },
   {
    "id": "fig-s1-frequency_curve-svg",
    "kind": "figure",
    "name": "figures/s1_frequency_curve.svg",
    "media_type": "image/svg+xml",
-   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
+   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
    "step": "s1",
    "meta": {
     "kind": "frequency_curve",
     "tool": "flood_frequency",
     "format": "svg"
    },
-   "size": 61273
+   "size": 63080
   },
   {
    "id": "fig-s1-annual_maxima",
@@ -20333,16 +20333,19 @@
    "meta": {
     "columns": [
      "T",
-     "GEV",
-     "LP3",
+     "estimator",
+     "unit",
+     "estimate",
      "lower",
-     "upper"
+     "upper",
+     "interval_method",
+     "confidence_level"
     ],
-    "rows": 6,
+    "rows": 18,
     "name": "return_levels",
     "tool": "flood_frequency"
    },
-   "size": 289
+   "size": 1397
   },
   {
    "id": "tab-s1-annual_maxima",
@@ -20390,14 +20393,14 @@
    "step": null,
    "event": "findings",
    "detail": "23 finding(s) (rules), grade not_established, 1 data request(s)",
-   "at": "2026-09-23T03:43:14+00:00"
+   "at": "2026-09-27T04:17:07+00:00"
   },
   {
    "role": "author",
    "step": null,
    "event": "template",
    "detail": "11 section(s) from the template",
-   "at": "2026-09-23T03:43:14+00:00"
+   "at": "2026-09-27T04:17:07+00:00"
   }
  ],
  "ledger": {},

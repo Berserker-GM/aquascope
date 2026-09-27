@@ -1,7 +1,7 @@
 # Screen the 100-year daily-mean flood at Thames at Kingston, England; identify es (51.415482, -0.307629)
 
 **Author:** AquaScope Studio  
-**Date:** 2026-09-23  
+**Date:** 2026-09-27  
 **Description:** Screen the 100-year daily-mean flood at Thames at Kingston, England; identify estimator uncertainty and limitations.  
 **Version:** 1.0  
 
@@ -95,8 +95,8 @@ Assumptions: Independent stationary annual maxima..
 
 The record at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099) runs from 1883-10-01 to 2026-09-09 (142.9 years, discharge in m3/s). Mann-Kendall on the annual maxima: not significant at the 5 % level (p = 0.178, Sen's slope 0.2906 m3/s per year over 140 years). The 100-year return level from 140 annual maxima: GEV by L-moments 652.5 m3/s; Log-Pearson III 624 m3/s (90 % confidence interval 573.2 to 679.4 m3/s); bootstrap GEV 646.2 m3/s (90 % confidence interval 565.4 to 723.1 m3/s). The two fits differ by 4%. Flow duration: the flow exceeded on 95 % of days is 7.52 m3/s, the median 39.9 m3/s, the flow exceeded on 10 % of days 162 m3/s. Gates: min_years passed (140 years of record, 20 needed); unit_present passed (unit m3/s); max_return_period_factor passed (T = 100 years against a cap of about 420 years (3 times 140 years of record)); spread_within passed (spread 4% between 652.5, 624 (25% allowed) at T = 100 years); trend_on_series passed (Mann-Kendall on the annual maxima: p = 0.178, tau = 0.08: no trend at the 0.05 level).
 
-![Return levels of annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.](figures/s1_frequency_curve.png)
-*Return levels of annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.*
+![Return levels of annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.](figures/s1_frequency_curve.png)
+*Return levels of annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.*
 
 ![Annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099), 140 years (1884 to 2025).](figures/s1_annual_maxima.png)
 *Annual maximum discharge at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099), 140 years (1884 to 2025).*
@@ -106,14 +106,26 @@ The record at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef
 
 *Return levels at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099) by return period, with the confidence band.*
 
-| T | GEV | LP3 | lower | upper |
-| --- | --- | --- | --- | --- |
-| 2.0 | 307.917 | 311.75 | 295.1933 | 323.9715 |
-| 5.0 | 403.0441 | 407.1086 | 383.2295 | 425.9326 |
-| 10.0 | 464.8468 | 464.6854 | 436.5283 | 493.5379 |
-| 25.0 | 541.616 | 532.2235 | 494.2591 | 582.3356 |
-| 50.0 | 597.6318 | 579.3046 | 532.6547 | 651.8774 |
-| 100.0 | 652.4577 | 624.0012 | 565.4195 | 723.1096 |
+| T | estimator | unit | estimate | lower | upper | interval_method | confidence_level |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2 | gev_lmoments | m3/s | 307.917 |  |  |  |  |
+| 5 | gev_lmoments | m3/s | 403.0441 |  |  |  |  |
+| 10 | gev_lmoments | m3/s | 464.8468 |  |  |  |  |
+| 25 | gev_lmoments | m3/s | 541.616 |  |  |  |  |
+| 50 | gev_lmoments | m3/s | 597.6318 |  |  |  |  |
+| 100 | gev_lmoments | m3/s | 652.4577 |  |  |  |  |
+| 2 | lp3_log_moments | m3/s | 311.75 | 297.7184 | 326.4429 | variance_of_estimate | 0.9 |
+| 5 | lp3_log_moments | m3/s | 407.1086 | 385.6949 | 429.7112 | variance_of_estimate | 0.9 |
+| 10 | lp3_log_moments | m3/s | 464.6854 | 436.7122 | 494.4503 | variance_of_estimate | 0.9 |
+| 25 | lp3_log_moments | m3/s | 532.2235 | 495.2459 | 571.9622 | variance_of_estimate | 0.9 |
+| 50 | lp3_log_moments | m3/s | 579.3046 | 535.4148 | 626.7922 | variance_of_estimate | 0.9 |
+| 100 | lp3_log_moments | m3/s | 624.0012 | 573.1555 | 679.3576 | variance_of_estimate | 0.9 |
+| 2 | gev_mle_with_lmoments_fallback | m3/s | 309.6445 | 295.1933 | 323.9715 | nonparametric_bootstrap_percentile | 0.9 |
+| 5 | gev_mle_with_lmoments_fallback | m3/s | 405.6345 | 383.2295 | 425.9326 | nonparametric_bootstrap_percentile | 0.9 |
+| 10 | gev_mle_with_lmoments_fallback | m3/s | 466.7469 | 436.5283 | 493.5379 | nonparametric_bootstrap_percentile | 0.9 |
+| 25 | gev_mle_with_lmoments_fallback | m3/s | 541.2883 | 494.2591 | 582.3356 | nonparametric_bootstrap_percentile | 0.9 |
+| 50 | gev_mle_with_lmoments_fallback | m3/s | 594.7214 | 532.6547 | 651.8774 | nonparametric_bootstrap_percentile | 0.9 |
+| 100 | gev_mle_with_lmoments_fallback | m3/s | 646.2384 | 565.4195 | 723.1096 | nonparametric_bootstrap_percentile | 0.9 |
 
 *Annual maxima at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef8f099).*
 
@@ -183,7 +195,7 @@ The record at Thames at Kingston, England (uk_ea 8496ce69-482c-406a-a2f0-ac418ef
 
 ## Limitations and what this study does not establish
 
-Every gate and check passed.
+No failed or skipped checks are recorded; the scope and caveats below still apply.
 
 Caveats, verbatim from the playbook:
 - Maintainer reproduction; independent hydrologist review pending.
@@ -201,7 +213,7 @@ Caveats, verbatim from the playbook:
 ## Recommendations
 
 - Adopt this as the answer to the decision: Screen the 100-year daily-mean flood at Thames at Kingston, England; identify estimator uncertainty and limitations: 100-year return level, GEV (L-moments) 652.5 m3/s (established).
-- Quote both fits with their intervals: spread 4% between 652.5, 624 (25% allowed) at T = 100 years.
+- Quote both point estimates and only each estimator's own available interval: spread 4% between 652.5, 624 (25% allowed) at T = 100 years.
 - Read the numbers with this caveat: Maintainer reproduction; independent hydrologist review pending.
 - Read the numbers with this caveat: Daily mean maxima are not instantaneous annual peaks or a certified design flood.
 - Read the numbers with this caveat: No catchment regulation, channel topology or model/gauge comparability was established.
@@ -214,7 +226,7 @@ Caveats, verbatim from the playbook:
 4. England, J. F. Jr. et al. (2018). Guidelines for determining flood flow frequency, Bulletin 17C. USGS Techniques and Methods 4-B5.
 5. Mann, H. B. (1945). Nonparametric tests against trend. Econometrica, 13, 245-259
 6. Sen, P. K. (1968). J. Am. Stat. Assoc., 63, 1379-1389.
-7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes.
+7. Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes.
 
 ## Appendix: reproducibility
 
@@ -228,7 +240,7 @@ Model: none via none; ledger: no model calls. aquascope 0.18.0.
 version: 3
 title: "Daily-mean flood screening: Thames at Kingston, England"
 question: "Screen the 100-year daily-mean flood at Thames at Kingston, England; identify estimator uncertainty and limitations."
-created: "2026-09-23T03:43:04+00:00"
+created: "2026-09-27T04:16:57+00:00"
 aquascope_version: "0.18.0"
 author: "hand"
 problem:
@@ -256,29 +268,29 @@ steps:
       - {"check": "spread_within", "paths": ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"], "value": 0.25, "return_period": 100}
       - {"check": "trend_on_series", "path": "ffa.amax_trend", "value": 0.05}
 results:
-  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "140 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 420 years (3 times 140 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 652.5, 624 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.178, tau = 0.08: no trend at the 0.05 level"}], "summary": "source=uk_ea, station_id=8496ce69-482c-406a-a2f0-ac418ef8f099, variable=discharge, unit=m3/s, years=142.9, start=1883-10-01, end=2026-09-09", "fallback_used": false, "sha256": "091270223e40815d"}
+  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "140 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 420 years (3 times 140 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 652.5, 624 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.178, tau = 0.08: no trend at the 0.05 level"}], "summary": "source=uk_ea, station_id=8496ce69-482c-406a-a2f0-ac418ef8f099, variable=discharge, unit=m3/s, years=142.9, start=1883-10-01, end=2026-09-09", "fallback_used": false, "sha256": "363f6f6a23e11e86"}
 ```
 
 Result identities (also in findings.json and the Findings worksheet):
-- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [573.1555, 679.3576], method variance_of_estimate, level 0.9.
-- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [565.4195, 723.1096], method nonparametric_bootstrap_percentile, level 0.9.
-- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [297.7184, 326.4429], method variance_of_estimate, level 0.9.
-- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [385.6949, 429.7112], method variance_of_estimate, level 0.9.
-- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [436.7122, 494.4503], method variance_of_estimate, level 0.9.
-- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [495.2459, 571.9622], method variance_of_estimate, level 0.9.
-- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
-- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision efe3a0e9f8469011f2f6ad9a8c87967dbf22072a. Archive revision not recorded; content hash is not an archive DOI. Own interval [535.4148, 626.7922], method variance_of_estimate, level 0.9.
+- 100-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.5; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 100-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.5; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [573.1555, 679.3576], method variance_of_estimate, level 0.9.
+- 100-year return level, GEV (MLE with L-moments fallback): result s1.ffa.fits.gev_bootstrap.q.5; estimator gev_mle_with_lmoments_fallback; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [565.4195, 723.1096], method nonparametric_bootstrap_percentile, level 0.9.
+- 2-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.0; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 2-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.0; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [297.7184, 326.4429], method variance_of_estimate, level 0.9.
+- 5-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.1; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 5-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.1; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [385.6949, 429.7112], method variance_of_estimate, level 0.9.
+- 10-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.2; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 10-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.2; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [436.7122, 494.4503], method variance_of_estimate, level 0.9.
+- 25-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.3; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 25-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.3; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [495.2459, 571.9622], method variance_of_estimate, level 0.9.
+- 50-year return level, GEV (L-moments): result s1.ffa.fits.gev_lmoments.q.4; estimator gev_lmoments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. No interval for this estimator.
+- 50-year return level, Log-Pearson III: result s1.ffa.fits.lp3.q.4; estimator lp3_log_moments; annual maxima of daily mean discharge; years with at least 292 observed days. Input uk_ea/8496ce69-482c-406a-a2f0-ac418ef8f099, discharge, m3/s, 1883-10-01 to 2026-09-09; content sha256:e3773df04c573267b9e8f3f39933c42cbd29a293770226bb02f85963523909ec. Software 0.18.0; revision f6ce050. Archive revision not recorded; content hash is not an archive DOI. Own interval [535.4148, 626.7922], method variance_of_estimate, level 0.9.
 
 ## Cite this software
 
-Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: efe3a0e9f8469011f2f6ad9a8c87967dbf22072a; the release DOI does not archive later code changes.
+Rekin226 and contributors. AquaScope Hydrology 0.18.0 [Software]. Release DOI: https://doi.org/10.5281/zenodo.22787700. All versions: https://doi.org/10.5281/zenodo.21903143. Analysis software revision: f6ce050; the release DOI does not archive later code changes.
 
 
 ---
 
-*{'model': None, 'provider': None, 'prose': 'template', 'tokens': {}, 'total_tokens': 0, 'total_usd': None, 'budget': None, 'dropped': 0, 'aquascope_version': '0.18.0', 'date': '2026-09-23 03:43 UTC', 'workspace': '8afe07f0b5c8', 'plan_author': 'hand', 'written_by': {'answer': 'template', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*
+*{'model': None, 'provider': None, 'prose': 'template', 'tokens': {}, 'total_tokens': 0, 'total_usd': None, 'budget': None, 'dropped': 0, 'aquascope_version': '0.18.0', 'date': '2026-09-27 04:16 UTC', 'workspace': 'c25d99f87fa9', 'plan_author': 'hand', 'written_by': {'answer': 'template', 'summary': 'template', 'decision': 'template', 'findings': 'template', 'problem': 'template', 'site_data': 'template', 'methodology': 'template', 'results-s1': 'template', 'limitations': 'template', 'recommendations': 'template', 'references': 'template', 'appendix': 'template'}}*

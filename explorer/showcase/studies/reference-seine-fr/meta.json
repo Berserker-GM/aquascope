@@ -18,7 +18,7 @@
  "error": null,
  "model": null,
  "provider": null,
- "recorded": "2026-09-23T03:43:14+00:00",
+ "recorded": "2026-09-27T04:17:07+00:00",
  "seconds": null,
  "tokens": {
   "prompt": 0,
@@ -55,8 +55,8 @@
    "name": "s1_frequency_curve.png",
    "id": "fig-s1-frequency_curve",
    "step": "s1",
-   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE, bootstrap interval) fits with the GEV bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
-   "bytes": 93149
+   "caption": "Return levels of annual maximum discharge at Seine at Paris-Austerlitz, France (hubeau_hydrometrie F700000103): GEV (L-moments), Log-Pearson III, GEV (MLE with L-moments fallback) fits with the GEV MLE/L-moments bootstrap 90 % band, and the observed annual maxima at their Weibull plotting positions.",
+   "bytes": 95100
   },
   {
    "name": "s1_annual_maxima.png",
@@ -89,5 +89,5 @@
  "aquascope_version": "0.18.0",
  "review_status": "independent domain review pending",
  "input_sha256": "06735536efee67994b0c8f1941aad8c5cf2b721bc4a3cef0788e2df175be9f54",
- "software_revision": "efe3a0e9f8469011f2f6ad9a8c87967dbf22072a"
+ "software_revision": "f6ce050"
 }
