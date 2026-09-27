@@ -15,7 +15,7 @@ maintainer reproductions and proposed targets do not establish independent adopt
 | Observation coverage and freshness | Catalog-only labels before selection, actual analyzed period/count, complete-year eligibility, last successful archive update and retained-data status | Deployed live checks across every promoted region |
 | Full data export | CSV and workbench handoff preserve original observations, dates and precision; plotting decimation is explicit | Browser regression now covers full CSV and full workbench row counts |
 | Archive resilience | Isolated source deadlines, atomic writes, per-station checkpoints, merged history, retained catalogs/data/bundles, visible partial-refresh status | Two actual consecutive scheduled publications after deployment |
-| Daily record-to-export checks | US/England/France browser workflow downloads CSV and requires exact observation count; one failure does not skip the other regions | Deploy workflow and observe scheduled runs |
+| Daily record-to-export checks | US/England/France browser workflow downloads CSV and requires exact observation count; one failure does not skip the other regions | Deployed; six production checks passed manually on 27 September; scheduled evidence pending |
 | First-use routes | Find river data, current recorded study, own-table sample; advanced tools grouped; mobile header preserves brand/search | Five uncoached practitioner sessions; proposed four independent completions |
 | Performance | Repeatable fresh-context/reload protocol, five repetitions required for percentiles | 30-run baseline recorded in adoption/measurement.md; further device/network measurements remain |
 | Executable quickstart | Documentation's actual Python block runs on retained observed USGS annual peaks in a temporary directory and verifies artifacts | Live retrieval is separately tested, not a dependency of the tutorial |
@@ -24,12 +24,12 @@ maintainer reproductions and proposed targets do not establish independent adopt
 | Validation scope | Method/input/comparator/tolerance matrix; synthetic and observed evidence separated; Bulletin 17C scope qualified | Independent scientific review; no blanket certification claimed |
 | Current regional examples | Three retained observed CSVs, generator, reports, figures, complete studies and provenance | Independent review pending; regenerated at `0a7dd68` |
 | Software and data citation | Release DOI distinct from concept DOI; source revision and input hash retained; archive snapshot prep command includes agency rights and hashes | Zenodo account and actual dataset DOI registration; no invented DOI |
-| Positioning and discovery | Explorer-first README/package/site/paper; AquaScope Hydrology titles; regional task pages | About metadata updated on GitHub; deployed site verification remains |
+| Positioning and discovery | Explorer-first README/package/site/paper; AquaScope Hydrology titles; regional task pages | About metadata and deployed site verified on 27 September at `e070fdc` |
 | Existing launch feedback | Actual Reddit requests mapped to replies/issues; focused follow-up drafts prepared | Explicit instruction required before sending outreach |
 | Post-success advocacy | Optional star/problem links after export handoff; no gate | Real usefulness and downstream use are measured separately |
 | Adoption measurement | Off-by-default local 28-day counters and bounded timings; inspect/export/delete; no raw inputs/identifiers/network collection | Opt-in pilot; no population conversion/retention claims |
 | Pilot and ownership | Five-task comprehension protocol, ten-person cohort proposal, three real-project uses, review responsibilities and consent boundaries | Named consenting reviewers/participants/owners and actual outcomes |
-| Focused release and reference adoption | Reviewable changes, evidence, release/follow-up materials | Deployment, independent cases, teaching/research use and 28-day outcomes |
+| Focused release and reference adoption | Reviewable changes, evidence, release/follow-up materials | Deployment verified on 27 September; independent cases, teaching/research use and 28-day outcomes pending |
 
 ## Visual and interaction decisions
 
@@ -163,3 +163,30 @@ have been requested. Do not mark these complete based on tests or synthetic user
   463.9 m³/s estimate. Both new CSV input hashes and workbook row counts verified.
   This is successful replay with a disclosed coverage limitation, not restored
   full-history availability. See [replay evidence](adoption/notebook-replay-2026-09-27.json).
+
+## Release verification — 27 September 2026
+
+[PR #457](https://github.com/Rekin226/aquascope/pull/457) merged as
+`e070fdc77b083e71c9ef37ec59807e2e4e276abf`. All final PR checks passed.
+The [Explorer deployment](https://github.com/Rekin226/aquascope/actions/runs/36297315173)
+and [documentation deployment](https://github.com/Rekin226/aquascope/actions/runs/36297315134)
+succeeded; both public wheel manifests served build `e070fdc`, package 0.19.0.
+
+The deployed Explorer passed six browser checks: fresh context and reload for
+Fish River (37,538 observations), Kingston (51,947), and Seine (7,543). Every CSV
+and workbench handoff retained the analyzed record, and each case met its reference
+historical coverage requirement. These are manual release checks, not scheduled-run
+or population adoption evidence.
+
+The deployed four-step Fish River study produced 30 artifacts. Its GEV L-moments
+estimate was 463.9 m³/s with no borrowed interval. Both full-input CSV hashes matched
+their result snapshots and workbook sheets retained all 37,538 rows. The unverified
+model comparison remained skipped: 11 of 12 gates passed, one skipped. Reopening
+and exporting the actual complete study preserved its report, run, tables, and all
+30 artifacts exactly. Desktop and mobile displays were inspected.
+
+The release is deployed. Independent hydrologist review, consenting practitioner
+sessions and real-project pilots, dataset DOI registration, two consecutive
+scheduled archive publications, and 28-day adoption evidence remain follow-up
+outcomes. No independent reviewers, users, or elapsed-time outcomes are inferred
+from successful software tests.
