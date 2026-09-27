@@ -58,7 +58,7 @@ def site_text(ws: Workspace) -> str:
 def model_line(ws: Workspace) -> str:
     if ws.model:
         return f"Model: {ws.model}" + (f" via {ws.provider}" if ws.provider else "") + f"; {ws.tokens:,} tokens."
-    return "No model was used: the keyless path (rules, playbooks and templates) wrote this study."
+    return "No language model was used: the keyless path (rules, playbooks and templates) wrote this study."
 
 
 def citation() -> str:

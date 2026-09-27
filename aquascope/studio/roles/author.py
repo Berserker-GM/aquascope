@@ -508,8 +508,11 @@ def _step_prose(sid: str, r: dict[str, Any], study: Study) -> str:
             lines.append(f"{r.get('tool')} returned: {_summarise(payload)}.")
     gates = r.get("gates") or []
     if gates:
-        lines.append("Gates: " + "; ".join(f"{g.get('check')} {'passed' if g.get('passed') else 'FAILED'}"
-                                            f" ({g.get('detail')})" for g in gates) + ".")
+        labels = []
+        for g in gates:
+            status = "skipped" if g.get("skipped") else "passed" if g.get("passed") else "FAILED"
+            labels.append(f"{g.get('check')} {status} ({g.get('detail')})")
+        lines.append("Gates: " + "; ".join(labels) + ".")
     fb = r.get("fallback")
     if r.get("fallback_used") and isinstance(fb, dict):
         state = "passed its gates" if fb.get("ok") and fb.get("gates_passed") else (
@@ -536,13 +539,15 @@ def _summary_paragraph(ws: Workspace, study: Study, results: list[dict[str, Any]
             if label not in records:
                 records.append(label)
     gates = run.get("gates") or []
-    passed = sum(1 for g in gates if g.get("passed"))
+    passed = sum(1 for g in gates if g.get("passed") and not g.get("skipped"))
+    skipped = sum(1 for g in gates if g.get("skipped"))
     bits = [f"{plan.get('objective') or ws.brief.problem}."]
     if records:
         bits.append("The record: " + "; ".join(records[:3]) + ".")
     bits.append(f"{len(results)} step(s) ran" + (f" ({plan.get('author')} plan"
                 + (f", playbook {plan['playbook']}" if plan.get("playbook") else "") + ")")
                 + (f"; {passed} of {len(gates)} gates passed" if gates else "")
+                + (f"; {skipped} skipped" if skipped else "")
                 + (f"; the study stopped at {run.get('stopped_at')}" if run.get("stop_reason") else "") + ".")
     head = [s for s in _SENTENCE.split(answer) if re.search(r"\d", s)]
     if head:
@@ -607,7 +612,8 @@ def _recommendations(ws: Workspace, study: Study, missing: list[str]) -> list[st
             out.append(f"{label} is marginal here ({row.get('reason')}); a longer record would firm it up.")
     for g in run.get("gates") or []:
         if g.get("check") == "spread_within" and g.get("passed") and len(out) < 3:
-            out.append(f"Quote both fits with their intervals: {g.get('detail')}.")
+            out.append(f"Quote both point estimates and only each estimator's own available interval: "
+                       f"{g.get('detail')}.")
             break
     for c in (plan.get("caveats") or []):
         if len(out) >= 5:
@@ -711,7 +717,8 @@ def _template_sections(ws: Workspace, study: Study, results: list[dict[str, Any]
     if not results:
         sections["results-none"] = "No step ran."
 
-    lim = ["\n".join(f"- {m}" for m in missing) if missing else "Every gate and check passed."]
+    lim = ["\n".join(f"- {m}" for m in missing) if missing
+           else "No failed or skipped checks are recorded; the scope and caveats below still apply."]
     if plan.get("caveats"):
         lim.append("Caveats, verbatim from the playbook:\n" + "\n".join(f"- {c}" for c in plan["caveats"]))
     if plan.get("limitations_expected"):
@@ -793,11 +800,9 @@ def _draft(ws: Workspace) -> dict[str, Any]:
     key = key_numbers(study, results)
     refs = references(ws)
     plan = study.plan or {}
-    missing = list((ws.critique or {}).get("not_established") or [])
-    if not missing:
-        from aquascope.studio.roles.critic import not_established
+    from aquascope.studio.roles.critic import not_established
 
-        missing = not_established(ws)
+    missing = list(dict.fromkeys([*((ws.critique or {}).get("not_established") or []), *not_established(ws)]))
     from aquascope.ai_engine.team import _template_answer
     from aquascope.studio.roles.analysts import prior_run
 

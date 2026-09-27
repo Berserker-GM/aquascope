@@ -56,8 +56,12 @@ def _style_or_default(doc: Any, name: str) -> str | None:
 
 def markdown_to_docx(doc: Any, text: str) -> None:
     """Render headings, lists, fenced code and Markdown tables as native Word content."""
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
     bullet = _style_or_default(doc, "List Bullet")
     numbered = _style_or_default(doc, "List Number")
+    numbered_id = None
     buffer: list[str] = []
 
     def flush() -> None:
@@ -70,6 +74,8 @@ def markdown_to_docx(doc: Any, text: str) -> None:
     while i < len(lines):
         line = lines[i]
         i += 1
+        if not _NUMBERED.match(line):
+            numbered_id = None
         if line.lstrip().startswith("```"):
             flush()
             code = []
@@ -106,7 +112,22 @@ def markdown_to_docx(doc: Any, text: str) -> None:
         m = _NUMBERED.match(line)
         if m:
             flush()
-            _runs(doc.add_paragraph(style=numbered) if numbered else doc.add_paragraph(), m.group(1))
+            p = doc.add_paragraph(style=numbered) if numbered else doc.add_paragraph()
+            if numbered:
+                numbering = doc.part.numbering_part.element
+                if numbered_id is None:
+                    base_id = doc.styles[numbered].element.pPr.numPr.numId.val
+                    abstract_id = numbering.num_having_numId(base_id).abstractNumId.val
+                    num = numbering.add_num(abstract_id)
+                    num.add_lvlOverride(ilvl=0).add_startOverride(int(re.match(r"\s*(\d+)", line).group(1)))
+                    numbered_id = num.numId
+                props = p._p.get_or_add_pPr()
+                num_props = OxmlElement("w:numPr")
+                num_id = OxmlElement("w:numId")
+                num_id.set(qn("w:val"), str(numbered_id))
+                num_props.append(num_id)
+                props.append(num_props)
+            _runs(p, m.group(1) if numbered else line.strip())
             continue
         buffer.append(line.strip())
     flush()
@@ -161,6 +182,7 @@ def _add_table(doc: Any, columns: list[str], rows: list[list[Any]], caption: str
             for run in cells[i].paragraphs[0].runs:
                 run.font.size = Pt(9)
     for row_index, row in enumerate(table.rows):
+        row._tr.get_or_add_trPr().append(OxmlElement("w:cantSplit"))
         for cell in row.cells:
             cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
             props = cell._tc.get_or_add_tcPr()
@@ -188,6 +210,7 @@ def _add_figure(doc: Any, png: bytes, caption: str | None) -> None:
 
     doc.add_picture(io.BytesIO(png), width=Inches(FIGURE_WIDTH_IN))
     if caption:
+        doc.paragraphs[-1].paragraph_format.keep_with_next = True
         p = doc.add_paragraph()
         p.add_run(caption).italic = True
 
@@ -253,6 +276,10 @@ def report_docx_bytes(ws: Workspace) -> bytes | None:
             continue
         doc.add_heading(block["title"] or block["id"], level=1)
         markdown_to_docx(doc, block["text"])
+        if block["id"] == "appendix" and "```yaml" not in block["text"]:
+            yaml_text = c.study_yaml(ws)
+            if yaml_text:
+                _monospace(doc, yaml_text)
         for fid in block["figures"]:
             fig = c.png_figure(ws, fid)
             if fig is not None and fig.data:
@@ -270,12 +297,13 @@ def report_docx_bytes(ws: Workspace) -> bytes | None:
                 continue
             _add_table(doc, columns, values, tab.caption or tab.id)
 
-    doc.add_heading("Appendix: reproducibility", level=1)
-    doc.add_paragraph("The study file below replays with no model: aquascope run study.yaml. The notebook "
-                      "study.ipynb in the bundle does the same and redraws the figures.")
-    yaml_text = c.study_yaml(ws)
-    if yaml_text:
-        _monospace(doc, yaml_text)
+    if "appendix" not in c.section_ids(ws):
+        doc.add_heading("Appendix: reproducibility", level=1)
+        doc.add_paragraph("The study file below replays with no language model: aquascope run study.yaml. "
+                          "The notebook study.ipynb in the bundle does the same and redraws the figures.")
+        yaml_text = c.study_yaml(ws)
+        if yaml_text:
+            _monospace(doc, yaml_text)
     if ws.ledger:
         _add_table(doc, ["Role", "Calls", "Prompt tokens", "Completion tokens"],
                    [[role, v.get("calls", 0), v.get("prompt_tokens", 0), v.get("completion_tokens", 0)]

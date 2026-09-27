@@ -6,6 +6,7 @@ All notable changes to AquaScope are documented here.
 
 
 ### Adoption and reproducibility
+- Reports distinguish skipped comparisons from passed gates and unavailable model statistics from numeric results. Word exports keep table rows and figure captions together, restart numbered lists, and include the reproducibility appendix once.
 - Study bundles and workbooks retain full observation timestamps and precision; large tables continue across numbered sheets. Flood tables keep each estimator's own interval and confidence metadata. Word reports render Markdown tables and fenced code as native content, with readable panels for wide tables.
 - Explorer now leads with three entry routes, usable observation coverage, a mobile Tools menu, and a bundled synthetic sample. Catalog availability and observation freshness are described separately.
 - Scientific flood claims carry estimator-specific result identities and uncertainty. Model-written intervals must name and match their estimator; an annual-mean trend cannot substitute for an unavailable annual-maxima trend. Unverified catchment comparisons remain unestablished.

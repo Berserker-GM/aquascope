@@ -517,13 +517,14 @@ def test_docx_reloads_with_headings_figures_and_tables(ws) -> None:
     headings = [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]
     for s in ws.report["sections"]:
         assert s["title"] in headings
-    assert "What this study does not establish" in headings and "Appendix: reproducibility" in headings
+    assert "What this study does not establish" in headings
+    assert sum(h.startswith("Appendix") for h in headings) == 1
     assert len(doc.inline_shapes) == 3
     assert len(doc.tables) >= 4  # key numbers, two site tables, return levels, index divergence, ledger
     assert doc.tables[0].rows[0].cells[0].text == "Quantity"
     text = "\n".join(p.text for p in doc.paragraphs)
     assert "version: 3" in text and "tool: \"analyze_station\"" in text  # the study.yaml appendix
-    assert "Prepared by AquaScope Studio" in text and "No model was used" in text
+    assert "Prepared by AquaScope Studio" in text and "No language model was used" in text
     assert "1,550 tokens" in text
 
 

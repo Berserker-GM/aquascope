@@ -130,3 +130,24 @@ def test_a_drought_report_quotes_the_indices(no_deliverables):
     assert "SPI -0.42 at 1 month" in report["answer"] or "SPEI" in report["answer"]
     out = critic.critique(ws, None)
     assert all(c["passed"] for c in out["checks"]), out["checks"]
+
+
+def test_skipped_comparison_is_not_reported_as_passed(no_deliverables):
+    ws = _ran()
+    rec = ws.run['results'][-1]
+    rec['result'] = {'glofas': {'comparable': False, 'note': 'Catchment match unverified.'}}
+    gate = {'step': rec['id'], 'check': 'cross_check_ratio', 'passed': True,
+            'skipped': True, 'detail': 'Catchment match unverified.'}
+    rec['gates'] = [gate]
+    ws.run['gates'] = [gate]
+    ws.critique = {'not_established': ['An earlier limitation.']}
+    report = author.author_report(ws, None)
+    sections = {s['id']: s['text'] for s in report['sections']}
+    assert '0 of 1 gates passed; 1 skipped' in sections['summary']
+    assert 'cross_check_ratio skipped' in sections[f"results-{rec['id']}"]
+    assert 'comparison not established' in sections[f"results-{rec['id']}"]
+    assert 'mean None' not in sections[f"results-{rec['id']}"]
+    assert 'cross_check_ratio skipped' in sections['limitations']
+    assert 'Every gate and check passed' not in sections['limitations']
+    assert 'An earlier limitation.' in report['not_established']
+    assert any('skipped' in s for s in critic.not_established(ws))
