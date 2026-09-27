@@ -381,10 +381,12 @@ const numValue = (k) => `${typeof k.value === "number" ? fmt(k.value) : String(k
 function footLine() {
   const run = S.ws.run || {};
   const gates = (run.gates || []).length;
-  const failed = (run.failed_gates || []).length;
+  const passed = (run.gates || []).filter(g => g.passed && !g.skipped).length;
+  const skipped = (run.gates || []).filter(g => g.skipped).length;
   const steps = ((S.ws.study || {}).steps || []).length;
   const model = S.ws.model ? `${S.ws.model} via ${S.ws.provider}` : "no model";
-  return `${steps} step${steps === 1 ? "" : "s"} · ${gates - failed} of ${gates} gates passed · ${model}`;
+  return `${steps} step${steps === 1 ? "" : "s"} · ${passed} of ${gates} gates passed` +
+    (skipped ? `; ${skipped} skipped` : "") + ` · ${model}`;
 }
 
 // Who planned and who wrote, from the replies when they said, else from the workspace.

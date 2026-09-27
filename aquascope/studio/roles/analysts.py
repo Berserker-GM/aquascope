@@ -544,8 +544,11 @@ def run(ws: Workspace, model: Model | None, *, tools: dict[str, Any] | None = No
         "replans": replans, "failed_steps": run_.failed_steps, "summary": run_.summary,
     }
     summ = run_.summary
-    ws.event("analyst", "gates", f"{len(run_.gates) - len(run_.failed_gates)} of {len(run_.gates)} gates passed; "
-             f"{summ['ok']} of {summ['planned']} step(s) established"
+    passed = sum(bool(g.get("passed")) and not g.get("skipped") for g in run_.gates)
+    skipped = sum(bool(g.get("skipped")) for g in run_.gates)
+    ws.event("analyst", "gates", f"{passed} of {len(run_.gates)} gates passed; "
+             + (f"{skipped} gates skipped; " if skipped else "")
+             + f"{summ['ok']} of {summ['planned']} step(s) established"
              + (f", {summ['failed']} failed" if summ["failed"] else "")
              + (f", {summ['skipped']} skipped" if summ["skipped"] else "")
              + (f"; stopped at {run_.stopped_at}" if run_.stop_reason else ""))

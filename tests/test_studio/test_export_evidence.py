@@ -120,3 +120,14 @@ def test_workbook_preserves_observations_above_the_old_row_cap():
     assert len(rows) == count
     assert rows[0] == (0, .25) and rows[-1] == (100000, 100000.25)
     assert [r[0] for r in rows] == list(range(count))
+
+
+def test_workbook_does_not_mark_a_skipped_gate_as_passed():
+    from aquascope.studio.deliverables.workbook import _gate_rows
+    from aquascope.studio.workspace import Workspace
+
+    ws = Workspace()
+    ws.run = {'gates': [{'step': 's4', 'check': 'cross_check_ratio', 'passed': True, 'skipped': True}]}
+    columns, rows = _gate_rows(ws)
+    row = dict(zip(columns, rows[0]))
+    assert row['skipped'] is True and row['passed'] is None

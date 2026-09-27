@@ -112,9 +112,10 @@ def _plan_rows(ws: Workspace) -> tuple[list[str], list[list[Any]]]:
 
 
 def _gate_rows(ws: Workspace) -> tuple[list[str], list[list[Any]]]:
-    cols = ["step", "check", "passed", "detail", "path", "value"]
-    rows = [[g.get("step"), g.get("check"), g.get("passed"), g.get("detail"), g.get("path") or g.get("paths"),
-             g.get("value")] for g in c.gates_of(ws)]
+    cols = ["step", "check", "passed", "detail", "path", "value", "skipped"]
+    rows = [[g.get("step"), g.get("check"), None if g.get("skipped") else g.get("passed"),
+             g.get("detail"), g.get("path") or g.get("paths"), g.get("value"), bool(g.get("skipped"))]
+            for g in c.gates_of(ws)]
     return cols, rows
 
 
