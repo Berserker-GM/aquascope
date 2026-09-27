@@ -3,8 +3,8 @@
 version: 3
 title: "Daily-mean flood screening: Thames at Kingston, England"
 question: "Screen the 100-year daily-mean flood at Thames at Kingston, England; identify estimator uncertainty and limitations."
-created: "2026-09-27T04:16:57+00:00"
-aquascope_version: "0.18.0"
+created: "2026-09-27T04:21:28+00:00"
+aquascope_version: "0.19.0"
 author: "hand"
 problem:
   kind: "flood_risk"
@@ -31,4 +31,4 @@ steps:
       - {"check": "spread_within", "paths": ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"], "value": 0.25, "return_period": 100}
       - {"check": "trend_on_series", "path": "ffa.amax_trend", "value": 0.05}
 results:
-  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "140 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 420 years (3 times 140 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 652.5, 624 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.178, tau = 0.08: no trend at the 0.05 level"}], "summary": "source=uk_ea, station_id=8496ce69-482c-406a-a2f0-ac418ef8f099, variable=discharge, unit=m3/s, years=142.9, start=1883-10-01, end=2026-09-09", "fallback_used": false, "sha256": "363f6f6a23e11e86"}
+  s1: {"ok": true, "gates": [{"check": "min_years", "passed": true, "detail": "140 years of record, 20 needed"}, {"check": "unit_present", "passed": true, "detail": "unit m3/s"}, {"check": "max_return_period_factor", "passed": true, "detail": "T = 100 years against a cap of about 420 years (3 times 140 years of record)"}, {"check": "spread_within", "passed": true, "detail": "spread 4% between 652.5, 624 (25% allowed) at T = 100 years"}, {"check": "trend_on_series", "passed": true, "detail": "Mann-Kendall on the annual maxima: p = 0.178, tau = 0.08: no trend at the 0.05 level"}], "summary": "source=uk_ea, station_id=8496ce69-482c-406a-a2f0-ac418ef8f099, variable=discharge, unit=m3/s, years=142.9, start=1883-10-01, end=2026-09-09", "fallback_used": false, "sha256": "6a58a3b62c945829"}

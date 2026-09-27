@@ -18,7 +18,7 @@
  "error": null,
  "model": null,
  "provider": null,
- "recorded": "2026-09-27T04:17:07+00:00",
+ "recorded": "2026-09-27T04:21:38+00:00",
  "seconds": null,
  "tokens": {
   "prompt": 0,
@@ -86,8 +86,8 @@
   "provenance.json"
  ],
  "trimmed": [],
- "aquascope_version": "0.18.0",
+ "aquascope_version": "0.19.0",
  "review_status": "independent domain review pending",
  "input_sha256": "06735536efee67994b0c8f1941aad8c5cf2b721bc4a3cef0788e2df175be9f54",
- "software_revision": "f6ce050"
+ "software_revision": "0a7dd68"
 }

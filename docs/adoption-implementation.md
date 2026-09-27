@@ -22,7 +22,7 @@ maintainer reproductions and proposed targets do not establish independent adopt
 | Completed-study sharing | Versioned, bounded, checksummed portable file retains inputs/results/artifact bytes; import does not rerun; explicit immutable publishing instructions | User-controlled public publication and real recipient use |
 | Python/R/QGIS handoff | Export schema, unit/CRS guidance and readers documented | Python tutorial executed; practitioner R/QGIS exercise pending |
 | Validation scope | Method/input/comparator/tolerance matrix; synthetic and observed evidence separated; Bulletin 17C scope qualified | Independent scientific review; no blanket certification claimed |
-| Current regional examples | Three retained observed CSVs, generator, reports, figures, complete studies and provenance | Independent review pending; regenerated at `f6ce050` |
+| Current regional examples | Three retained observed CSVs, generator, reports, figures, complete studies and provenance | Independent review pending; regenerated at `0a7dd68` |
 | Software and data citation | Release DOI distinct from concept DOI; source revision and input hash retained; archive snapshot prep command includes agency rights and hashes | Zenodo account and actual dataset DOI registration; no invented DOI |
 | Positioning and discovery | Explorer-first README/package/site/paper; AquaScope Hydrology titles; regional task pages | About metadata updated on GitHub; deployed site verification remains |
 | Existing launch feedback | Actual Reddit requests mapped to replies/issues; focused follow-up drafts prepared | Explicit instruction required before sending outreach |
@@ -127,3 +127,22 @@ have been requested. Do not mark these complete based on tests or synthetic user
   retained observed CSVs at `f6ce050`; independent review remains pending.
 - Final local validation: Python 3.12 full suite **3,118 passed, 11 skipped**;
   Ruff, wheel build, strict documentation build and Explorer assembly passed.
+
+## Current-main integration on 27 September
+
+- Merged `e480bba` into the adoption branch after new base changes created conflicts.
+  Kept the 0.19 release, observation-quality support, IMGW cache and USGS throttling
+  behavior. Scheduled isolated workers now use main's per-source station/time
+  budgets; USGS runs last. Rate-limited stations remain eligible for the next run.
+- Python reports and the Explorer citation dialog use the 0.19 release DOI recorded
+  in CITATION.cff (`10.5281/zenodo.22930129`), alongside the actual source revision.
+- Regenerated the three observed reference studies against merged source `0a7dd68`.
+  The earlier archive dry run remains evidence for its recorded source revision,
+  not proof of production behavior after this merge.
+- Merged-build validation: **3,200 passed, 11 skipped**, all **62 JavaScript
+  checks**, Ruff, strict documentation build, wheel build and Explorer assembly.
+  Follow-up gate presentation checks cover the browser footer, event summary,
+  workbook and notebook so skipped checks are never presented as passed.
+- The final skipped-gate presentation follow-up (`104ab2d`) passed all **242 Studio
+  tests**, all **62 JavaScript checks**, lint and wheel/Explorer builds. The merged
+  reference examples remain explicitly pinned to `0a7dd68`.
