@@ -41,8 +41,8 @@ no decorative animation or marketing overlay is added.
 
 ## Verification log
 
-- Python 3.12.13 final full suite: **3,118 passed, 11 skipped**. Optional skips
-  and runtime warnings remain disclosed. Final source revision: `4183f82`.
+- Earlier export baseline at `4183f82`: **3,117 passed, 11 skipped** on Python
+  3.12.13. Later validation is recorded below; skips and warnings remain disclosed.
 - JavaScript contract suite: 62 passed, including privacy consent/retention,
   capability labels and minimum-repetition timing summaries; added to CI.
 - Ruff and whitespace checks passed. Strict documentation build, wheel build and stdlib-only Explorer assembly passed.
@@ -146,3 +146,20 @@ have been requested. Do not mark these complete based on tests or synthetic user
 - The final skipped-gate presentation follow-up (`104ab2d`) passed all **242 Studio
   tests**, all **62 JavaScript checks**, lint and wheel/Explorer builds. The merged
   reference examples remain explicitly pinned to `0a7dd68`.
+
+## Notebook replay verification on 27 September
+
+- The old notebook replaced run results in the original workspace but retained
+  old findings/artifacts and omitted its new gate list. It also bypassed Studio's
+  full-observation tool wrappers. Replay now creates a fresh workspace and runs the
+  full Studio pipeline, then exports to `rerun-<id>/` without overwriting the original.
+- Source `f7ea193` passed all **245 Studio tests**, including execution of the actual
+  generated cells, failed-agency stale-evidence prevention, and source-pinned install
+  instructions. Ruff, strict documentation and wheel builds also passed.
+- The real Fish River notebook executed all four steps and saved 32 artifacts.
+  Original files stayed byte-identical. The native request fell back to 14,607
+  observations from 1986–2026; its new 583.2 m³/s estimate, input hash and workbook
+  all describe that shorter record, not the prior browser's 37,538 observations and
+  463.9 m³/s estimate. Both new CSV input hashes and workbook row counts verified.
+  This is successful replay with a disclosed coverage limitation, not restored
+  full-history availability. See [replay evidence](adoption/notebook-replay-2026-09-27.json).
