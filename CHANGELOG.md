@@ -4,6 +4,7 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-28
 
 ### Adoption and reproducibility
 - Completed Explorer studies describe checks and built-in analysis plans in plain language, with original warning identifiers available under technical details and preserved in exports.
@@ -35,8 +36,6 @@ All notable changes to AquaScope are documented here.
   normalizing enum members to their string values. Docs:
   [Data Quality Flags](docs/data_sources.md#data-quality-flags).
 - **`aquascope studio` on its own starts a study.** In a terminal with no place or question, the Studio asks where (a gauge name or river words searched in the station catalog, a station id such as `USGS-01013500`, or `lat, lon`) and what you want to know, then carries on as before: questions, plan, approval, bundle. When a model key is set in the environment it offers to use it, with a $1 spend ceiling, instead of staying silently keyless; the Studio still never uses a key it was not told to. A new `--at PLACE` does the same lookup without questions. When the `studio` extra is missing, the CLI now says the bundle holds only the Markdown and HTML report and the tables, and names `pip install "aquascope[studio]"`. The README gains a "Run a study on your machine" section and lists the `studio` and `basins` extras.
-
-### Changed
 
 ### Fixed
 - **The cross-check gate no longer says "within" when it failed.** A failing `cross_check_ratio` read "ratio 1.82 (within a factor 1.50 allowed): the cross-check disagrees"; it now reads "ratio 1.82, outside the allowed factor of 1.50: the cross-check disagrees", and a passing one "within the allowed factor". The recorded Kingston study carries the new wording.

@@ -80,7 +80,7 @@ export function methodsOnPage(listId) {
 // ── how to cite AquaScope ───────────────────────────────────────────────────
 
 export const AQUASCOPE_DOI = "10.5281/zenodo.21903143";     // concept DOI, all versions
-export const RELEASE_DOI = "10.5281/zenodo.22930129";       // v0.19.0, from CITATION.cff
+export const RELEASE_DOI = AQUASCOPE_DOI;                 // use the concept DOI until v0.20.0 is archived
 export const ARCHIVE_URL = "https://huggingface.co/datasets/Rekin226/aquascope-gauges";
 
 export const BIBTEX = `@software{aquascope,
@@ -88,7 +88,7 @@ export const BIBTEX = `@software{aquascope,
   title   = {AquaScope: the open record of the world's public water gauges,
              and the tools to analyse them},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.19.0},
+  version = {0.20.0},
   doi     = {${RELEASE_DOI}},
   note    = {Base software release; Explorer build __BUILD__. Record this build when it differs from the release.}
 }`;
@@ -111,7 +111,7 @@ export function openCite(extraMethods = []) {
     <h3>Software</h3>
     <pre id="cite-bibtex">${escapeHtml(BIBTEX)}</pre>
     <p><button class="btn" id="cite-copy">Copy BibTeX</button>
-       <a class="btn" href="https://doi.org/${RELEASE_DOI}" target="_blank" rel="noopener">Release DOI ↗</a>
+       <a class="btn" href="https://doi.org/${RELEASE_DOI}" target="_blank" rel="noopener">Concept DOI ↗</a>
        <a class="btn" href="https://github.com/Rekin226/aquascope/blob/main/CITATION.cff" target="_blank" rel="noopener">CITATION.cff ↗</a></p>
     <h3>The gauge archive</h3>
     <p>The catalog and the daily observations behind this page are published as GeoParquet at
