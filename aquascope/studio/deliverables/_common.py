@@ -14,7 +14,11 @@ from aquascope.studio.workspace import Artifact, Workspace
 
 #: The concept DOI of the software (the one CITATION.cff carries), for the "how to cite" line.
 CONCEPT_DOI = "10.5281/zenodo.21903143"
-RELEASE_DOIS = {"0.18.0": "10.5281/zenodo.22787700", "0.19.0": "10.5281/zenodo.22930129"}
+RELEASE_DOIS = {
+    "0.18.0": "10.5281/zenodo.22787700",
+    "0.19.0": "10.5281/zenodo.22930129",
+    "0.20.0": "10.5281/zenodo.23009178",
+}
 
 #: The report's sections in the order the Author writes them; anything else the Author adds goes after ``results``.
 SECTION_ORDER = ("summary", "problem", "site_data", "methodology", "results", "limitations", "recommendations",
