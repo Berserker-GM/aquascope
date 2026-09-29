@@ -511,8 +511,8 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.20.0},
-  doi     = {10.5281/zenodo.23009178},
+  version = {0.21.0},
+  doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }
 ```

@@ -4,6 +4,8 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-30
+
 ### Added
 - **Studies go past the stationary design flow.** Seven new study steps in `aquascope.advanced`, each a plain JSON tool that the Explorer, `aquascope studio`, the Analyst and `aquascope mcp` all run:
   - `change_points`: Pettitt, PELT and Mann-Kendall with Sen's slope on the annual maxima or means. It says whether the record is one sample.
