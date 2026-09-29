@@ -502,6 +502,8 @@ _PATH_WORDS = {
     "climate": "climate data", "glofas": "GloFAS discharge", "sgi": "a groundwater index", "score": "a score",
     "gross_irrigation_mm": "an irrigation depth", "peak_month_m3s": "a peak-month flow", "months": "a season",
     "n_records": "some rows", "k": "donor gauges",
+    "pettitt": "a step-change test", "nonstationary": "a nonstationary fit", "gpd": "a peaks-over-threshold fit",
+    "ensemble": "a model ensemble", "regional_frequency": "a regional pooled curve",
 }
 
 #: The tolerance a check uses when the gate names none (as in :func:`_run_check`).

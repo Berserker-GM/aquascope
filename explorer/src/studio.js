@@ -78,6 +78,13 @@ const TOOL_LABEL = {
   wqi: "Water-quality index",
   iwqi: "Irrigation water-quality index",
   load_table: "Read your table",
+  change_points: "Test the record for change",
+  nonstationary_flood: "Fit a flood model with a trend",
+  pot_flood: "Peaks over threshold",
+  catchment_model: "Calibrate a catchment model (GR4J)",
+  climate_projection: "CMIP6 climate projections",
+  regional_flood: "Pool the region's gauges",
+  compare_gauges: "Compare the gauges",
   flow_duration: "Flow duration",
   baseflow: "Baseflow separation",
   recession: "Recession",
@@ -244,7 +251,30 @@ function intakeHtml() {
     ? `<p class="study-resume"><button type="button" class="chip" data-act="resume" title="${escapeHtml(`${S.resume.site.text}, ${agoWords(S.resume.at)}`)}">Resume the last study${w ? "" : ` at ${escapeHtml(S.resume.site.text)}`}</button></p>`
     : "";
   const recorded = !started ? recordedChipsHtml(S.index, { showAll: S.moreRecorded }) : "";
-  return `<p class="study-where">${w ? w.html : `<span class="muted">Pick a gauge or a spot on the map first.</span>`}</p>${model}${data}${resume}${recorded}`;
+  const tries = !started && w ? tryChipsHtml(Boolean(state.selected)) : "";
+  return `<p class="study-where">${w ? w.html : `<span class="muted">Pick a gauge or a spot on the map first.</span>`}</p>${tries}${model}${data}${resume}${recorded}`;
+}
+
+// What a study can be, as questions to start one with: the design flow, and the studies that come after it
+// (is it changing, how will climate change move it, what if the rain changes). A gauge gets the model and change
+// studies; a bare point gets the ones that need no record at the spot. The engine routes each by its words.
+const TRY_GAUGE = [
+  "What is the 100-year flood here?",
+  "Is the 100-year flood getting worse?",
+  "How will climate change affect the flow and floods here by 2050?",
+  "What if rainfall drops 10% and it gets 2 degrees warmer?",
+];
+const TRY_POINT = [
+  "What flow can I expect here?",
+  "How will the climate here change by 2050?",
+  "Are floods in this region getting worse?",
+];
+
+function tryChipsHtml(gauge) {
+  const qs = gauge ? TRY_GAUGE : TRY_POINT;
+  return `<div class="study-try"><p class="study-line muted">Try a study:</p><div class="study-chips">` +
+    qs.map((q) => `<button type="button" class="chip" data-try="${escapeHtml(q)}">${escapeHtml(q)}</button>`).join("") +
+    `</div></div>`;
 }
 
 const fmtArg = (v) => (typeof v === "string" ? v : JSON.stringify(v));
@@ -1433,6 +1463,8 @@ function onBoardClick(e) {
   if (onMap) { focusStudyStep(onMap.dataset.mapStep); return; }
   const chip = e.target.closest("[data-recorded]");
   if (chip) { openRecorded(chip.dataset.recorded); return; }
+  const tryChip = e.target.closest("[data-try]");
+  if (tryChip) { $("study-text").value = tryChip.dataset.try; send(tryChip.dataset.try); return; }
   const file = e.target.closest("[data-file]");
   if (file) { e.preventDefault(); downloadArtifact(file.dataset.file); return; }
   const remove = e.target.closest("[data-remove]");

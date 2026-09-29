@@ -956,7 +956,7 @@ def _change_points(payload: dict[str, Any], unit: str | None, site: dict[str, An
     import numpy as np
 
     u = unit_of(payload, unit)
-    what = "annual maximum" if payload.get("series") == "annual_max" else "annual mean"
+    what = "annual maximum" if payload.get("tested") == "annual_max" else "annual mean"
     fig, ax = _figure()
     ax.plot(years, vals, "o-", color=PRIMARY, markersize=3, linewidth=1, label=what)
     for seg in (payload.get("pelt") or {}).get("segments") or []:

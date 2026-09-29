@@ -149,7 +149,7 @@ def _advanced_numbers(sid: str, tool: str, p: dict[str, Any], rp: Any) -> list[d
             add("Step change year (Pettitt)", pet.get("change_year"), "", "pettitt.change_year")
             add("Change in the mean after the step", pet.get("change_pct"), "%", "pettitt.change_pct")
         add("Pettitt p-value", p_text(pet.get("p_value")), "", "pettitt.p_value")
-        add("Mann-Kendall p-value (annual maxima)" if p.get("series") == "annual_max" else
+        add("Mann-Kendall p-value (annual maxima)" if p.get("tested") == "annual_max" else
             "Mann-Kendall p-value (annual means)", p_text(mk.get("p_value")), "", "mann_kendall.p_value")
         add("Sen's slope", mk.get("sen_slope_pct_per_decade"), "% per decade", "mann_kendall.sen_slope_pct_per_decade")
     elif tool == "nonstationary_flood":

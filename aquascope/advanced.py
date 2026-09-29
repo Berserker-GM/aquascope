@@ -313,7 +313,7 @@ def change_points(
         return {"error": str(exc)}
     annual = _annual_max(daily) if series == "annual_max" else _annual_mean(daily)
     n = len(annual)
-    out: dict[str, Any] = {**meta, "series": series, "n": n, "alpha": alpha,
+    out: dict[str, Any] = {**meta, "tested": series, "n": n, "alpha": alpha,
                            "annual": {"year": [int(y) for y in annual.index], "value": [_clean(v) for v in annual]},
                            "notes": [], "methods": _m("pettitt", "pelt", "mann_kendall")}
     if n < 10:
@@ -817,13 +817,42 @@ def catchment_model(
 # ── CMIP6 projections ───────────────────────────────────────────────────────
 
 
+#: The projections fetched in this process, by request (and the refusals, so a fallback does not repeat one).
+_CMIP6_CACHE: dict[tuple[Any, ...], Any] = {}
+
+
 def _cmip6(lat: float, lon: float, start: date, end: date, models: tuple[str, ...]) -> dict[str, pd.DataFrame]:
     """Daily precipitation and mean temperature per model, bias-corrected onto ERA5-Land by Open-Meteo.
 
-    Two variables only: the Climate API weighs a request by models, years and
-    variables, and seven models over six decades is already a large share of
-    the free tier's per-minute allowance. One retry follows a per-minute refusal.
+    The Climate API weighs a request by models, years and variables: by its
+    own documentation seven models over a century of one variable counts as
+    about 1,850 calls, so the two variables over 66 years here count as about
+    2,400, against a free allowance of 10,000 calls a day per address (about
+    four projections a day). Two variables only, each request made once per
+    process (a refusal is remembered too), one retry after a per-minute refusal.
     """
+    key = (round(float(lat), 3), round(float(lon), 3), start.isoformat(), end.isoformat(), tuple(models))
+    if key in _CMIP6_CACHE:
+        hit = _CMIP6_CACHE[key]
+        if isinstance(hit, Exception):
+            raise hit
+        return hit
+    try:
+        out = _cmip6_fetch(lat, lon, start, end, models)
+    except Exception as exc:  # noqa: BLE001
+        text = str(exc)
+        if "429" in text or "limit" in text.lower():
+            exc = RuntimeError("Open-Meteo refused the request (HTTP 429): the free allowance for climate projections "
+                               "from this address is used up for now (a projection counts as about 2,400 of its "
+                               "10,000 free calls a day). Try again later.")
+        _CMIP6_CACHE[key] = exc
+        raise exc from None
+    _CMIP6_CACHE[key] = out
+    return out
+
+
+def _cmip6_fetch(lat: float, lon: float, start: date, end: date, models: tuple[str, ...]) -> dict[str, pd.DataFrame]:
+    import sys
     import time
 
     from aquascope.registry import build_collector
@@ -837,6 +866,9 @@ def _cmip6(lat: float, lon: float, start: date, end: date, models: tuple[str, ..
     except Exception as exc:  # noqa: BLE001
         if "minute" not in str(exc).lower():
             raise
+        if sys.platform == "emscripten":  # the browser worker does not wait a minute in silence
+            raise RuntimeError("Open-Meteo's per-minute limit for climate projections was reached; run the step "
+                               "again in a minute") from exc
         time.sleep(61)
         raw = col.fetch_raw(**kwargs)
     if raw.get("error"):

@@ -7,7 +7,6 @@
 "start": "1903-07-29",
 "end": "2026-09-27",
 "years": 123.2,
-"series": "annual_max",
 "n": 100,
 "alpha": 0.05,
 "annual": {
@@ -290,7 +289,8 @@
 ]
 },
 "stationary": true,
-"verdict": "No significant step change (Pettitt p = 0.31) or trend (Mann-Kendall p = 0.32) in 100 years of annual maxima: a stationary analysis is not contradicted by the record."
+"verdict": "No significant step change (Pettitt p = 0.31) or trend (Mann-Kendall p = 0.32) in 100 years of annual maxima: a stationary analysis is not contradicted by the record.",
+"tested": "annual_max"
 },
 "nonstationary_flood": {
 "source": "usgs",

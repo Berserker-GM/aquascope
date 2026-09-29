@@ -310,3 +310,19 @@ def test_every_advanced_tool_is_a_study_step_with_a_catalogue_entry():
             from aquascope.methods import METHODS
 
             assert METHODS[m].tool == tool, (tool, m)
+
+
+def test_a_refused_projection_is_said_plainly_and_not_repeated(monkeypatch):
+    calls = []
+
+    def refuse(*a, **k):
+        calls.append(1)
+        raise RuntimeError("TransportError: HTTP 429 for https://climate-api.open-meteo.com/v1/climate")
+
+    adv._CMIP6_CACHE.clear()
+    monkeypatch.setattr(adv, "_cmip6_fetch", refuse)
+    first = adv.climate_projection(10.0, 20.0)
+    second = adv.climate_projection(10.0, 20.0, return_period=50)
+    assert "free allowance" in first["error"] and "free allowance" in second["error"]
+    assert calls == [1], "the fallback's identical request is answered from the remembered refusal"
+    adv._CMIP6_CACHE.clear()
