@@ -34,6 +34,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
 - 📈 **Run hydrological analyses**: flood frequency (GEV / LP3 / Gumbel / non-stationary GEV, with separate EMA routines), baseflow separation, rating curves, and 22 hydrological signatures.
 - 🌾 **Plan agricultural water**: FAO-56 Penman–Monteith ET₀, crop water requirements for 26 crops (olive, grape, citrus and winter wheat resolved by variety and canopy), irrigation scheduling, and soil water balance with auto-irrigation.
 - 🤖 **Ask the AI engine**: describe your goal in plain English, get a recommended methodology scored against your dataset, and auto-execute it.
+- 🧑‍🔬 **Run a study**: from a question to a gated plan and a report bundle, keyless. The [advanced studies](advanced_studies.md) test whether the flood is changing, calibrate GR4J for "what if" scenarios and carry CMIP6 models through it to 2050.
 - 📊 **Visualise and report**: 17 plot types, Q-Q / P-P diagnostics, Markdown / HTML reports with embedded figures, threshold alerts (WHO / EPA / EU WFD).
 - 🗺️ **Spatial hydrology**: DEM processing, D8 flow direction, watershed delineation, Strahler ordering.
 
@@ -47,6 +48,7 @@ pip install "aquascope[all]"       # everything: ML, viz, spatial, dashboard
 | :------------------------------------------- | :-------: | :-----: | :------: | :-------------------: |
 | Bulletin 17C FFA + EMA                       |    ✅     |   ✅    | partial  |          no           |
 | Non-stationary GEV                           |    ✅     |   no    | partial  |          no           |
+| CMIP6 change factors through a calibrated GR4J |  ✅     |   no    |    no    |          no           |
 | Baseflow separation (Lyne-Hollick, Eckhardt) |    ✅     |   no    |    no    |          no           |
 | FAO-56 Penman–Monteith ET₀ + crop water      |    ✅     |   no    |    no    |          no           |
 | 37 unified data collectors                   |    ✅     |   no    |    no    |       per-source       |

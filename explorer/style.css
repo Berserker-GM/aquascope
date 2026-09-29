@@ -892,6 +892,8 @@ body.workbench-mode .drawer { right: auto; left: 50%; transform: translateX(-50%
 /* The recorded studies: one line of label, then the chips. */
 .study-recorded { margin-top: .5rem; }
 .study-recorded .study-chips { margin-top: .25rem; }
+.study-try { margin: .2rem 0 .5rem; }
+.study-try .chip { text-align: left; }
 
 /* ── narrow screens ──────────────────────────────────────────────────────── */
 

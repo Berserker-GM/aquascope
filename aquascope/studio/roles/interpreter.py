@@ -209,7 +209,26 @@ _KIND_ANSWERS: dict[str, str] = {
     "irrigation": r"demand|requirement|reliab|peak",
     "irrigation_feasibility": r"demand|requirement|reliab|peak",
     "water_quality": r"index|wqi|exceed|class",
+    "flood_change": r"preferred model",
+    "climate_change": r"cmip6 median",
+    "catchment_response": r"change in mean flow",
+    "regional_flood": r"pooled|return level",
 }
+
+
+def _asks_trend(ws: Workspace) -> bool:
+    """The client's goal is the trend itself (the flood checklist's "flood trend")."""
+    return "flood trend" in (str(ws.brief.intake.get("decision") or ""), str(ws.brief.decision or ""))
+
+
+def _trend_verdict(key: list[dict[str, Any]]) -> str:
+    """", Mann-Kendall p = 0.32: no significant trend at 5 %" from the key numbers, or "" when there is no test."""
+    p = next((kn.get("value") for kn in key if re.search(r"mann-kendall p", str(kn.get("label") or ""), re.I)
+              and _is_number(kn.get("value"))), None)
+    if p is None:
+        return ""
+    return (f", Mann-Kendall p = {float(p):.2g}: "
+            + ("a significant trend at 5 %" if float(p) < 0.05 else "no significant trend at 5 %"))
 
 
 def _headline(ws: Workspace, key: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -231,6 +250,8 @@ def _headline(ws: Workspace, key: list[dict[str, Any]]) -> dict[str, Any] | None
     first = words_of(quantities[0]) if quantities else set()
     rest = {w for q in quantities[1:] for w in words_of(q)}
     kind_pattern = _KIND_ANSWERS.get(str(ws.brief.kind or ""), None) or _KIND_ANSWERS.get(str(ws.brief.playbook or ""))
+    if _asks_trend(ws):
+        kind_pattern = r"sen's slope"     # "are floods getting bigger" is answered by the trend, not a return level
     if kind_pattern:
         # the problem kind says what an answer is called: a flood question is answered by a return level or
         # nothing, never by the record's mean flow because the brief happened to say "flow"
@@ -440,6 +461,26 @@ def decision_text(decision: dict[str, Any]) -> str:
     return " ".join(parts) + "." if parts else ""
 
 
+#: Steps whose payload carries a one-sentence ``verdict`` (aquascope.advanced).
+_VERDICT_TOOLS = frozenset({"change_points", "nonstationary_flood", "pot_flood", "catchment_model",
+                            "climate_projection", "regional_flood"})
+
+
+def _verdicts(ws: Workspace) -> list[dict[str, str]]:
+    """The established advanced steps' verdict sentences, in plan order (a fallback's when it stood in)."""
+    out: list[dict[str, str]] = []
+    for r in (ws.run or {}).get("results") or []:
+        if not _established(r):
+            continue
+        rec, sid = r, str(r.get("id"))
+        if not r.get("gates_passed", True) and isinstance(r.get("fallback"), dict):
+            rec, sid = r["fallback"], f"{sid}.fallback"
+        payload = rec.get("result")
+        if str(rec.get("tool")) in _VERDICT_TOOLS and isinstance(payload, dict) and payload.get("verdict"):
+            out.append({"step": sid, "tool": str(rec.get("tool")), "text": str(payload["verdict"])})
+    return out
+
+
 def rules_findings(ws: Workspace) -> dict[str, Any]:
     """The keyless Interpreter: one finding per key number with the path its value sits at, consistency from
     the comparison gates, the decision from the brief and the primary number, the data requests from the
@@ -486,13 +527,21 @@ def rules_findings(ws: Workspace) -> dict[str, Any]:
         band_text = f", band {band[0]:g} to {band[1]:g} {headline.get('unit') or ''}".rstrip() if band else ""
         decision["answer"] = (f"{(what or 'The answer').strip().rstrip('.')}: {headline.get('label')} "
                               f"{float(headline['value']):g} {headline.get('unit') or ''}".rstrip()
-                              + f"{band_text} ({grade.replace('_', ' ')}).")
+                              + f"{band_text}" + (_trend_verdict(key) if _asks_trend(ws) else "")
+                              + f" ({grade.replace('_', ' ')}).")
     else:
         answers = [kn for kn in key if not _FRAMING_LABELS.search(str(kn.get("label") or ""))][:3]
         have = "; ".join(f"{kn.get('label')} {kn.get('value')} {kn.get('unit') or ''}".strip() for kn in answers
                          if _is_number(kn.get("value")))
         decision["answer"] = (f"No number in the results answers the decision ({grade.replace('_', ' ')})"
                               + (f"; the study established {have}." if have else "."))
+    # The advanced steps say what their numbers mean in one sentence each (``verdict`` in the payload, written
+    # by aquascope.advanced from the payload's own values): those sentences are the answer to a question about
+    # change, a model or a projection, so they follow the headline number.
+    verdicts = _verdicts(ws)
+    if verdicts:
+        decision["verdicts"] = verdicts
+        decision["answer"] = (decision["answer"] + " " + " ".join(v["text"] for v in verdicts[:4])).strip()
     decision["conditions"].extend((decision.get("evidence") or {}).get("assumptions") or [])
     run = ws.run or {}
     if decision.get("evidence"):

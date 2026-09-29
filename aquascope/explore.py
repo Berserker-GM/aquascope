@@ -390,24 +390,30 @@ def _agency_record_if_longer(
 
     Mirror files harvested before #270 hold the last 40 years only: USGS
     01013500 is catalogued from 1903 and its archive copy starts in 1986, so a
-    study fitted 39 annual maxima where about 120 exist. When no cap was asked
-    for and the catalog lists the station more than a year before the archive
-    starts, the agency is asked for the full record. Its answer is used only
+    study fitted 39 annual maxima where about 120 exist. When the catalog lists
+    the station more than a year before the archive starts, the agency is asked
+    for the full record; with a "last N years" cap, for that window, when it
+    reaches more than a year before the archive copy does. Its answer is used only
     when it reaches further back than the archive; otherwise (or when the
     agency fails) the caller serves the archive and its note says what the
     catalog lists. ``None`` means: serve the archive.
     """
-    if window.get("years") or source in _SHORT_WINDOW_SOURCES:
+    if source in _SHORT_WINDOW_SOURCES:
         return None
     listed = _parse_date(window.get("catalog_start"))
     first = archived.index.min().date()
-    if listed is None or (first - listed).days <= 366:
+    # The earliest date asked for: the catalog's first date, or the start of a "last N years" window (never
+    # before the catalog's first date). A window the archive copy already covers never calls the agency.
+    target = listed
+    if window.get("years"):
+        target = window["start"] if listed is None or listed < window["start"] else listed
+    if target is None or (first - target).days <= 366:
         return None
     if IS_EMSCRIPTEN and not SOURCES[source].browser_reachable:
         return None
     try:
         agency = fetch_series(source, station_id, prefer_archive=False, variable=var,
-                              period_start=window["catalog_start"])
+                              period_start=window["catalog_start"], years=window.get("years"))
     except Exception as exc:  # noqa: BLE001 - the archive copy is still a record
         logger.info("full-record fetch from the agency failed for %s/%s: %s", source, station_id, exc)
         return None
@@ -416,7 +422,8 @@ def _agency_record_if_longer(
         return None
     agency["note"] = (
         f"{agency['note']} The AquaScope archive holds only {first.isoformat()} to "
-        f"{archived.index.max().date().isoformat()} for this station, so the full record came from the agency."
+        f"{archived.index.max().date().isoformat()} for this station, so the "
+        + ("requested window" if window.get("years") else "full record") + " came from the agency."
     )
     return agency
 
@@ -1384,6 +1391,8 @@ def _station_entry(row: dict[str, Any], lat: float, lon: float, today: date) -> 
         "station_id": row.get("station_id"),
         "name": row.get("name"),
         "distance_km": round(_haversine_km(lat, lon, float(row["latitude"]), float(row["longitude"])), 1),
+        "latitude": round(float(row["latitude"]), 5),
+        "longitude": round(float(row["longitude"]), 5),
         "variables": [v for v in (row.get("variables") or []) if v],
         "period_start": row.get("period_start"),
         "period_end": row.get("period_end"),
@@ -1395,6 +1404,12 @@ def _station_entry(row: dict[str, Any], lat: float, lon: float, today: date) -> 
 def _label(st: dict[str, Any]) -> str:
     name = st.get("name") or st.get("station_id")
     return f"{name} ({st['source']}/{st['station_id']})"
+
+
+#: The degree of regulation (BasinATLAS, % of annual flow a reservoir can hold) at or above which the catchment
+#: counts as regulated and the methods sensitive to regulation turn marginal (#376). An aquascope choice to flag
+#: substantial regulation, not a published threshold; small farm dams stay below it.
+REGULATION_DOR_PCT = 10.0
 
 
 def _catchment_subset(desc: dict[str, Any]) -> dict[str, Any]:
@@ -1419,6 +1434,7 @@ def _catchment_subset(desc: dict[str, Any]) -> dict[str, Any]:
         "precipitation_mm_yr": value("precipitation_mm_yr"),
         "aridity": value("aridity_index"),
         "dams": value("degree_of_regulation_pct"),
+        "snow_cover_pct": value("snow_cover_pct"),
         "source": "BasinATLAS (HydroATLAS v1.0)",
     }
 
@@ -1432,6 +1448,7 @@ def assess_site(
     return_period: float | None = None,
     area_km2: float | None = None,
     donors: int | None = None,
+    change_points: list[int] | None = None,
 ) -> dict[str, Any]:
     """What can be answered at a place: the gauges in reach, the catchment, and what the record supports.
 
@@ -1441,7 +1458,11 @@ def assess_site(
     sufficiency table for every method (or those for one ``problem``), each
     row carrying the station it would use. ``area_km2`` and ``donors`` let a
     caller that already knows them (the Explorer page holds both) skip those
-    lookups. Everything returned is plain JSON.
+    lookups. ``change_points`` (years a change-point test found inside the
+    record, :func:`aquascope.advanced.change_points`) demote the methods that
+    assume stationarity to marginal (#376); a regulated or snowy catchment
+    (BasinATLAS) does the same for the methods sensitive to it. Everything
+    returned is plain JSON.
 
     Returns ``{"point", "stations", "catchment", "context", "sufficiency", "notes"}``.
     """
@@ -1557,11 +1578,24 @@ def assess_site(
                 notes.append(f"{ctx_donors} donor gauges from a pool of {pool:,} gauged catchments.")
 
     # ── point products: the ERA5 / GloFAS path applies to any point on land
-    available = {"glofas", "temperature", "forcing"}
+    available = {"glofas", "temperature", "forcing", "gcms>=3"}
     notes.append("ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land "
                  "(Open-Meteo); not checked here.")
-    notes.append("CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); "
-                 "not counted.")
+    notes.append("CMIP6 change factors: seven HighResMIP models through the Open-Meteo Climate API (1950-2050, one "
+                 "high-emission pathway), assumed reachable; not checked here.")
+    dams = catchment.get("dams")
+    if isinstance(dams, (int, float)) and dams >= REGULATION_DOR_PCT:
+        available.add("regulation")
+        notes.append(f"Reservoirs regulate the catchment (degree of regulation {dams:g}% in BasinATLAS): the methods "
+                     "sensitive to regulation are marginal here.")
+    snow = catchment.get("snow_cover_pct")
+    if isinstance(snow, (int, float)) and snow >= 10:
+        available.add("snow")
+        notes.append(f"Snow covers {snow:g}% of the catchment in an average year (BasinATLAS): the methods sensitive "
+                     "to snow are marginal here, and the catchment model adds a snow store.")
+    if change_points:
+        notes.append("Change points found inside the record: " + ", ".join(str(int(y)) for y in change_points)
+                     + "; the methods that assume stationarity are marginal here.")
 
     ctx = SiteContext(
         years_by_variable=years_by,
@@ -1570,6 +1604,7 @@ def assess_site(
         return_period=float(return_period) if return_period is not None else None,
         donors=ctx_donors,
         available=available,
+        change_points=[int(y) for y in (change_points or [])],
     )
     if ctx.ungauged:
         notes.append(f"No gauge with a usable record within {radius_km:g} km: at-site methods are not defensible; "
