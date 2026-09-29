@@ -35,9 +35,27 @@ def test_a_bad_checklist_is_refused():
     assert "option 1 is not a value" in errors and "is not a pattern" in errors
 
 
-def test_getting_worse_is_a_trend_and_only_the_window_is_asked():
+def _trend_goal(ws: Workspace) -> object:
+    """A general flood question asks for the goal; picking the trend leaves only the window to ask."""
+    consultant.consult(ws, None, "Tell me about flooding at this river")
+    assert [q.id for q in ws.brief.open_questions] == ["decision"]
+    return consultant.consult(ws, None, "Whether floods are getting bigger (trend)")
+
+
+def test_getting_worse_goes_to_the_change_study_which_asks_only_the_period():
     ws = _ws()
     msg = consultant.consult(ws, None, "Is flooding at this river getting worse?")
+    b = ws.brief
+    assert b.playbook == "flood_change" and msg.kind == "questions"
+    assert [q.id for q in b.open_questions] == ["years"]
+    assert b.open_questions[0].options == ["The whole record", "The last 50 years", "The last 30 years"]
+    consultant.consult(ws, None, "The last 30 years")
+    assert b.ready and b.intake["years"] == 30, "no generic 'what will be decided' after the checklist"
+
+
+def test_the_trend_goal_is_a_trend_and_only_the_window_is_asked():
+    ws = _ws()
+    msg = _trend_goal(ws)
     b = ws.brief
     assert b.decision == "flood trend" and b.stated == ["decision"]
     assert msg.kind == "questions" and [q.id for q in b.open_questions] == ["years"]
@@ -152,7 +170,7 @@ def test_the_gauge_choice_moves_the_study_or_keeps_it():
 
 def test_a_reply_that_cannot_be_used_is_asked_again_with_the_reason():
     ws = _ws()
-    consultant.consult(ws, None, "Is flooding at this river getting worse?")
+    _trend_goal(ws)
     msg = consultant.consult(ws, None, "the last 10 years")
     q = ws.brief.open_questions[0]
     assert q.id == "years" and q.retry == "10 is too few: a trend needs at least 20."

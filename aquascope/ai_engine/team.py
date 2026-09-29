@@ -95,6 +95,8 @@ KEYWORDS: dict[str, list[str]] = {
         r"\bfuture\b|by (the )?20[3-9]\d|in 20[3-9]\d|\b2050\b|mid-century|coming decades",
         r"\bcmip|projection|projected|\bssp\d|\brcp\s*\d|climate model|emission",
         r"\baffect|\bimpact|consequence",
+        r"(climate change|warming)[^.?!]{0,60}(flood|flow|river|rain|drought|water)|"
+        r"(flood|flow|river|drought|water)[^.?!]{0,60}(climate change|warming)",
     ],
     "catchment_response": [
         r"what if|what would happen|what happens (to|if)|sensitiv",

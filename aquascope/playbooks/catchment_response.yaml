@@ -23,6 +23,34 @@ intake:
     default: 2
     min: 0
     max: 6
+# What the study must know before it plans, asked one at a time as a pick list when the question leaves it open.
+checklist:
+  - field: dp_pct
+    ask: How should the rainfall change?
+    why: The model runs the same days with the rainfall scaled by this much.
+    options:
+      - value: -10
+        label: 10% less rain
+        match: \b(less|drier|drops?|falls?|reduc\w*|decreas\w*)\b
+      - value: -20
+        label: 20% less rain
+      - value: 10
+        label: 10% more rain
+        match: \b(more|wetter|increas\w*|rises?)\b
+      - value: 0
+        label: No change in rainfall
+  - field: dt_c
+    ask: How much warmer?
+    why: Warming raises evaporation and melts snow earlier; the model runs the same days this much warmer.
+    options:
+      - value: 2
+        label: 2 degrees warmer
+      - value: 1
+        label: 1 degree warmer
+      - value: 3
+        label: 3 degrees warmer
+      - value: 0
+        label: No warming
 branches:
   - id: gauged
     when:

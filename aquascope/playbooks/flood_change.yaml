@@ -25,6 +25,25 @@ intake:
     default: 2050
     min: 2026
     max: 2100
+  - name: years
+    label: Years of record to use (empty for the whole record; a trend needs at least 20)
+    type: int
+    default: null
+    min: 20
+# What the study must know before it plans, asked one at a time as a pick list and only when the question leaves
+# it open: a change over the whole record and one over recent decades can disagree.
+checklist:
+  - field: years
+    ask: Which period should the change tests cover?
+    why: A step change or a trend over the whole record and one over recent decades can disagree; every test is run on the one you pick.
+    options:
+      - value: null
+        label: The whole record
+        match: \b(whole|entire|full|all)\b
+      - value: 50
+        label: The last 50 years
+      - value: 30
+        label: The last 30 years
 branches:
   - id: long_record
     when:
@@ -43,6 +62,7 @@ branches:
         arguments:
           source: "{{ station.source }}"
           station_id: "{{ station.station_id }}"
+          years: "{{ intake.years }}"
           series: annual_max
         rationale: >-
           Is the flood record one sample? Pettitt's test for a step change, PELT for the segments and Mann-Kendall
@@ -59,6 +79,7 @@ branches:
         arguments:
           source: "{{ station.source }}"
           station_id: "{{ station.station_id }}"
+          years: "{{ intake.years }}"
           bootstrap_ci: true
           return_periods: ["{{ intake.return_period }}"]
         rationale: >-
@@ -78,6 +99,7 @@ branches:
         arguments:
           source: "{{ station.source }}"
           station_id: "{{ station.station_id }}"
+          years: "{{ intake.years }}"
           return_periods: [10, "{{ intake.return_period }}"]
           horizon_year: "{{ intake.horizon_year }}"
         rationale: >-
@@ -97,6 +119,7 @@ branches:
         arguments:
           source: "{{ station.source }}"
           station_id: "{{ station.station_id }}"
+          years: "{{ intake.years }}"
           return_periods: [10, "{{ intake.return_period }}"]
         rationale: >-
           Every independent flood over a threshold, fitted to a Generalised Pareto: a second estimate of the tail

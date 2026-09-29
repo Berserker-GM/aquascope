@@ -372,7 +372,10 @@ def _next_question(ws: Workspace, pb: Any, tables: dict[str, Any] | None = None)
                                     default=item.label_of(default) or default))
         return
     done = {q.id for q in b.questions}
-    rest = [q for q in _gap_questions(ws, pb, tables) if q.id not in fields and q.id not in done]
+    # The checklist is the playbook's whole list of what it needs; the generic "what will be decided" question is
+    # not added to it (a playbook that needs the decision puts it in its checklist).
+    rest = [q for q in _gap_questions(ws, pb, tables) if q.id not in fields and q.id not in done
+            and q.id != "decision"]
     if rest:
         b.questions.append(rest[0])
         return

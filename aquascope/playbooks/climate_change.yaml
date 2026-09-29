@@ -29,6 +29,18 @@ intake:
     default: 2050
     min: 2030
     max: 2100
+# What the study must know before it plans, asked one at a time as a pick list when the question leaves it open.
+checklist:
+  - field: return_period
+    ask: Which flood should the projection follow?
+    why: The change in a frequent flood and in a rare one can differ in sign; the models are read at the one you pick.
+    options:
+      - value: 20
+        label: The 20-year flood (well inside 30 years of model data)
+      - value: 10
+        label: The 10-year flood
+      - value: 50
+        label: The 50-year flood (an extrapolation from 30 model years)
 branches:
   - id: gauged
     when:
