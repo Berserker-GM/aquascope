@@ -1384,6 +1384,8 @@ def _station_entry(row: dict[str, Any], lat: float, lon: float, today: date) -> 
         "station_id": row.get("station_id"),
         "name": row.get("name"),
         "distance_km": round(_haversine_km(lat, lon, float(row["latitude"]), float(row["longitude"])), 1),
+        "latitude": round(float(row["latitude"]), 5),
+        "longitude": round(float(row["longitude"]), 5),
         "variables": [v for v in (row.get("variables") or []) if v],
         "period_start": row.get("period_start"),
         "period_end": row.get("period_end"),
@@ -1395,6 +1397,12 @@ def _station_entry(row: dict[str, Any], lat: float, lon: float, today: date) -> 
 def _label(st: dict[str, Any]) -> str:
     name = st.get("name") or st.get("station_id")
     return f"{name} ({st['source']}/{st['station_id']})"
+
+
+#: The degree of regulation (BasinATLAS, % of annual flow a reservoir can hold) at or above which the catchment
+#: counts as regulated and the methods sensitive to regulation turn marginal (#376). An aquascope choice to flag
+#: substantial regulation, not a published threshold; small farm dams stay below it.
+REGULATION_DOR_PCT = 10.0
 
 
 def _catchment_subset(desc: dict[str, Any]) -> dict[str, Any]:
@@ -1419,6 +1427,7 @@ def _catchment_subset(desc: dict[str, Any]) -> dict[str, Any]:
         "precipitation_mm_yr": value("precipitation_mm_yr"),
         "aridity": value("aridity_index"),
         "dams": value("degree_of_regulation_pct"),
+        "snow_cover_pct": value("snow_cover_pct"),
         "source": "BasinATLAS (HydroATLAS v1.0)",
     }
 
@@ -1432,6 +1441,7 @@ def assess_site(
     return_period: float | None = None,
     area_km2: float | None = None,
     donors: int | None = None,
+    change_points: list[int] | None = None,
 ) -> dict[str, Any]:
     """What can be answered at a place: the gauges in reach, the catchment, and what the record supports.
 
@@ -1441,7 +1451,11 @@ def assess_site(
     sufficiency table for every method (or those for one ``problem``), each
     row carrying the station it would use. ``area_km2`` and ``donors`` let a
     caller that already knows them (the Explorer page holds both) skip those
-    lookups. Everything returned is plain JSON.
+    lookups. ``change_points`` (years a change-point test found inside the
+    record, :func:`aquascope.advanced.change_points`) demote the methods that
+    assume stationarity to marginal (#376); a regulated or snowy catchment
+    (BasinATLAS) does the same for the methods sensitive to it. Everything
+    returned is plain JSON.
 
     Returns ``{"point", "stations", "catchment", "context", "sufficiency", "notes"}``.
     """
@@ -1557,11 +1571,24 @@ def assess_site(
                 notes.append(f"{ctx_donors} donor gauges from a pool of {pool:,} gauged catchments.")
 
     # ── point products: the ERA5 / GloFAS path applies to any point on land
-    available = {"glofas", "temperature", "forcing"}
+    available = {"glofas", "temperature", "forcing", "gcms>=3"}
     notes.append("ERA5 temperature and forcing and GloFAS discharge are assumed reachable for any point on land "
                  "(Open-Meteo); not checked here.")
-    notes.append("CMIP6 change factors need model output you supply (aquascope.climate works on downloaded data); "
-                 "not counted.")
+    notes.append("CMIP6 change factors: seven HighResMIP models through the Open-Meteo Climate API (1950-2050, one "
+                 "high-emission pathway), assumed reachable; not checked here.")
+    dams = catchment.get("dams")
+    if isinstance(dams, (int, float)) and dams >= REGULATION_DOR_PCT:
+        available.add("regulation")
+        notes.append(f"Reservoirs regulate the catchment (degree of regulation {dams:g}% in BasinATLAS): the methods "
+                     "sensitive to regulation are marginal here.")
+    snow = catchment.get("snow_cover_pct")
+    if isinstance(snow, (int, float)) and snow >= 10:
+        available.add("snow")
+        notes.append(f"Snow covers {snow:g}% of the catchment in an average year (BasinATLAS): the methods sensitive "
+                     "to snow are marginal here, and the catchment model adds a snow store.")
+    if change_points:
+        notes.append("Change points found inside the record: " + ", ".join(str(int(y)) for y in change_points)
+                     + "; the methods that assume stationarity are marginal here.")
 
     ctx = SiteContext(
         years_by_variable=years_by,
@@ -1570,6 +1597,7 @@ def assess_site(
         return_period=float(return_period) if return_period is not None else None,
         donors=ctx_donors,
         available=available,
+        change_points=[int(y) for y in (change_points or [])],
     )
     if ctx.ungauged:
         notes.append(f"No gauge with a usable record within {radius_km:g} km: at-site methods are not defensible; "

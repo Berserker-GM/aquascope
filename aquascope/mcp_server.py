@@ -949,6 +949,12 @@ def build_server():
     server.tool()(low_flow_context)
     server.tool()(supply_reliability)
     server.tool()(crop_water_demand)
+    # the advanced study steps: change, nonstationary floods, catchment model, projections, regions
+    from aquascope import advanced
+
+    for fn in (advanced.change_points, advanced.nonstationary_flood, advanced.pot_flood, advanced.catchment_model,
+               advanced.climate_projection, advanced.regional_flood, advanced.compare_gauges):
+        server.tool()(fn)
     server.tool()(archive_health)
     server.tool()(list_analyses)
     server.tool()(analyse_table)

@@ -261,6 +261,11 @@ def _rules_quantities(playbook: str | None, intake: dict[str, Any]) -> list[str]
         "supply_reliability": ["the fraction of days, years and volume the demand is met"],
         "irrigation_feasibility": ["the seasonal crop water demand in mm, m3 and m3/s"],
         "water_quality": ["the water-quality index and the guideline exceedances per parameter"],
+        "flood_change": [f"the change in the {rp or 100}-year level from a nonstationary fit, with the step-change "
+                         "and trend tests"],
+        "climate_change": ["the change in mean flow and the flood by 2050 across CMIP6 models, with the spread"],
+        "catchment_response": ["the change in mean flow and low flow under the scenarios, with the model's "
+                               "validation skill"],
     }
     return table.get(playbook or "", [])
 

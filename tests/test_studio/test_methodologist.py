@@ -106,7 +106,8 @@ def test_a_valid_model_plan_is_accepted_with_the_playbooks_caveats_attached():
     listed = {e["tool"] for e in ctx["catalogue"]}
     assert "eda" not in listed, "a table's descriptive tools are listed only with an upload"
     assert {"wqi", "who_screen", "return_periods"} <= listed, "the analytic table tools are listed: a step feeds them"
-    assert len(__import__("json").dumps(ctx)) < 20_000
+    # the advanced steps (change points, regional pooling) serve flood studies too: 21k characters is the budget
+    assert len(__import__("json").dumps(ctx)) < 21_000
 
 
 def test_an_invalid_plan_gets_one_repair_call():

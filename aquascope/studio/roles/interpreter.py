@@ -209,6 +209,10 @@ _KIND_ANSWERS: dict[str, str] = {
     "irrigation": r"demand|requirement|reliab|peak",
     "irrigation_feasibility": r"demand|requirement|reliab|peak",
     "water_quality": r"index|wqi|exceed|class",
+    "flood_change": r"preferred model",
+    "climate_change": r"cmip6 median",
+    "catchment_response": r"change in mean flow",
+    "regional_flood": r"pooled|return level",
 }
 
 
@@ -440,6 +444,26 @@ def decision_text(decision: dict[str, Any]) -> str:
     return " ".join(parts) + "." if parts else ""
 
 
+#: Steps whose payload carries a one-sentence ``verdict`` (aquascope.advanced).
+_VERDICT_TOOLS = frozenset({"change_points", "nonstationary_flood", "pot_flood", "catchment_model",
+                            "climate_projection", "regional_flood"})
+
+
+def _verdicts(ws: Workspace) -> list[dict[str, str]]:
+    """The established advanced steps' verdict sentences, in plan order (a fallback's when it stood in)."""
+    out: list[dict[str, str]] = []
+    for r in (ws.run or {}).get("results") or []:
+        if not _established(r):
+            continue
+        rec, sid = r, str(r.get("id"))
+        if not r.get("gates_passed", True) and isinstance(r.get("fallback"), dict):
+            rec, sid = r["fallback"], f"{sid}.fallback"
+        payload = rec.get("result")
+        if str(rec.get("tool")) in _VERDICT_TOOLS and isinstance(payload, dict) and payload.get("verdict"):
+            out.append({"step": sid, "tool": str(rec.get("tool")), "text": str(payload["verdict"])})
+    return out
+
+
 def rules_findings(ws: Workspace) -> dict[str, Any]:
     """The keyless Interpreter: one finding per key number with the path its value sits at, consistency from
     the comparison gates, the decision from the brief and the primary number, the data requests from the
@@ -493,6 +517,13 @@ def rules_findings(ws: Workspace) -> dict[str, Any]:
                          if _is_number(kn.get("value")))
         decision["answer"] = (f"No number in the results answers the decision ({grade.replace('_', ' ')})"
                               + (f"; the study established {have}." if have else "."))
+    # The advanced steps say what their numbers mean in one sentence each (``verdict`` in the payload, written
+    # by aquascope.advanced from the payload's own values): those sentences are the answer to a question about
+    # change, a model or a projection, so they follow the headline number.
+    verdicts = _verdicts(ws)
+    if verdicts:
+        decision["verdicts"] = verdicts
+        decision["answer"] = (decision["answer"] + " " + " ".join(v["text"] for v in verdicts[:4])).strip()
     decision["conditions"].extend((decision.get("evidence") or {}).get("assumptions") or [])
     run = ws.run or {}
     if decision.get("evidence"):

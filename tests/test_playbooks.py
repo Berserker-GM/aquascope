@@ -20,8 +20,8 @@ RAIN = {"source": "uk_ea", "station_id": "R1", "name": "Teddington rain", "dista
         "variables": ["precipitation"], "years": 36.0}
 BORE = {"source": "uk_ea", "station_id": "W1", "name": "Bore", "distance_km": 5.0,
         "variables": ["groundwater_level"], "years": 15}
-ALL_IDS = ["drought_status", "flood_risk", "groundwater_decline", "irrigation_feasibility", "supply_reliability",
-           "ungauged_flow", "water_quality"]
+ALL_IDS = ["catchment_response", "climate_change", "drought_status", "flood_change", "flood_risk",
+           "groundwater_decline", "irrigation_feasibility", "supply_reliability", "ungauged_flow", "water_quality"]
 #: What assess_site reports as reachable for any point on land.
 POINT_PRODUCTS = ("glofas", "temperature", "forcing")
 
@@ -269,7 +269,7 @@ def test_the_explorer_playbook_list_is_the_package_s_own():
     data = json.loads(as_json())
     ids = [p["id"] for p in data["playbooks"]]
     assert ids == ALL_IDS
-    flood = data["playbooks"][1]
+    flood = next(p for p in data["playbooks"] if p["id"] == "flood_risk")
     assert flood["title"] and flood["problem"] == "flood_risk"
     fields = {f["name"]: f for f in flood["intake"]}
     assert fields["return_period"]["type"] == "int" and fields["return_period"]["default"] == 100

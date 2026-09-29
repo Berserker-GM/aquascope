@@ -12,6 +12,7 @@ import math
 import random
 import sys
 import zipfile
+from pathlib import Path
 
 import matplotlib
 
@@ -321,7 +322,27 @@ def _payload_for(kind: str, station: dict, drought: dict, donors: dict, climate:
         return samples, None
     if kind == "site_map":
         return others["site_map"], {**SITE, "stations": recon["stations"]}
+    if kind in ADVANCED_KINDS:
+        return ADVANCED[ADVANCED_KINDS[kind]], None
     return others[kind], None
+
+
+#: Real payloads of the advanced study steps (USGS 01013500, trimmed), by tool.
+ADVANCED = json.loads((Path(__file__).parents[1] / "fixtures" / "advanced_payloads.json").read_text("utf-8"))
+ADVANCED_KINDS = {"change_points": "change_points", "nonstationary_levels": "nonstationary_flood",
+                  "pot_frequency": "pot_flood", "model_fit": "catchment_model", "scenario_bars": "catchment_model",
+                  "projection_spread": "climate_projection", "regional_growth": "regional_flood"}
+
+
+def test_the_advanced_tables_build_from_real_payloads() -> None:
+    from aquascope.studio.deliverables import tables
+
+    for tool, payload in ADVANCED.items():
+        names = catalogue.get(tool).tables
+        arts = tables.tables_for("t", tool, payload)
+        built = {a.meta["name"] for a in arts}
+        assert set(names) - {"annual_maxima"} <= built, (tool, names, built)
+        assert all(a.data.count(b"\n") >= 2 for a in arts), tool
 
 
 def test_every_catalogue_kind_has_a_maker() -> None:
