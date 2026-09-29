@@ -28,6 +28,10 @@ the spend ceiling is $1 unless `--max-usd` says otherwise. For scripts, give eve
 on the line: `aquascope studio "PROBLEM" --at USGS-01013500 --yes` (or `--lat`/`--lon`). Without the `studio`
 extra the bundle holds only the Markdown and HTML report and the tables, and the CLI says so.
 
+Beyond the design flow, the Studio plans three [advanced studies](advanced_studies.md): whether the flood is changing
+(`flood_change`), how the river changes with the climate by 2050 (`climate_change`) and what happens if the rain drops
+or it warms (`catchment_response`).
+
 ## The questions
 
 A playbook's `checklist` lists what the study must know before it plans. The Consultant reads your first message
