@@ -6,7 +6,7 @@ All notable changes to AquaScope are documented here.
 
 ### Fixed
 - Record the verified v0.21.0 Zenodo DOI (`10.5281/zenodo.23048856`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
-- The showcase workflow opens a pull request for each new recording again; it had mistaken the long-merged #263 for an open one, so recordings since then sat on `showcase/recordings` unseen.
+- The showcase workflow opens a pull request for each new recording again; it had mistaken the long-merged #263 for an open one, so recordings since then sat on `showcase/recordings` unseen. It also stops seeding from that branch once its pull request has closed, which had rolled the recorded studies back to their 2026-09-14 copies.
 
 ## [0.21.0] - 2026-09-30
 
