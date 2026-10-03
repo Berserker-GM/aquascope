@@ -7,6 +7,7 @@ import { toFeatureCollection } from "./catalog.js?v=__BUILD__";
 import { TERRAIN_DEM, basemapById, overlayById, tileUrls } from "./layers.js?v=__BUILD__";
 import { SHAPE_NAMES, shapeSdf } from "./shapes.js?v=__BUILD__";
 import { writeUrl } from "./url.js?v=__BUILD__";
+import { availabilityLabel } from "./availability.js?v=__BUILD__";
 
 export let map = null;
 
@@ -19,8 +20,8 @@ export function whenMapLoadsLate(cb) { onLate = cb; }
 const OUR_SOURCES = ["stations", "catchment", "basins6", "basins12", "terrain-dem"];
 const OUR_LAYERS = ["catchment-fill", "catchment-line", "basins6-line", "basins12-line", "basins12-up",
   "gauge-heat", "clusters", "cluster-count", "points", "selected", "hillshade"];
-const isOurs = (id) => OUR_SOURCES.includes(id) || id.startsWith("ov-");
-const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-");
+const isOurs = (id) => OUR_SOURCES.includes(id) || id.startsWith("ov-") || id.startsWith("study-");
+const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-") || id.startsWith("study-");
 
 // WebGL is what the map actually needs; test it directly instead of blaming it
 // for every slow style load (the old code said "WebGL is off" after a 12 s
@@ -449,6 +450,9 @@ export function addStationLayers(fc) {
       "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.57, 7, 0.77, 10, 1.08, 14, 1.5],
       "icon-allow-overlap": true,
       "icon-ignore-placement": true,
+      "icon-offset": ["get", "offset"],
+      "icon-rotation-alignment": "viewport",
+      "icon-pitch-alignment": "viewport",
     },
     paint: {
       "icon-color": ["get", "color"],
@@ -458,10 +462,18 @@ export function addStationLayers(fc) {
     },
   });
   map.addLayer({
-    id: "selected", type: "circle", source: "stations", filter: ["==", ["get", "key"], "__none__"],
+    id: "selected", type: "symbol", source: "stations", filter: ["==", ["get", "key"], "__none__"],
+    layout: {
+      "icon-image": ["concat", "gauge-", ["get", "shape"]],
+      "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.57, 7, 0.77, 10, 1.08, 14, 1.5],
+      "icon-offset": ["get", "offset"],
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+      "icon-rotation-alignment": "viewport",
+      "icon-pitch-alignment": "viewport",
+    },
     paint: {
-      "circle-color": "#ffc400", "circle-radius": 10,
-      "circle-stroke-color": "#10222f", "circle-stroke-width": 2.5, "circle-opacity": 1,
+      "icon-color": "#ffc400", "icon-halo-color": "#10222f", "icon-halo-width": 2.5,
     },
   });
 
@@ -476,7 +488,7 @@ export function addStationLayers(fc) {
     map.getCanvas().style.cursor = "pointer";
     const p = e.features[0].properties;
     popup.setLngLat(e.features[0].geometry.coordinates)
-      .setHTML(`<strong>${escapeHtml(p.name || p.key.split("/")[1])}</strong><br><span class="muted">${escapeHtml(sourceStyle(p.source).label)}</span>`)
+      .setHTML(`<strong>${escapeHtml(p.name || p.key.split("/")[1])}</strong><br><span class="muted">${escapeHtml(sourceStyle(p.source).label)}<br>${escapeHtml(availabilityLabel(p.source))}</span>`)
       .addTo(map);
   });
   map.on("mouseleave", "points", () => { map.getCanvas().style.cursor = ""; popup.remove(); });

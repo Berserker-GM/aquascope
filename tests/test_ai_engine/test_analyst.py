@@ -112,7 +112,12 @@ def test_tool_specs_cover_the_mcp_surface():
                      "list_playbooks", "describe_playbook", "solve_plan", "solve_run",
                      # the site-level tools of the drought, supply and irrigation playbooks (#309)
                      "drought_indices", "drought_propagation", "low_flow_context", "supply_reliability",
-                     "crop_water_demand"}
+                     "crop_water_demand",
+                     # the map's signature filter over signatures.parquet
+                     "filter_gauges",
+                     # the advanced study steps: change, nonstationary floods, models, projections, regions
+                     "change_points", "nonstationary_flood", "pot_flood", "catchment_model", "climate_projection",
+                     "regional_flood", "compare_gauges"}
     tools = analyst._openai_tools(analyst._tool_specs())
     assert all(t["type"] == "function" and "parameters" in t["function"] for t in tools)
 

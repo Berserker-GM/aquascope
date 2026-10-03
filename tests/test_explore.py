@@ -28,6 +28,30 @@ def _daily_flow(years: int = 30, seed: int = 7) -> pd.Series:
     return pd.Series(np.exp(rng.normal(0, 0.5, len(idx))) * base, index=idx)
 
 
+def test_full_export_preserves_long_records_and_original_precision():
+    import io
+
+    series = _daily_flow(90)
+    out = analysis.analyze_series(series, "discharge", "m3/s")
+    assert len(out["series"]["t"]) < out["n"] and out["series_downsampled"]
+    with pytest.raises(ValueError, match="downsampled"):
+        analysis.to_csv(out)
+    exported = pd.read_csv(io.StringIO(analysis.to_csv(out, series=series)), float_precision="round_trip")
+    assert len(exported) == len(series) == out["n"]
+    np.testing.assert_array_equal(exported["discharge_m3_per_s"], series.to_numpy())
+    pd.testing.assert_index_equal(pd.DatetimeIndex(exported["date"]).rename(None), series.index)
+
+
+def test_snapshot_hash_distinguishes_values_beyond_display_precision():
+    series = _daily_flow(1)
+    changed = series.copy()
+    changed.iloc[0] += 0.0000001
+    before = analysis.analyze_series(series, "discharge", "m3/s")
+    after = analysis.analyze_series(changed, "discharge", "m3/s")
+    assert before["series"] == after["series"]
+    assert before["data_snapshot"] != after["data_snapshot"]
+
+
 def test_analyze_series_full_contract():
     s = _daily_flow(30)
     out = analysis.analyze_series(s, "discharge", "m3/s")
@@ -323,7 +347,9 @@ def test_analyze_station_asks_usgs_for_the_whole_catalog_span():
 def test_the_archive_copy_is_served_whole_by_default_and_capped_on_request():
     idx = pd.date_range(end=_today(), periods=int(365.25 * 30), freq="D")
     hit = pd.Series(np.linspace(1, 2, len(idx)), index=idx)
-    with patch("aquascope.archive.observations.fetch_archived_series", return_value=hit):
+    agency = _FakeUSGS(pd.Series(dtype="float64"))  # the agency has nothing earlier: the archive copy stands
+    with patch("aquascope.archive.observations.fetch_archived_series", return_value=hit), \
+            patch.object(analysis, "build_collector", return_value=agency):
         whole = analysis.fetch_series("usgs", "USGS-1", period_start="1930-01-01")
         capped = analysis.fetch_series("usgs", "USGS-1", years=5, period_start="1930-01-01")
     assert len(whole["series"]) == len(hit) and "full record requested" in whole["note"]
@@ -500,3 +526,19 @@ def test_browser_unreachable_but_mirrored_source_reads_the_archive(monkeypatch):
     assert out["series"] is not None and out["variable"] == "discharge"
     assert "From the AquaScope archive" in out["note"]
     assert archived.call_args[0][:3] == ("greece_openhi", "8425", "discharge")
+
+
+def test_fetch_series_skips_the_usgs_area_lookup():
+    """The series drops the drainage area, so its one-request-per-station lookup is turned off (harvest 429s)."""
+    from unittest.mock import MagicMock, patch
+
+    import aquascope.explore as ex
+
+    fake = MagicMock()
+    fake.collect.return_value = []
+    with patch("aquascope.explore.build_collector", return_value=fake):
+        try:
+            ex.fetch_series("usgs", "USGS-01013500", years=5, prefer_archive=False, variable="discharge")
+        except Exception:  # noqa: BLE001 - an empty record may raise; the flag is what is under test
+            pass
+    assert fake.lookup_catchment_area is False

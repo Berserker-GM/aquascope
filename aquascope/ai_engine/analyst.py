@@ -111,6 +111,103 @@ def _run_python_tool(code: str) -> dict[str, Any]:
         return {"ok": False, "error": str(exc)}
 
 
+def _filter_gauges_tool(**kwargs: Any) -> dict[str, Any]:
+    from aquascope.archive.signatures import filter_gauges
+
+    return filter_gauges(**kwargs)
+
+
+def _advanced_specs(num: dict[str, str]) -> list[ToolSpec]:
+    """The advanced study steps (:mod:`aquascope.advanced`): change, models, projections, regions."""
+    from aquascope import advanced as adv
+
+    station = {"source": {"type": "string"}, "station_id": {"type": "string"}}
+    rps = {"type": "array", "items": num, "description": "the T in years to report (default 2 to 100)"}
+    return [
+        ToolSpec(
+            "change_points",
+            "Is a gauge's record stationary? Pettitt's step-change test, PELT segments and Mann-Kendall with Sen's "
+            "slope on the annual maxima (series=annual_max, default) or annual means (annual_mean). stationary is "
+            "false when either test is significant: run it before a stationary frequency fit.",
+            {"type": "object", "properties": {**station, "variable": {"type": "string"},
+                                              "series": {"type": "string", "enum": ["annual_max", "annual_mean"]},
+                                              "years": {"type": "integer"}, "alpha": num},
+             "required": ["source", "station_id"]},
+            adv.change_points,
+        ),
+        ToolSpec(
+            "nonstationary_flood",
+            "The T-year flood when the annual maxima may have a trend: a GEV with a time-varying location next to "
+            "the stationary GEV, the likelihood-ratio test and AIC that say whether the trend is supported, the "
+            "T-year level at the first year, the last year and horizon_year, and a bootstrap interval. A "
+            "sensitivity next to the stationary answer, not a replacement.",
+            {"type": "object", "properties": {**station, "return_periods": rps, "horizon_year": {"type": "integer"},
+                                              "years": {"type": "integer"}, "n_boot": {"type": "integer"}},
+             "required": ["source", "station_id"]},
+            adv.nonstationary_flood,
+        ),
+        ToolSpec(
+            "pot_flood",
+            "Flood frequency from every independent peak over a threshold (Generalised Pareto), next to the "
+            "annual-maximum GEV: uses all the large floods, not one a year. threshold, or events_per_year (default "
+            "2) to pick it; min_separation_days declusters.",
+            {"type": "object", "properties": {**station, "threshold": num, "events_per_year": num,
+                                              "min_separation_days": {"type": "integer"}, "return_periods": rps,
+                                              "years": {"type": "integer"}},
+             "required": ["source", "station_id"]},
+            adv.pot_flood,
+        ),
+        ToolSpec(
+            "catchment_model",
+            "Calibrate GR4J (with a degree-day snow store where it snows) on a gauge's flow and ERA5 rainfall and "
+            "evaporation, validate it on years it never saw (KGE, NSE, a 90% band scored by coverage), and run "
+            "what-if scenarios [{label, dp_pct, dpet_pct, dt_c}] for the change in mean, low (Q95) and high flow. "
+            "Needs area_km2 (the catchment step's sub_basin.up_area). Returns params for climate_projection.",
+            {"type": "object", "properties": {**station, "lat": num, "lon": num, "area_km2": num,
+                                              "years": {"type": "integer"},
+                                              "scenarios": {"type": "array", "items": {"type": "object"}},
+                                              "snow": {"type": "string", "enum": ["auto", "true", "false"]}},
+             "required": ["source", "station_id", "lat", "lon", "area_km2"]},
+            lambda source, station_id, lat, lon, area_km2=None, snow="auto", **kw: adv.catchment_model(
+                source, station_id, lat, lon, area_km2=area_km2,
+                snow={"true": True, "false": False}.get(str(snow).lower(), "auto"), **kw),
+        ),
+        ToolSpec(
+            "climate_projection",
+            "How the climate at a point changes in seven CMIP6 HighResMIP models (Open-Meteo, 1985-2014 against "
+            "2020-2049 by default): rainfall, evaporation, temperature and the return_period wettest day, per model "
+            "and as an ensemble with its spread. With params and area_km2 from a catchment_model step (and its "
+            "pet_climatology), each model also drives the calibrated GR4J: change in mean flow, low flow, flood.",
+            {"type": "object", "properties": {"lat": num, "lon": num, "params": {"type": "object"}, "area_km2": num,
+                                              "baseline": {"type": "array", "items": {"type": "integer"}},
+                                              "future": {"type": "array", "items": {"type": "integer"}},
+                                              "return_period": num,
+                                              "pet_climatology": {"type": "array", "items": num}},
+             "required": ["lat", "lon"]},
+            adv.climate_projection,
+        ),
+        ToolSpec(
+            "regional_flood",
+            "The gauges within radius_km of a point studied together: index-flood regional frequency analysis "
+            "(Hosking and Wallis, pooled growth curve, discordancy, heterogeneity) and field significance of the "
+            "flood trends. With source + station_id, that gauge's at-site and pooled 100-year flows side by side.",
+            {"type": "object", "properties": {"lat": num, "lon": num, "radius_km": num, **station,
+                                              "max_sites": {"type": "integer"}},
+             "required": ["lat", "lon"]},
+            adv.regional_flood,
+        ),
+        ToolSpec(
+            "compare_gauges",
+            "Two to five gauges side by side (record, regime, flood and low-flow statistics per unit area): named "
+            "in stations [{source, station_id}], or the k nearest discharge gauges to lat, lon.",
+            {"type": "object", "properties": {"stations": {"type": "array", "items": {"type": "object"}},
+                                              "lat": num, "lon": num, "k": {"type": "integer"},
+                                              "years": {"type": "integer"}}},
+            adv.compare_gauges,
+        ),
+    ]
+
+
 def _tool_specs() -> list[ToolSpec]:
     from aquascope import mcp_server as t
     from aquascope.explore import anywhere
@@ -196,10 +293,13 @@ def _tool_specs() -> list[ToolSpec]:
         ToolSpec(
             "anywhere",
             "Climate and modelled discharge for a point with no gauge: ERA5 rainfall/temperature, FAO-56 ET0, "
-            "aridity, GloFAS.",
-            {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"}},
+            "aridity, GloFAS. match_mean_flow (a gauge's mean flow, m3/s) snaps the GloFAS cell to the one nearby "
+            "that carries the gauge's river, or says there is no comparable model cell.",
+            {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"},
+                                              "match_mean_flow": num, "area_km2": num},
              "required": ["lat", "lon"]},
-            lambda lat, lon, years=10: anywhere(lat, lon, years=years),
+            lambda lat, lon, years=10, match_mean_flow=None, area_km2=None: anywhere(
+                lat, lon, years=years, match_mean_flow=match_mean_flow, area_km2=area_km2),
         ),
         ToolSpec(
             "describe_catchment",
@@ -232,15 +332,28 @@ def _tool_specs() -> list[ToolSpec]:
              "required": ["lat", "lon"]},
             t.regionalize_signatures,
         ),
+        ToolSpec(  # the map's signature filter (aquascope.archive.signatures)
+            "filter_gauges",
+            "Which mirrored gauges meet a condition on their flow signatures, and the filter the map applies: "
+            "min_years (years of daily data), flood_trend (rising | falling | none: Mann-Kendall on annual maxima), "
+            "bfi_min / bfi_max (baseflow index 0 to 1), or question in plain words. Returns the count and the "
+            "longest records first.",
+            {"type": "object", "properties": {"question": {"type": "string"}, "min_years": num,
+                                              "flood_trend": {"type": "string", "enum": ["rising", "falling", "none"]},
+                                              "bfi_min": num, "bfi_max": num, "limit": {"type": "integer"},
+                                              "spec_only": {"type": "boolean"}}},
+            _filter_gauges_tool,
+        ),
         ToolSpec(
             "drought_indices",
             "Drought status at a place: SPI and SPEI at 1, 3 and 12 months (or timescales) with their divergence, "
             "from a rain gauge (source + station_id, its whole record) or the ERA5 cell (lat, lon, last years). "
-            "pet: thornthwaite (default, from ERA5 temperature) | fao56 | none. Prefer SPEI under warming.",
+            "pet: thornthwaite (default, from ERA5 temperature) | fao56 | none. Prefer SPEI under warming. "
+            "threshold: the index value at or below which a month is drought (default -1).",
             {"type": "object", "properties": {"lat": num, "lon": num, "years": {"type": "integer"},
                                               "timescales": {"type": "array", "items": {"type": "integer"}},
                                               "source": {"type": "string"}, "station_id": {"type": "string"},
-                                              "pet": {"type": "string"}},
+                                              "pet": {"type": "string"}, "threshold": num},
              "required": ["lat", "lon"]},
             t.drought_indices,
         ),
@@ -286,6 +399,7 @@ def _tool_specs() -> list[ToolSpec]:
              "required": ["lat", "lon", "crop", "area_ha", "planting_month"]},
             t.crop_water_demand,
         ),
+        *_advanced_specs(num),
         ToolSpec(
             "run_python",
             "Run a short Python snippet with aquascope, workbench, pandas (pd) and numpy (np) already imported, "

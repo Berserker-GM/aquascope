@@ -55,6 +55,9 @@ class Entry:
     figures: list[str] = field(default_factory=list)
     tables: list[str] = field(default_factory=list)
     citation: str | None = None
+    #: The parameters a reader may change after the result, with type and allowed values
+    #: (:mod:`aquascope.studio.steering`).
+    steer: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +65,7 @@ class Entry:
             "arguments": self.arguments, "required": self.required,
             "yields": self.yields, "methods": self.methods, "gates": self.gates,
             "figures": self.figures, "tables": self.tables, "citation": self.citation,
+            "steer": self.steer,
         }
 
     def compact(self) -> dict[str, Any]:
@@ -106,13 +110,14 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
         "gates": [{"check": "sampling_density", "path": "sampling"},
                   {"check": "min_years", "path": "years"}, {"check": "not_empty", "path": "trend"},
                   {"check": "unit_present", "path": "unit"},
-                  {"check": "max_return_period_factor", "path": "years"}],
+                  {"check": "max_return_period_factor", "path": "ffa.n_years"}],
     },
     "flood_frequency": {
         "kind": "station", "yields": ["ffa", "annual_maxima"],
         "methods": ["at_site_flood_frequency"],
         "tables": ["return_levels", "annual_maxima", "fit_spread"], "figures": ["frequency_curve", "annual_maxima"],
-        "gates": [{"check": "max_return_period_factor", "path": "years"},
+        "gates": [{"check": "min_years", "path": "ffa.n_years"},
+                  {"check": "max_return_period_factor", "path": "ffa.n_years"},
                   {"check": "ci_finite", "path": "ffa.fits.gev_bootstrap.ci"},
                   {"check": "spread_within", "paths": ["ffa.fits.gev_lmoments.q", "ffa.fits.lp3.q"], "value": 0.25},
                   {"check": "fit_envelopes_max", "path": "ffa"},
@@ -199,6 +204,39 @@ _ANNOTATIONS: dict[str, dict[str, Any]] = {
     "recharge": {"yields": ["recharge"], "methods": ["recharge_wtf"], "tables": ["recharge_events"],
                  "figures": ["recharge"]},
     "aquifer_drawdown": {"kind": "none", "yields": ["drawdown"], "tables": ["drawdown"]},
+    # the advanced study steps (aquascope.advanced)
+    "change_points": {
+        "kind": "station", "yields": ["change_points", "trend"], "methods": ["change_point_test"],
+        "tables": ["change_tests"], "figures": ["change_points"],
+        "gates": [{"check": "min_years", "path": "n"}, {"check": "stationary", "path": "stationary"}],
+    },
+    "nonstationary_flood": {
+        "kind": "station", "yields": ["ffa", "nonstationary", "annual_maxima"], "methods": ["nonstationary_gev"],
+        "tables": ["nonstationary_table", "annual_maxima"], "figures": ["nonstationary_levels"],
+        "gates": [{"check": "min_years", "path": "n_years"},
+                  {"check": "ci_finite", "path": "nonstationary.ci_last_year.ci"}],
+    },
+    "pot_flood": {
+        "kind": "station", "yields": ["ffa", "peaks"], "methods": ["pot_gpd"],
+        "tables": ["pot_table"], "figures": ["pot_frequency"],
+        "gates": [{"check": "min_years", "path": "n_years"}, {"check": "min_samples", "path": "n_peaks"}],
+    },
+    "catchment_model": {
+        "kind": "station", "yields": ["model", "skill", "scenarios", "params"], "methods": ["gr4j_calibration"],
+        "tables": ["model_skill", "scenarios"], "figures": ["model_fit", "scenario_bars"],
+        "gates": [{"check": "kge_min", "path": "validation.kge"}, {"check": "max_area_km2", "path": "area_km2"}],
+    },
+    "climate_projection": {
+        "kind": "site", "yields": ["projection", "ensemble"], "methods": ["climate_projection"],
+        "tables": ["projection_ensemble", "projection_models"], "figures": ["projection_spread"],
+        "gates": [{"check": "min_models", "path": "n_models"}],
+    },
+    "regional_flood": {
+        "kind": "site", "yields": ["regional", "stations"], "methods": ["regional_index_flood"],
+        "tables": ["regional_sites"], "figures": ["regional_growth"],
+        "gates": [{"check": "min_sites", "path": "n_pooled"}],
+    },
+    "compare_gauges": {"kind": "site", "yields": ["compare"], "methods": ["gauge_comparison"], "tables": ["compare"]},
     LOAD_TABLE: {
         "kind": "table", "yields": ["series", "samples"], "tables": ["series"], "figures": ["series"],
         "gates": [{"check": "not_empty", "path": "n"}],
@@ -321,6 +359,11 @@ def _build() -> dict[str, Entry]:
                    "value_column": {"type": "string"}, "datetime_column": {"type": "string"}},
         required=["table"], yields=ann["yields"], tables=ann["tables"], figures=ann["figures"], gates=ann["gates"],
     )
+    # steerable parameters (aquascope.studio.steering)
+    from aquascope.studio.steering import declared
+
+    for e in out.values():
+        e.steer = declared(e.id)
     # citations from the registry, by the first method an entry applies
     for e in out.values():
         for m in e.methods:
@@ -518,6 +561,18 @@ def validate_plan(steps: list[dict[str, Any]], *, sufficiency: list[dict[str, An
 
 
 _PLACEHOLDER = re.compile(r"<[^>]+>")
+_REF_STEP = re.compile(r"\{\{\s*result\.([A-Za-z0-9_]+)\.")
+
+
+def _snap_to_gauge(step: dict[str, Any], reference: Any) -> None:
+    """A GloFAS cross-check (an ``anywhere`` step) is told the gauge's mean flow, so the model cell is snapped
+    to the gauge's river (``aquascope.explore.snap_glofas_cell``) rather than read at the gauge's coordinates."""
+    if str(step.get("tool")) != "anywhere" or not isinstance(reference, str):
+        return
+    m = _REF_STEP.search(reference)
+    args = step.setdefault("arguments", {})
+    if m and isinstance(args, dict) and args.get("match_mean_flow") is None:
+        args["match_mean_flow"] = f"{{{{ result.{m.group(1)}.stats.mean }}}}"
 
 
 def repair_cross_checks(steps: list[dict[str, Any]]) -> list[str]:
@@ -535,6 +590,7 @@ def repair_cross_checks(steps: list[dict[str, Any]]) -> list[str]:
                 continue
             ref = g.get("reference")
             if isinstance(ref, str) and "{{" in ref and not _PLACEHOLDER.search(ref):
+                _snap_to_gauge(step, ref)
                 continue
             if not flood_ids:
                 step["expects"] = [x for x in step["expects"] if x is not g]
@@ -555,6 +611,7 @@ def repair_cross_checks(steps: list[dict[str, Any]]) -> list[str]:
                     g["return_period"] = rp
             if not any(str(d) == target for d in step.get("depends_on") or []):
                 step["depends_on"] = [*(step.get("depends_on") or []), target]
+            _snap_to_gauge(step, g["reference"])
             notes.append(f"step {sid}: cross_check_ratio compares with {target}")
         tool, method = str(step.get("tool")), str(step.get("method") or "")
         if tool == "flood_frequency" or (tool == "analyze_station" and method == "at_site_flood_frequency"):

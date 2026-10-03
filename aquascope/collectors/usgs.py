@@ -25,11 +25,12 @@ from aquascope.schemas.station import Station
 from aquascope.schemas.water_data import (
     DataSource,
     GeoLocation,
+    Quality,
     StreamflowReading,
     WaterLevelReading,
     WaterQualitySample,
 )
-from aquascope.utils.http_client import CachedHTTPClient, RateLimiter
+from aquascope.utils.http_client import CachedHTTPClient, RateLimitedError, RateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,54 @@ def _max_date(current: date | None, value: str | None) -> date | None:
     return parsed if current is None or parsed > current else current
 
 
+def _map_usgs_quality(props: dict) -> tuple[Quality, str | None]:
+    approval = props.get("approval_status")
+    qualifier = props.get("qualifier")
+
+    raw_parts = []
+    if approval:
+        raw_parts.append(str(approval))
+    if qualifier:
+        if isinstance(qualifier, (list, tuple)):
+            raw_parts.extend(str(q) for q in qualifier)
+        else:
+            raw_parts.append(str(qualifier))
+    quality_raw = " | ".join(raw_parts) if raw_parts else None
+
+    if isinstance(qualifier, (list, tuple)):
+        qualifiers = [str(q).strip().upper() for q in qualifier]
+    elif qualifier:
+        qualifiers = [q.strip().upper() for q in str(qualifier).split()]
+    else:
+        qualifiers = []
+
+    text = " ".join(raw_parts).lower()
+
+    if "ice" in text:
+        return Quality.SUSPECT, quality_raw
+
+    if "estimat" in text or "E" in qualifiers:
+        return Quality.ESTIMATED, quality_raw
+
+    if str(approval).lower() == "provisional":
+        return Quality.PROVISIONAL, quality_raw
+
+    if str(approval).lower() == "approved":
+        return Quality.APPROVED, quality_raw
+
+    # Legacy USGS-style qualifiers (no approval_status; A/P alone in `qualifier`)
+    if any(q not in {"A", "P"} for q in qualifiers):
+        return Quality.SUSPECT, quality_raw
+
+    if "P" in qualifiers:
+        return Quality.PROVISIONAL, quality_raw
+
+    if "A" in qualifiers:
+        return Quality.APPROVED, quality_raw
+
+    return Quality.UNKNOWN, quality_raw
+
+
 class USGSCollector(BaseCollector):
     """
     Collect daily-value water data from USGS via OGC API.
@@ -145,18 +194,31 @@ class USGSCollector(BaseCollector):
 
     name = "usgs"
 
+    #: One pacer for every collector in the process. A keyed USGS quota is 1,000 requests an hour
+    #: (https://api.waterdata.usgs.gov/docs/ogcapi/keys); 15 a minute (900 an hour) stays under it.
+    #: Callers such as the archive harvest build a fresh collector per station, so a per-instance
+    #: limiter paced nothing across stations and the harvest ran into 429s nine minutes in.
+    _shared_limiter = RateLimiter(max_calls=15, period_seconds=60)
+    #: Drainage areas already looked up, shared for the same reason.
+    _shared_area_cache: dict[str, float | None] = {}
+
     def __init__(
         self,
         api_key: str | None = None,
         client: CachedHTTPClient | None = None,
+        *,
+        lookup_catchment_area: bool = True,
     ):
         super().__init__(
             client
             or CachedHTTPClient(
                 base_url=USGS_BASE,
-                rate_limiter=RateLimiter(max_calls=25, period_seconds=60),
+                rate_limiter=USGSCollector._shared_limiter,
             )
         )
+        # One extra request per station for the drainage area on StreamflowReading. A caller that only
+        # wants the series (the Explorer's fetch_series, the harvest) turns it off.
+        self.lookup_catchment_area = lookup_catchment_area
         resolved = api_key or os.environ.get("USGS_API_KEY")
         if not resolved:
             logger.warning(
@@ -601,6 +663,7 @@ class USGSCollector(BaseCollector):
                 props = feat.get("properties", {})
                 geom = feat.get("geometry", {})
                 coords = geom.get("coordinates", [None, None]) if geom else [None, None]
+                quality, quality_raw = _map_usgs_quality(props)
 
                 param_code = props.get("parameter_code", "")
                 param_label = PARAM_LABELS.get(param_code, param_code)
@@ -626,7 +689,7 @@ class USGSCollector(BaseCollector):
                     rounded_discharge_cms = USGSCollector._round_to_sig_figs(discharge_cms, discharge_sig_figs)
 
                     catchment_area_km2 = props.get("catchment_area_km2", None)
-                    if catchment_area_km2 is None:
+                    if catchment_area_km2 is None and self.lookup_catchment_area:
                         catchment_area_km2 = self._get_monitoring_location_catchment_area(props.get("monitoring_location_id", ""))
 
                     samples.append(
@@ -641,6 +704,8 @@ class USGSCollector(BaseCollector):
                             uncertainty_cms=None,
                             catchment_area_km2=catchment_area_km2,
                             unit="m3/s",
+                            quality=quality,
+                            quality_raw=quality_raw,
                         )
                     )
 
@@ -660,6 +725,8 @@ class USGSCollector(BaseCollector):
                             reading_datetime=dt,
                             water_level=rounded_stage_m,
                             unit="m",
+                            quality=quality,
+                            quality_raw=quality_raw,
                         )
                     )
 
@@ -673,6 +740,8 @@ class USGSCollector(BaseCollector):
                             parameter=param_label,
                             value=float(val),
                             unit=props.get("unit_of_measure", ""),
+                            quality=quality,
+                            quality_raw=quality_raw,
                         )
                     )
 
@@ -687,9 +756,9 @@ class USGSCollector(BaseCollector):
 
         location_id = USGSCollector._normalise_monitoring_location_id(location_id)
 
-        # One lookup per station per collector instance: a long daily record
-        # would otherwise re-ask (and, when throttled, re-fail) once per row.
-        cache = self.__dict__.setdefault("_area_cache", {})
+        # One lookup per station per process: a long daily record would otherwise
+        # re-ask (and, when throttled, re-fail) once per row.
+        cache = USGSCollector._shared_area_cache
         if location_id in cache:
             return cache[location_id]
 
@@ -698,6 +767,10 @@ class USGSCollector(BaseCollector):
                 f"collections/monitoring-locations/items/{location_id}",
                 params={"f": "json"},
             )
+        except RateLimitedError:
+            # Throttled, not missing: do not remember None, a later call may get the area.
+            logger.warning(f"Rate limited looking up the drainage area of {location_id}; left out for now.")
+            return None
         except RuntimeError:
             logger.warning(
                 f"Cannot obtain metadata for station {location_id} - catchment area data is unavailable."

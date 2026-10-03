@@ -3,6 +3,7 @@
 // call can be abandoned: Python keeps running to completion in the worker, but
 // a cancelled call never lands on the page.
 
+import { metrics } from "./metrics.js?v=__BUILD__";
 import { CONFIG } from "../config.js?v=__BUILD__";
 import { sourceStyle, state } from "./core.js?v=__BUILD__";
 import { bootDone, bootProgress } from "./shell.js?v=__BUILD__";
@@ -25,6 +26,9 @@ export function onStudioArtifact(fn) { artifactListeners.add(fn); return () => a
 // The worker was terminated and a fresh one is booting: a module that had handed it state (a table, a
 // study's bytes) re-sends what it can, or marks what is gone.
 export function onWorkerRestart(fn) { restartListeners.add(fn); return () => restartListeners.delete(fn); }
+// Study this area: the engine's progress events ({phase, done, total, site}) with the call's id.
+const areaListeners = new Set();
+export function onAreaProgress(fn) { areaListeners.add(fn); return () => areaListeners.delete(fn); }
 
 export function ensureWorker() {
   if (worker) return worker;
@@ -36,6 +40,7 @@ export function ensureWorker() {
     if (m.type === "solve_progress") { for (const fn of solveListeners) fn(m.event, m.id); return; }
     if (m.type === "studio_progress") { for (const fn of studioListeners) fn(m.event, m.id); return; }
     if (m.type === "studio_artifact") { for (const fn of artifactListeners) fn(m.artifact, m.id); return; }
+    if (m.type === "area_progress") { for (const fn of areaListeners) fn(m.event, m.id); return; }
     if (m.type === "ready") { state.workerReady = true; bootDone(); return; }
     const pending = state.pending.get(m.id);
     if (!pending) return;                       // cancelled: drop it
@@ -85,6 +90,8 @@ export function restartWorker() {
 
 // Returns a promise plus a cancel() that rejects it and forgets the reply.
 export function callCancelable(type, payload = {}) {
+  const started = performance.now(), runtime = state.workerReady ? "warm" : "cold";
+  const kind = { analyze: "station", ingest: "table", load_table: "table", studio: "study" }[type];
   ensureWorker();
   const id = ++state.reqId;
   let reject_;
@@ -99,7 +106,14 @@ export function callCancelable(type, payload = {}) {
     reject_(new Cancelled());
     return true;
   };
-  return { promise, cancel, id };
+  const measured = promise.then(result => {
+    if (kind) metrics.record(result?.error ? "operation_error" : "operation_ok", { kind, runtime, durationMs: performance.now() - started });
+    return result;
+  }, error => {
+    if (kind && !(error instanceof Cancelled)) metrics.record("operation_error", { kind, runtime, durationMs: performance.now() - started });
+    throw error;
+  });
+  return { promise: measured, cancel, id };
 }
 
 export function call(type, payload = {}) {
@@ -112,6 +126,7 @@ export async function ensureCatalogInWorker() {
   if (state.ask.catalogSent) return;
   const rows = state.stations.map((r) => ({
     source: r.source, station_id: r.station_id, name: r.name, latitude: r.lat, longitude: r.lon,
+    site_id: r.site_id || r.station_id,
     variables: r.variables || [], period_start: r.period_start, period_end: r.period_end, url: r.url,
     agency: sourceStyle(r.source).label,
   }));

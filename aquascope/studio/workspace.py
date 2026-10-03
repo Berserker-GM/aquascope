@@ -50,6 +50,10 @@ class Question:
     options: list[str] | None = None
     default: Any = None
     answer: Any = None
+    #: One line on what the answer changes in the study (a checklist question's ``why``).
+    why: str | None = None
+    #: Why the last reply could not be used, said when the question is asked again.
+    retry: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -58,7 +62,8 @@ class Question:
     def from_dict(cls, d: dict[str, Any]) -> Question:
         return cls(id=str(d.get("id") or ""), text=str(d.get("text") or ""),
                    options=list(d["options"]) if d.get("options") else None,
-                   default=d.get("default"), answer=d.get("answer"))
+                   default=d.get("default"), answer=d.get("answer"), why=d.get("why") or None,
+                   retry=d.get("retry") or None)
 
 
 @dataclass
@@ -88,6 +93,9 @@ class Brief:
     ready: bool = False
     #: Who wrote it: "rules" (keyword rules and intake hints), "device" (an on-device model), "model".
     source: str = "rules"
+    #: The intake fields the client stated (in the text, in an answer, or as a model read them): the checklist
+    #: counts these as known, never a field that only holds its default.
+    stated: list[str] = field(default_factory=list)
 
     @property
     def open_questions(self) -> list[Question]:
@@ -194,6 +202,7 @@ MEDIA_TYPES = {
     "md": "text/markdown",
     "html": "text/html",
     "json": "application/json",
+    "geojson": "application/geo+json",
     "yaml": "application/yaml",
     "ipynb": "application/x-ipynb+json",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

@@ -33,7 +33,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 
 - **FAO-56 Penman-Monteith ET₀** — reference evapotranspiration with all intermediate steps
 - **Hargreaves ET₀** — temperature-only alternative
-- **Crop water requirements** — 26 crops with FAO-56 Kc coefficients and growth stages; single (Kc) and dual (Kcb + Ke) coefficient modes
+- **Crop water requirements** — 26 crops with FAO-56 Kc coefficients and growth stages; single (Kc) and dual (Kcb + Ke) coefficient modes; olive, grape, citrus and winter wheat resolve to 32 FAO-56 Rev.1 sub-classes by variety, planting density and ground cover
 - **Irrigation scheduling** — effective rainfall, net/gross demand, efficiency
 - **Soil water balance** — daily tracking, depletion, auto-irrigation triggers
 - **WaPOR productivity workflows** — biomass water productivity and AETI-to-RET performance metrics
@@ -60,12 +60,12 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 
 ## AI Engine & Workflows
 
-- **26 research methodologies** — scored and ranked against dataset profiles
-- **7 auto-executable pipelines** — trend analysis, WQI, PCA, RF, XGBoost, ARIMA, correlation
+- **27 research methodologies** — scored and ranked against dataset profiles
+- **26 auto-executable pipelines** — including trend analysis, WQI, PCA and ARIMA
 - **Challenge workflows** — flood risk (GEV), drought severity (SPI), water quality (WHO)
 - **Natural-language agent** — describe your goal, get recommendations + execution
 
-### Built-in Research Methodologies (26)
+### Built-in Research Methodologies (27)
 
 | Category | Methodologies | Pipelines |
 | :--- | :--- | :--- |
@@ -74,7 +74,7 @@ See [docs/data_sources.md](data_sources.md) for the full list with endpoints and
 | Time-Series | ARIMA/SARIMA Forecasting | 1 |
 | Process Engineering | MBBR Pilot, MBR Fouling, A2O Nutrient Removal, SWMM, QUAL2K | — |
 | Spatial Analysis | Satellite Eutrophication, GIS Watershed, Kriging Interpolation | — |
-| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design | — |
+| Hydrological | SWAT Modelling, Isotope Hydrology, Paired Watershed Design, Budyko Framework | — |
 | Policy | SDG 6 Benchmarking, IWRM Assessment | — |
 
 For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.md).
@@ -83,7 +83,7 @@ For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.
 
 ## Visualization & Reporting
 
-- **16 plot functions** — time-series, box plots, heatmaps, spatial maps (Folium), FDC, hydrographs
+- **17 plot functions** — time-series, box plots, heatmaps, spatial maps (Folium), FDC, hydrographs
 - **Diagnostic plots** — Q-Q, P-P, return level, 4-panel diagnostic panel
 - **Automated reports** — Markdown & HTML with embedded plots, metrics, TOC
 - **Alerts** — WHO, US EPA, EU WFD threshold checking
@@ -92,7 +92,7 @@ For when-to-use-which guidance, see the [methodology matrix](methodology_matrix.
 
 ## Infrastructure
 
-- **2,500+ tests** with CAMELS benchmark validation
+- **Regression tests and numerical benchmarks** — see the [observed/synthetic validation scope](validation_scope.md)
 - **Interactive dashboard** — 10-page Streamlit app
-- **29 CLI commands** — `collect`, `recommend`, `eda`, `quality`, `run`, `completion`, `list-methods`, `list-sources`, `stations`, `harvest`, `ask`, `ingest`, `basins`, `assess`, `gym`, `caravan`, `mcp`, `playbooks`, `solve`, `studio`, `studio-showcase`, `forecast`, `plot`, `dashboard`, `agri`, `alerts`, `groundwater`, `climate`, `hydro`
+- **30 CLI commands** — `collect`, `recommend`, `eda`, `quality`, `run`, `completion`, `list-methods`, `list-sources`, `stations`, `harvest`, `ask`, `ingest`, `basins`, `assess`, `gym`, `caravan`, `mcp`, `playbooks`, `solve`, `studio`, `studio-showcase`, `forecast`, `plot`, `dashboard`, `agri`, `alerts`, `groundwater`, `climate`, `hydro`, `area-study`
 - **[Theory guide](theory.md)** — mathematical equations, DOI citations, decision trees
