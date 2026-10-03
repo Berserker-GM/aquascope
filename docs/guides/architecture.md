@@ -7,9 +7,9 @@ AquaScope follows a modular, layered architecture designed for extensibility and
 ```mermaid
 flowchart TB
     subgraph Interface["User Interface"]
-        CLI["CLI<br/>14 commands"]
+        CLI["CLI<br/>every verb"]
         API["Python API"]
-        DASH["Streamlit Dashboard<br/>7 pages"]
+        DASH["Streamlit Dashboard<br/>local only"]
     end
 
     subgraph Intelligence["Intelligence Layer"]
