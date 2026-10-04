@@ -8,6 +8,7 @@ All notable changes to AquaScope are documented here.
 ## [Unreleased]
 
 ### Added
+- **`aquascope eval` scores, traces and compares finished studies** from their bundles, with no model and no network. `eval score` gives one study's scorecard: outcome and grade, steps and gates passed, failed and skipped, the Critic's checks, report quality on the six HydroGym axes (against its reference when the package has one), plan accuracy against a reference case with `--case`, and time, tokens and cost by role. `eval trace` lays out the run: each phase and step with its duration, the gates that did not pass and why, and the model calls per role. `eval stats` groups many studies by playbook, model, date or grade, names the gate checks that fail or skip most often, and writes CSV. The functions are in `aquascope.evaluation`.
 - **The Explorer's station panel lets you choose the period** (#270): the full record (the default), the last 40 years or the last 20, next to the record card. The choice travels in the link as `&yr=40`, `&yr=20` or `&yr=all`, and the loading line says which one is on its way, since a full USGS record can be a century of daily values.
 
 ### Fixed
