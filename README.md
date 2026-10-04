@@ -323,7 +323,7 @@ Switch to MCMC with `degree>1` for polynomial models, or pass `prior_precision` 
 
 ## 💻 CLI
 
-AquaScope ships a 31-command CLI (`agri`, `basins`, `caravan`, `gym` and `playbooks` carry subcommands) for the most common workflows:
+AquaScope ships a 32-command CLI (`agri`, `basins`, `caravan`, `eval`, `gym` and `playbooks` carry subcommands) for the most common workflows:
 
 ```bash
 # Find stations, then collect data
@@ -353,6 +353,8 @@ aquascope recommend --parameters DO,BOD5,COD --goal "pollution trend detection" 
 aquascope solve "Design flow for a road crossing, 100-year return period" --lat 51.415 --lon -0.308
 aquascope studio                                     # the crew: asks where and what, then brief, plan, run, bundle
 aquascope studio "Design flow for a road crossing, 100-year, and how sure can we be" --at "Thames Kingston" --out kingston/
+aquascope eval score kingston/                       # how the crew did: gates, Critic, report quality, time, cost
+aquascope eval stats studies/ --by model             # many studies at once: grades, gate failures, cost per study
 aquascope area-study --bbox=-0.9,51.2,0.3,51.8       # a flood study over every gauge in a box: Q100, flood trends, a regional curve
 
 # Interactive Streamlit dashboard — multipage workspace with 37 live sources,
@@ -403,6 +405,7 @@ Full details, endpoints, and API-key requirements: [docs/data_sources.md](docs/d
 | [Use cases](docs/use_cases.md) | Real-world applications and case studies |
 | [Advanced studies](docs/advanced_studies.md) | Is the flood changing, climate change to 2050, "what if" the rain drops: what runs and what the numbers cannot say |
 | [HydroGym](docs/gym.md) | A gym-style calibration environment over real basins, with baselines and a leaderboard |
+| [Evaluating studies](docs/evaluation.md) | `aquascope eval`: a study's scorecard and trace, and stats across many runs, read from the bundles |
 | [HydroGym benchmark](docs/hydrogym.md) | Hydrology agents scored on real sites: task outcomes, plan quality against expert plans, and the report the user receives |
 | [Integration guides](docs/integration_guides/) | xarray, QGIS, R interoperability |
 | [Contributing](CONTRIBUTING.md) | How to add a data source, methodology, or test |

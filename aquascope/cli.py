@@ -2247,6 +2247,157 @@ def cmd_update(args: argparse.Namespace) -> None:
     print("  Done. `aquascope --version` shows the version now installed.")
 
 
+def _pct(x: float | None) -> str:
+    return "-" if x is None else f"{100 * x:.0f} %"
+
+
+def _secs(x: float | None) -> str:
+    return "-" if x is None else f"{x:,.0f} s"
+
+
+def _print_scorecard(c: dict) -> None:
+    head = " · ".join(str(v) for v in (
+        c["study"], c["playbook"] + (f" ({c['branch']})" if c.get("branch") else "") if c.get("playbook") else None,
+        c.get("model") or "keyless", f"aquascope {c['aquascope_version']}" if c.get("aquascope_version") else None,
+        c.get("date")) if v)
+    print(f"  {head}")
+    if c.get("question"):
+        print(f"  question  {c['question']}")
+    o, r, k, rep, cost = c["outcome"], c["run"], c["critic"], c["report"], c["cost"]
+    print(f"  outcome   {o['status']}, grade {o.get('grade') or '-'}" + (f", declined: {o['declined']}"
+                                                                          if o.get("declined") else ""))
+    if o.get("headline"):
+        print(f"            {o['headline']}")
+    g = r["gates"]
+    print(f"  run       {r['ok']} of {r['planned']} steps ok, {r['failed']} failed, {r['skipped']} skipped · gates "
+          f"{g['passed']} passed, {g['failed']} failed, {g['skipped']} skipped · {r['fallbacks']} fallback(s), "
+          f"{r['replans']} replan(s)")
+    print(f"  critic    {k['passed']} of {k['total']} checks passed · {k['issues']} issue(s) · "
+          f"{k['not_established']} not established")
+    dims = ", ".join(f"{d.replace('_', ' ')} {('-' if v is None else f'{v:.2f}')}"
+                     for d, v in (rep.get("dimensions") or {}).items())
+    mean = "-" if rep.get("mean") is None else f"{rep['mean']:.2f}"
+    print(f"  report    mean {mean} · {dims or rep.get('error', '')}"
+          + (f" · reference {rep['reference']:.2f}" if rep.get("reference") is not None else "")
+          + (f" · {rep['numbers_without_evidence']} number(s) without evidence"
+             if rep.get("numbers_without_evidence") else ""))
+    if c.get("plan"):
+        pl = c["plan"]
+        print(f"  plan      vs {pl['case']}: {pl['score']:.2f} (tools {_pct(pl['tools'])}, methods "
+              f"{_pct(pl['methods'])}, gates {_pct(pl['gates'])}, extraneous {_pct(pl['extraneous'])}, "
+              f"forbidden {pl['forbidden']})")
+        for line in pl["explain"][:6]:
+            print(f"              {line}")
+    slow = cost.get("slowest_phase")
+    step = cost.get("slowest_step")
+    where = "; ".join(x for x in (
+        slow and f"slowest phase {slow['phase']} {_secs(slow['seconds'])}",
+        step and f"slowest step {step['id']} {step['tool']} {_secs(step['seconds'])}") if x)
+    model = (f"{cost['calls']} model call(s), {cost['prompt_tokens'] + cost['completion_tokens']:,} tokens"
+             + (f", {cost['usd']:.2f} USD" if cost.get("usd") is not None else "")) if cost["calls"] else "keyless"
+    print(f"  cost      {_secs(cost['seconds'])}" + (f" ({where})" if where else "") + f" · {model}")
+
+
+def _print_trace(t: dict, *, events: bool) -> None:
+    print(f"  {t['study']} · {_secs(t['seconds'])}" + (f" · {t['question']}" if t.get("question") else ""))
+    print("  phases    " + " · ".join(
+        f"{p['phase']} {_secs(p['seconds'])}" + (" (includes waiting for you)" if p["phase"] == "review" else "")
+        for p in t["phases"]))
+    print("  steps")
+    for s in t["steps"]:
+        g = s["gates"]
+        state = "skipped" if s["skipped"] else ("ok" if s["ok"] else "failed")
+        extra = " (fallback ran)" if s["fallback_used"] else ""
+        print(f"    {s['id']:<4} {str(s['tool']):<24} {_secs(s['seconds']):>7}  {state}{extra} · gates "
+              f"{g['passed']} passed, {g['failed']} failed, {g['skipped']} skipped")
+        for n in s["not_passed"]:
+            detail = n["detail"][:140] + ("…" if len(n["detail"]) > 140 else "")
+            print(f"           {n['state']} {n['check']}: {detail}")
+        if s.get("error"):
+            print(f"           error: {str(s['error'])[:140]}")
+    if t["model_calls"]:
+        print("  model")
+        for role, row in t["model_calls"].items():
+            tok = int(row.get("prompt_tokens") or 0) + int(row.get("completion_tokens") or 0)
+            usd = f", {row['cost_usd']:.3f} USD" if row.get("cost_usd") is not None else ""
+            print(f"    {role:<14} {row.get('calls', 0)} call(s), {tok:,} tokens{usd}")
+    else:
+        print("  model     keyless (no model calls)")
+    if events:
+        print("  events")
+        for e in t["events"]:
+            at = "" if e["t"] is None else f"+{e['t']:.0f}s"
+            step = f" {e['step']}" if e.get("step") else ""
+            print(f"    {at:>6} {e['role']}{step} {e['event']}: {e['detail'][:150]}")
+
+
+def _print_stats(result: dict) -> None:
+    key = result["by"] if result["by"] != "none" else "group"
+    print(f"  {result['studies']} studies, by {result['by']}")
+    print()
+    print(f"| {key} | n | grades | report | plan | gates passed / failed / skipped | critic | median time | "
+          f"tokens | USD | USD per study |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    for r in result["rows"]:
+        grades = ", ".join(f"{g} {n}" for g, n in sorted(r["grades"].items()))
+        fmt = lambda x: "-" if x is None else f"{x:.2f}"  # noqa: E731
+        print(f"| {r[key]} | {r['n']} | {grades} | {fmt(r['report_mean'])} | {fmt(r['plan_mean'])} | "
+              f"{_pct(r['gates_passed'])} / {_pct(r['gates_failed'])} / {_pct(r['gates_skipped'])} | "
+              f"{_pct(r['critic_passed'])} | {_secs(r['median_seconds'])} | {r['tokens']:,} | "
+              f"{fmt(r['usd'])} | {fmt(r['usd_per_study'])} |")
+    probs = result["gate_problems"]
+    for kind in ("failed", "skipped"):
+        if probs[kind]:
+            print(f"\n  most often {kind}: " + ", ".join(
+                f"{p['check']} ({p['studies']} {'study' if p['studies'] == 1 else 'studies'})" for p in probs[kind]))
+
+
+def cmd_eval(args: argparse.Namespace) -> None:
+    """`aquascope eval score | trace | stats`: evaluate finished studies from their bundles, no model."""
+    from aquascope import evaluation as ev
+
+    if args.eval_cmd == "score":
+        cards = [ev.score_path(p, plan_case=args.case) for p in args.study]
+        if args.json:
+            print(json.dumps(cards if len(cards) > 1 else cards[0], indent=2, default=str))
+            return
+        for i, c in enumerate(cards):
+            if i:
+                print()
+            _print_scorecard(c)
+        return
+    if args.eval_cmd == "trace":
+        ws, meta, _d = ev.load_study(args.study)
+        t = ev.trace(ws, meta)
+        if args.json:
+            print(json.dumps(t, indent=2, default=str))
+            return
+        _print_trace(t, events=args.events)
+        return
+    if args.eval_cmd == "stats":
+        dirs = ev.find_studies(args.paths)
+        if not dirs:
+            print(f"  no studies (no workspace.json) under {', '.join(args.paths)}", file=sys.stderr)
+            sys.exit(1)
+        cards = []
+        for d in dirs:
+            try:
+                cards.append(ev.score_path(d, plan_case=args.case))
+            except Exception as exc:  # one broken bundle should not hide the others
+                print(f"  skipped {d}: {exc}", file=sys.stderr)
+        result = ev.stats(cards, by=args.by, top=args.top)
+        if args.csv:
+            Path(args.csv).write_text(ev.stats_rows_csv(result), encoding="utf-8")
+            print(f"  -> {args.csv}")
+        if args.json:
+            print(json.dumps({**result, "cards": cards if args.cards else None}, indent=2, default=str))
+            return
+        _print_stats(result)
+        return
+    print("usage: aquascope eval {score,trace,stats} ... (see aquascope eval --help)", file=sys.stderr)
+    sys.exit(2)
+
+
 def cmd_forecast(args: argparse.Namespace) -> None:
     """Run a predictive model on a time-series data file."""
     import pandas as pd
@@ -3430,6 +3581,32 @@ def main() -> None:
         "update", help="Upgrade aquascope to the newest release, the same way it was installed (uv, pipx, pip)")
     p_update.add_argument("--check", action="store_true", help="Only say whether a newer release exists")
     p_update.add_argument("--yes", "-y", action="store_true", help="Upgrade without asking")
+    # ── eval ──────────────────────────────────────────────────────────
+    p_eval = sub.add_parser(
+        "eval",
+        help="Evaluate finished studies from their bundles: a scorecard, a trace, stats across runs (no model)",
+    )
+    eval_sub = p_eval.add_subparsers(dest="eval_cmd")
+    p_eval_score = eval_sub.add_parser(
+        "score", help="One study's scorecard: outcome, gates, Critic, report quality, plan accuracy, time and cost")
+    p_eval_score.add_argument("study", nargs="+", help="A study bundle directory or its workspace.json (repeatable)")
+    p_eval_score.add_argument("--case", default=None,
+                              help="Score the plan against this HydroGym reference case (aquascope gym plans list)")
+    p_eval_score.add_argument("--json", action="store_true")
+    p_eval_trace = eval_sub.add_parser(
+        "trace", help="One study as a timeline: phases, steps with their gates, model calls per role")
+    p_eval_trace.add_argument("study", help="A study bundle directory or its workspace.json")
+    p_eval_trace.add_argument("--events", action="store_true", help="Also print every event, with its time")
+    p_eval_trace.add_argument("--json", action="store_true")
+    p_eval_stats = eval_sub.add_parser(
+        "stats", help="Many studies at once: grades, report scores, gate failure and skip rates, time and cost")
+    p_eval_stats.add_argument("paths", nargs="+", help="Directories to search for study bundles (recursively)")
+    p_eval_stats.add_argument("--by", default="playbook", choices=["playbook", "model", "date", "grade", "none"])
+    p_eval_stats.add_argument("--case", default=None, help="Score every plan against this reference case")
+    p_eval_stats.add_argument("--top", type=int, default=3, help="How many failing and skipped checks to name")
+    p_eval_stats.add_argument("--csv", default=None, metavar="FILE", help="Also write the rows as CSV")
+    p_eval_stats.add_argument("--json", action="store_true")
+    p_eval_stats.add_argument("--cards", action="store_true", help="With --json, include every study's scorecard")
 
     # ── forecast ──────────────────────────────────────────────────────
     p_forecast = sub.add_parser("forecast", help="Run a predictive model on time-series data")
@@ -3625,6 +3802,7 @@ def main() -> None:
         "studio": cmd_studio,
         "studio-showcase": cmd_studio_showcase,
         "update": cmd_update,
+        "eval": cmd_eval,
         "playbooks": cmd_playbooks,
         "forecast": cmd_forecast,
         "plot": cmd_plot,
