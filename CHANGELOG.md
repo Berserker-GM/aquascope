@@ -7,6 +7,9 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- Record the verified v0.22.0 Zenodo DOI (`10.5281/zenodo.23132668`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
+
 ## [0.22.0] - 2026-10-04
 
 ### Changed
