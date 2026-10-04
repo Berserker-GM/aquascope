@@ -2204,6 +2204,49 @@ def cmd_studio_showcase(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def cmd_update(args: argparse.Namespace) -> None:
+    """`aquascope update [--check] [--yes]`: upgrade to the newest release, the way this copy was installed."""
+    import logging
+    import shlex
+    import subprocess
+
+    from aquascope import updates
+
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    info = updates.check()
+    shown = shlex.join(info["command"]) if info["command"] else None
+    print(f"  aquascope {info['installed']} ({info['kind']} install at {info['location']})")
+    if info["kind"] == "editable":
+        print("  This is a development checkout: update it with `git pull` in the clone (pip would not touch it).")
+        if info["latest"] and info["newer"]:
+            print(f"  The newest release on PyPI is {info['latest']}.")
+        return
+    if info["latest"] is None:
+        print(f"  {info['error']}", file=sys.stderr)
+        sys.exit(1)
+    if not info["newer"]:
+        print(f"  Up to date: {info['latest']} is the newest release.")
+        return
+    print(f"  {info['installed']} -> {info['latest']} available. Upgrade command: {shown}")
+    if info["error"]:
+        print(f"  {info['error']}", file=sys.stderr)
+        sys.exit(1)
+    if args.check:
+        return
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("  Not a terminal: rerun with --yes to upgrade, or run the command above yourself.", file=sys.stderr)
+            sys.exit(1)
+        if input("  Upgrade now? [y/N] ").strip().lower() not in ("y", "yes"):
+            print("  Not upgraded.")
+            return
+    code = subprocess.run(info["command"], check=False).returncode
+    if code:
+        print(f"  The upgrade command exited with {code}.", file=sys.stderr)
+        sys.exit(code)
+    print("  Done. `aquascope --version` shows the version now installed.")
+
+
 def _pct(x: float | None) -> str:
     return "-" if x is None else f"{100 * x:.0f} %"
 
@@ -2878,10 +2921,12 @@ def cmd_agri_productivity(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    from aquascope import __version__
     from aquascope.registry import source_keys
     from aquascope.schemas.station import VARIABLES
 
     parser = argparse.ArgumentParser(description="AquaScope — Water data collection, analysis & AI research recomm...")
+    parser.add_argument("--version", action="version", version=f"aquascope {__version__}")
     sub = parser.add_subparsers(dest="command")
 
     # — collect ——————————————————————————————
@@ -3531,6 +3576,11 @@ def main() -> None:
     p_show_list = show_sub.add_parser("list", help="The recordings on disk, as a table")
     p_show_list.add_argument("--out", default="explorer/showcase/studies", help="The recordings' directory")
 
+    # ── update ────────────────────────────────────────────────────────
+    p_update = sub.add_parser(
+        "update", help="Upgrade aquascope to the newest release, the same way it was installed (uv, pipx, pip)")
+    p_update.add_argument("--check", action="store_true", help="Only say whether a newer release exists")
+    p_update.add_argument("--yes", "-y", action="store_true", help="Upgrade without asking")
     # ── eval ──────────────────────────────────────────────────────────
     p_eval = sub.add_parser(
         "eval",
@@ -3751,6 +3801,7 @@ def main() -> None:
         "solve": cmd_solve,
         "studio": cmd_studio,
         "studio-showcase": cmd_studio_showcase,
+        "update": cmd_update,
         "eval": cmd_eval,
         "playbooks": cmd_playbooks,
         "forecast": cmd_forecast,
