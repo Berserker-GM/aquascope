@@ -138,7 +138,12 @@ For the full capability list see [docs/features.md](docs/features.md).
 ```bash
 pip install aquascope              # core — collectors + hydrology
 pip install "aquascope[all]"       # everything — ML, viz, spatial, dashboard
+uv tool install "aquascope[all]"   # or as a command-line tool in its own environment
 ```
+
+To upgrade later, `aquascope update` finds the newest release and upgrades it the way it
+was installed (uv, pipx, or the environment's pip); `aquascope update --check` only looks,
+and `aquascope --version` says what you have.
 
 Feature-group extras:
 
@@ -318,7 +323,7 @@ Switch to MCMC with `degree>1` for polynomial models, or pass `prior_precision` 
 
 ## 💻 CLI
 
-AquaScope ships a 30-command CLI (`agri`, `basins`, `caravan`, `gym` and `playbooks` carry subcommands) for the most common workflows:
+AquaScope ships a 31-command CLI (`agri`, `basins`, `caravan`, `gym` and `playbooks` carry subcommands) for the most common workflows:
 
 ```bash
 # Find stations, then collect data
