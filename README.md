@@ -55,8 +55,9 @@ Start with one task:
 - **Analyse my table:** use a sample CSV, check the inferred columns, then replace it with your own data.
 
 Catalog coverage varies by agency and variable. A station on the map is not a guarantee
-of accessible observations or a sufficiently long record. Explorer shows the period it
-actually analyzes; modelled discharge is distinguished from gauge observations.
+of accessible observations or a sufficiently long record. Explorer fetches the full record
+by default (or the last 40 or 20 years, your choice) and shows the period it actually
+analyzes; modelled discharge is distinguished from gauge observations.
 
 **Study** guides you from a question through a plan you approve to a report and export
 bundle: Word, Excel, figures, notebook, findings and study YAML. Core studies run without
@@ -511,8 +512,8 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.21.0},
-  doi     = {10.5281/zenodo.21903143},
+  version = {0.22.0},
+  doi     = {10.5281/zenodo.23132668},
   license = {MIT}
 }
 ```
@@ -520,7 +521,7 @@ If you use AquaScope in your research, please cite:
 Machine-readable metadata lives in [CITATION.cff](CITATION.cff); GitHub's "Cite this
 repository" button renders it in APA and BibTeX. Every tagged release is archived on
 Zenodo; `10.5281/zenodo.21903143` is the concept DOI that always resolves to the latest
-version (v0.20.0 is [10.5281/zenodo.23009178](https://doi.org/10.5281/zenodo.23009178)).
+version (v0.22.0 is [10.5281/zenodo.23132668](https://doi.org/10.5281/zenodo.23132668)).
 
 ## 📄 License
 
