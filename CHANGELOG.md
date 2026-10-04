@@ -11,6 +11,7 @@ All notable changes to AquaScope are documented here.
 - **The Explorer's station panel lets you choose the period** (#270): the full record (the default), the last 40 years or the last 20, next to the record card. The choice travels in the link as `&yr=40`, `&yr=20` or `&yr=all`, and the loading line says which one is on its way, since a full USGS record can be a century of daily values.
 
 ### Fixed
+- The README and the Explorer guide say the record is fetched in full by default and can be cut to 40 or 20 years (#270), and the Analyst guide's reconnaissance example no longer says a fetch serves the last 40 years or that CMIP6 needs model output you supply.
 - Record the verified v0.22.0 Zenodo DOI (`10.5281/zenodo.23132668`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
 
 ## [0.22.0] - 2026-10-04

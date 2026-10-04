@@ -55,8 +55,9 @@ Start with one task:
 - **Analyse my table:** use a sample CSV, check the inferred columns, then replace it with your own data.
 
 Catalog coverage varies by agency and variable. A station on the map is not a guarantee
-of accessible observations or a sufficiently long record. Explorer shows the period it
-actually analyzes; modelled discharge is distinguished from gauge observations.
+of accessible observations or a sufficiently long record. Explorer fetches the full record
+by default (or the last 40 or 20 years, your choice) and shows the period it actually
+analyzes; modelled discharge is distinguished from gauge observations.
 
 **Study** guides you from a question through a plan you approve to a report and export
 bundle: Word, Excel, figures, notebook, findings and study YAML. Core studies run without
