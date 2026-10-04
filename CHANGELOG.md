@@ -7,6 +7,8 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-04
+
 ### Changed
 - **The design-flow study checks the annual maxima for a step change too** (#376). The flood fit that `analyze_station` and `flood_frequency` run now carries Pettitt's test on the same maxima (`ffa.amax_change`), next to the Mann-Kendall trend it already had. A significant shift keeps the estimate and grades it indicative, with the year named and a pointer to the flood change study. There is no new plan step, so every recorded study and HydroGym score stays as it was.
 
