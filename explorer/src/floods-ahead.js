@@ -375,6 +375,19 @@ function openCard(f, lngLat) {
 
 export function floodsVisible() { return visible; }
 
+/**
+ * The issue on the map, for Explain (#562): { issue_date, features } with the reaches inside `inBox(lat, lon)`,
+ * or null when the layer is off or has nothing. The day each reach is classed on is the package's to work out.
+ */
+/** Resolves once the issue has been read (or found missing), so Explain does not run ahead of it. */
+export const floodsAheadReady = () => (visible ? load() : Promise.resolve());
+
+export function floodsAheadShown(inBox = () => true) {
+  if (!visible || !data || data.manifest.missing || !data.features.length) return null;
+  const features = data.features.filter((f) => inBox(f.geometry.coordinates[1], f.geometry.coordinates[0]));
+  return { issue_date: data.manifest.issue_date, features };
+}
+
 export function setFloodsVisible(on) {
   visible = Boolean(on);
   state.floodsOn = visible;

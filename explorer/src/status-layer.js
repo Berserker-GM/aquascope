@@ -422,6 +422,12 @@ export function setStatusFocus(classes = []) {
 
 export const getStatusFocus = () => focus.slice();
 
+/** The month on the map and its file, for Explain (#562): { month, url }, or null when none is drawn. */
+export function statusShown() {
+  if (!state.status || !shown) return null;
+  return { month: shown, url: statusUrl(shown) };
+}
+
 export function initStatusLayer(url = {}) {
   side = pictureSize();
   actions.setStatus = setStatusVisible;

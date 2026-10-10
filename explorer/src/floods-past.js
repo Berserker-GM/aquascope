@@ -270,6 +270,21 @@ function syncDated(idx) {
   else if (now && had.until !== now.until) syncTimeBar();
 }
 
+/**
+ * What the layer holds now, for Explain (#562): { months, deg, cells: [[row, col, news, radar]] } summed over
+ * the months on show, the cells inside `inBox(lat, lon)`; null when it is off or still loading.
+ */
+export function floodsPastShown(inBox = () => true) {
+  if (!state.floodsPast || !shown || !drawn) return null;
+  const cells = [];
+  for (const f of shown.features) {
+    if (f.geometry.type !== "Point") continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (inBox(lat, lon)) cells.push([f.properties.row, f.properties.col, f.properties.news, f.properties.radar]);
+  }
+  return { months: drawn.split(","), deg: (index && index.deg) || 0.5, cells };
+}
+
 export function setFloodsPast(on, { write = true } = {}) {
   state.floodsPast = Boolean(on);
   const toggle = $("toggle-floods-past");
