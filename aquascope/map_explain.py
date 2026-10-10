@@ -420,9 +420,12 @@ def _floods_ahead_facts(warnings: dict[str, Any], bbox: list[float], day: str | 
     if not reaches:
         return []
     when = f"on {_day_words(day, weekday=True)}" if i >= 0 else f"in the 15 days from {_day_words(issue)}"
+    # The browser's file holds only the strongest reaches when the day is busy: then the count is a floor.
+    cut = bool(warnings.get("truncated"))
+    shown = f"at least {_count(len(reaches))}" if cut else _count(len(reaches))
     facts = [_fact("fa_count", "floods_ahead", "Reaches in view at their 2-year flow or more", len(reaches),
-                   "reaches", _count(len(reaches)), when=when, source="floods_ahead",
-                   tone=FLOOD_COLOURS[2], extra={"issue_date": issue})]
+                   "reaches", shown, when=when, source="floods_ahead",
+                   tone=FLOOD_COLOURS[2], extra={"issue_date": issue, "floor": cut})]
 
     def ratio(r: dict[str, Any]) -> float:
         peak = r.get("peak") if r.get("peak") is not None else r.get("peak_cms")
@@ -643,7 +646,8 @@ def view_facts(view: dict[str, Any], *, status: dict[str, Any] | None = None, wa
     * ``status``: ``{"month": "YYYY-MM", "data": <the month's GeoTIFF bytes>}`` (or ``"sample"`` from
       :func:`status_sample`);
     * ``warnings``: the Floods ahead issue, ``{"issue_date", "features": [GeoJSON points]}`` or
-      ``{"issue_date", "reaches": [rows]}`` as :func:`aquascope.archive.warnings.flood_warnings` gives them;
+      ``{"issue_date", "reaches": [rows]}`` as :func:`aquascope.archive.warnings.flood_warnings` gives them,
+      with ``"truncated": true`` when the reaches are only the strongest of the issue (the browser's file);
     * ``floods_past``: ``{"months": [...], "cells": [[row, col, news, radar], ...]}`` on the half-degree grid;
     * ``gauges``: rows of today's status, ``{source, station_id, name, agency, lat, lon, cls, pct, date,
       value, n_years}``.

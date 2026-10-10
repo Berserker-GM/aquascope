@@ -388,7 +388,7 @@ export const floodsAheadReady = () => (visible ? load() : Promise.resolve());
 export function floodsAheadShown(inBox = () => true) {
   if (!visible || !data || data.manifest.missing || !data.features.length) return null;
   const features = data.features.filter((f) => inBox(f.geometry.coordinates[1], f.geometry.coordinates[0]));
-  return { issue_date: data.manifest.issue_date, features };
+  return { issue_date: data.manifest.issue_date, features, truncated: Boolean(data.manifest.geojson_truncated) };
 }
 /** The issue and its reaches once read ({ manifest, features }), for the layers drawn from it: flood depth (#554). */
 export function floodsAheadData() { return load().then(() => data); }

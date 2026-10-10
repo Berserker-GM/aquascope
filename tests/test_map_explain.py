@@ -147,6 +147,14 @@ def test_floods_ahead_classes_each_reach_on_the_map_day(facts):
     assert all(f.get("river_id") != 3 for f in facts["facts"])        # outside the view
 
 
+def test_a_cut_issue_gives_its_count_as_a_floor():
+    res = me.view_facts(VIEW, warnings={**WARNINGS, "truncated": True})
+    count = by_kind(res, "fa_count")[0]
+    assert count["value"] == 2 and count["shown"] == "at least 2"
+    notes = me.template_notes(res["facts"], VIEW["bbox"])
+    assert "at least 2 reaches in view pass theirs" in notes[0]["text"]
+
+
 def test_outside_the_fifteen_days_the_peak_class_is_shown(status):
     res = me.view_facts({**VIEW, "date": "2026-11-30"}, warnings=WARNINGS)
     top = by_kind(res, "fa_class", rank=0)[0]
