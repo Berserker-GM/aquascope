@@ -182,6 +182,25 @@ def test_gauges_furthest_from_normal_with_their_record(facts):
     assert by_kind(facts, "gauge_count", side="above")[0]["value"] == 1
 
 
+def test_the_busier_gauge_side_leads_and_the_other_keeps_clear_of_it():
+    # Six gauges much below normal round one spot, the most extreme gauge much above right beside them: the
+    # below side has the first note, and the above side takes its next gauge, far enough off for both notes.
+    def g(sid, lat, lon, cls, pct, n_years=20):
+        return {"source": "usgs", "station_id": sid, "name": sid, "lat": lat, "lon": lon, "cls": cls, "pct": pct,
+                "date": "2026-10-09", "value": 1.0, "n_years": n_years}
+    gauges = [g(f"Low {i}", 15.5, 20.0 + i * 0.1, "much_below", 1) for i in range(5)]
+    gauges += [g("Low far", 22.0, 34.0, "much_below", 1, n_years=12),        # as low, a shorter record
+               g("High near", 15.0, 20.0, "much_above", 99), g("High far", 25.0, 8.0, "much_above", 98)]
+    res = me.view_facts({**VIEW, "layers": ["gauges"]}, gauges=gauges)
+    assert by_kind(res, "gauge_pct", side="below")[0]["place"]["name"] == "Low 0"   # the busier side picks first
+    assert by_kind(res, "gauge_pct", side="above")[0]["place"]["name"] == "High far"
+    notes = me.template_notes(res["facts"], res["view"]["bbox"])
+    assert [n["title"] for n in notes] == ["Low 0", "High far"]
+    assert "6 gauges in view are much below normal" in notes[0]["text"]
+    # The credits name the agency once, not again as bare gauges.
+    assert len(res["credits"]) == 1 and res["credits"][0].startswith("USGS")
+
+
 def test_layers_that_are_off_give_no_facts_and_say_why(status):
     res = me.view_facts({**VIEW, "layers": ["status"]}, status=status, warnings=WARNINGS, floods_past=FLOODS,
                         gauges=GAUGES)
@@ -292,6 +311,17 @@ def test_the_claim_lock_lets_only_the_numbers_of_the_cited_facts_through(facts):
     peak = by_kind(facts, "fa_peak", rank=0)[0]
     assert me.claim_lock("Peaks at 2400 m³/s on 13 Oct.", [peak]) == []         # thousands with or without a comma
     assert by_id  # the facts are there to cite
+
+
+def test_the_claim_lock_counts_numbers_in_words_and_other_numerals(facts):
+    high = by_kind(facts, "gauge_pct", side="above")[0]
+    assert me.claim_lock("Twelve gauges agree.", [high]) == ["twelve"]
+    assert me.claim_lock("About half the land, twice the usual.", [high]) == ["half", "twice"]
+    assert me.claim_lock("On \u00bd of the land.", [high]) == ["\u00bd"]          # a fraction sign
+    assert me.claim_lock("Up 10\u00b2 times.", [high]) == ["10", "\u00b2"]         # a superscript
+    assert me.claim_lock("The one upstream is high.", [high]) == []               # "one" as a pronoun passes
+    cell = by_kind(facts, "fp_news_cell", rank=0)[0]
+    assert me.claim_lock("Most reports sit in this half-degree cell.", [cell]) == []   # its label says "half"
 
 
 def test_model_notes_are_filled_in_by_code_and_held_to_their_facts(facts):

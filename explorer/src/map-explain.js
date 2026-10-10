@@ -14,9 +14,9 @@ import { map } from "./map.js?v=__BUILD__";
 import { addPin, cameraPadding, log, renderLog, undoEntry } from "./map-actions.js?v=__BUILD__";
 import { askModelConfig, currentContext } from "./ask.js?v=__BUILD__";
 import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-model.js?v=__BUILD__";
-import { statusShown } from "./status-layer.js?v=__BUILD__";
+import { statusReady, statusShown } from "./status-layer.js?v=__BUILD__";
 import { floodsAheadReady, floodsAheadShown, floodsVisible } from "./floods-ahead.js?v=__BUILD__";
-import { floodsPastShown } from "./floods-past.js?v=__BUILD__";
+import { floodsPastReady, floodsPastShown } from "./floods-past.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 
@@ -195,7 +195,11 @@ export async function explainView({ say = () => {} } = {}) {
   if (!state.mapOk || !map) { say("The map is not ready yet.", "warn"); return []; }
   const my = ++run;
   say(`<span class="spinner" aria-hidden="true"></span>${state.workerReady ? "Reading the view…" : "Starting the engine (once), then reading the view…"}`);
-  await floodsAheadReady().catch(() => {});
+  // The layers still reading their file (just after the page opens, or a new date) are waited for, a while.
+  await Promise.race([
+    Promise.all([floodsAheadReady().catch(() => {}), statusReady(), floodsPastReady()]),
+    new Promise((r) => setTimeout(r, 15000)),
+  ]);
   const res = await callLight("map_explain", { op: "facts", ...gatherView(), context: currentContext() }, { priority: 3 });
   if (my !== run) return [];
   if (!res || res.error) { say(`Could not read the view: ${escapeHtml((res && res.error) || "no answer")}.`, "error"); return []; }

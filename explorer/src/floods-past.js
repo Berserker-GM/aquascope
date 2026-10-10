@@ -224,7 +224,14 @@ async function show(fc) {
 
 // ── following the time bar ──────────────────────────────────────────────────
 
-async function redraw() {
+// The newest redraw, so Explain (#562) can wait for the months it is reading.
+let redrawing = null;
+function redraw() {
+  redrawing = redrawNow();
+  return redrawing;
+}
+
+async function redrawNow() {
   if (!state.floodsPast) { renderLegend(); return; }
   const idx = await loadIndex();
   if (!state.floodsPast) return;
@@ -269,6 +276,9 @@ function syncDated(idx) {
   if (Boolean(had) !== Boolean(now)) syncTimeBar({ layersChanged: true });
   else if (now && had.until !== now.until) syncTimeBar();
 }
+
+/** Resolves once the months on the time bar are drawn (or failed), so Explain reads them, not the last ones. */
+export const floodsPastReady = () => (state.floodsPast && redrawing ? redrawing.catch(() => {}) : Promise.resolve());
 
 /**
  * What the layer holds now, for Explain (#562): { months, deg, cells: [[row, col, news, radar]] } summed over

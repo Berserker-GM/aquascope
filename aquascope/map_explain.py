@@ -14,7 +14,8 @@ engine behind that, shared by the page, ``aquascope layers explain`` and the MCP
 * :func:`notes_prompt`, :func:`check_model_notes` and :func:`model_notes` are the model path. A model (the
   reader's own key, or the on-device model in the browser) only chooses and orders facts and writes the
   connecting words. It writes numbers as placeholders (``{f3}``), which code fills in from the facts, and a
-  note whose words carry any digit that is not in the facts it cites is refused (the claim lock).
+  note whose words carry any number (in digits or in words) that is not in the facts it cites is
+  refused (the claim lock).
 
 :func:`explain_view` gathers the published layers itself (the world river status file, the Floods ahead
 issue, the Floods past grid and today's gauge status) for the CLI and the MCP tool; the page hands
@@ -28,6 +29,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import unicodedata
 import urllib.parse
 import urllib.request
 from datetime import date
@@ -337,12 +339,12 @@ def _status_facts(sample: dict[str, Any], month: str, disc: dict[str, float] | N
     facts = []
     share = {k: float(weights[classes == i + 1].sum()) / mapped for i, k in enumerate(_CLASS_IDS)}
     below, above = share["much_below"] + share["below"], share["above"] + share["much_above"]
-    facts.append(_fact("status_share", "status", "Mapped land in view below normal", round(100 * below, 1), "%",
-                       _pct(below), when=when, source=src, tone=CLASS_COLOURS["much_below"][0],
-                       extra={"side": "below"}))
-    facts.append(_fact("status_share", "status", "Mapped land in view above normal", round(100 * above, 1), "%",
-                       _pct(above), when=when, source=src, tone=CLASS_COLOURS["much_above"][0],
-                       extra={"side": "above"}))
+    facts.append(_fact("status_share", "status", "Mapped land in view below or much below normal",
+                       round(100 * below, 1), "%", _pct(below), when=when, source=src,
+                       tone=CLASS_COLOURS["much_below"][0], extra={"side": "below"}))
+    facts.append(_fact("status_share", "status", "Mapped land in view above or much above normal",
+                       round(100 * above, 1), "%", _pct(above), when=when, source=src,
+                       tone=CLASS_COLOURS["much_above"][0], extra={"side": "above"}))
     for k in ("much_above", "much_below", "above", "below"):
         idx = _CLASS_IDS.index(k) + 1
         groups = _patches(classes == idx)
@@ -525,18 +527,25 @@ def _gauge_facts(gauges: list[dict[str, Any]], bbox: list[float],
     if not rows:
         return []
     facts = []
+    many = {}
     for side, classes in (("above", ("much_above",)), ("below", ("much_below",))):
-        n = sum(r["cls"] in classes for r in rows)
+        n = many[side] = sum(r["cls"] in classes for r in rows)
         if n:
             facts.append(_fact("gauge_count", "gauges", f"Gauges in view {_CLASS_LABEL[classes[0]]} today", n,
                                "gauges", _count(n), source="gauges:", tone=CLASS_COLOURS[classes[0]][0],
                                extra={"side": side, "of": len(rows)}))
-    for side in ("above", "below"):
+    # The side with more gauges far from normal chooses first; the other side's gauge keeps clear of it, so
+    # two notes do not fight for one spot while the view holds many such gauges elsewhere.
+    chosen: list[dict[str, Any]] = []
+    for side in sorted(("above", "below"), key=lambda x: -many[x]):
         wanted = ("much_above", "above") if side == "above" else ("much_below", "below")
         pool = [r for r in rows if r["cls"] in wanted and (not pin_ok or pin_ok(r["lat"], r["lon"]))]
         if not pool:
             continue
-        g = max(pool, key=lambda r: r["pct"]) if side == "above" else min(pool, key=lambda r: r["pct"])
+        # Furthest from normal first; among equals, the longer record.
+        pool.sort(key=lambda r: ((-r["pct"] if side == "above" else r["pct"]), -float(r.get("n_years") or 0)))
+        g = next((r for r in pool if _spaced(chosen, r["lat"], r["lon"], bbox, 0.15)), pool[0])
+        chosen.append(g)
         agency = str(g.get("agency") or g.get("source") or "")
         key = str(g.get("source") or "")
         place = {"lat": round(g["lat"], 4), "lon": round(g["lon"], 4),
@@ -698,6 +707,11 @@ def view_facts(view: dict[str, Any], *, status: dict[str, Any] | None = None, wa
     for i, f in enumerate(facts, 1):
         f["id"] = f"f{i}"
     credits = sorted({_credit(f["source"])["full"] for f in facts})
+    if len(credits) > 1 and CREDITS["gauges"]["full"] in credits:
+        # "USGS (US-PD): today against normal ..." already says what the bare gauges credit says.
+        named = [c for c in credits if c != CREDITS["gauges"]["full"] and c.endswith(CREDITS["gauges"]["full"])]
+        if named:
+            credits.remove(CREDITS["gauges"]["full"])
     return {"facts": facts, "skipped": skipped, "credits": credits,
             "view": {"bbox": bbox, "disc": disc, "avoid": avoid, "date": view.get("date"),
                      "layers": sorted(on & set(LAYERS)), "zoom": zoom}}
@@ -804,8 +818,12 @@ def _candidates(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
             text += f" {shown[:1].upper()}{shown[1:]} reaches in view pass theirs."   # "At least 45 reaches"
         add(2 + 0.1 * rank, "floods_ahead", [c, peak, ratio, count if many else None],
             f"{c['shown'].capitalize()} ahead", text)
-    # Gauges: the one furthest from normal on each side; one far out ranks before the forecast's reach.
-    for side, prio in (("above", 3.0), ("below", 6.0)):
+    # Gauges: the one furthest from normal on each side, the side with more gauges far from normal first; one
+    # far out ranks before the forecast's reach.
+    counts = {side: (_first(facts, "gauge_count", side=side) or {}).get("value", 0) for side in ("above", "below")}
+    first_gauges = "below" if counts["below"] > counts["above"] else "above"
+    for side in ("above", "below"):
+        prio = 3.0 if side == first_gauges else 6.0
         pct = _first(facts, "gauge_pct", side=side)
         if not pct:
             continue
@@ -940,15 +958,28 @@ def explain(view: dict[str, Any], *, status: dict[str, Any] | None = None, warni
 
 _NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
 _PLACEHOLDER = re.compile(r"\{(f\d+)(?:\.(when|place))?\}")
+# A number in words is a number too ("twelve gauges", "half the land"). "One" is left out: it is mostly a
+# pronoun ("the one upstream").
+_NUMBER_WORDS = re.compile(
+    r"\b(?:zero|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen"
+    r"|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundreds?|thousands?"
+    r"|millions?|billions?|dozens?|half|halves|quarters?|twice|double[ds]?|triple[ds]?|thrice|tenfold"
+    r"|hundredfold)\b", re.IGNORECASE)
 
 
 def _numbers(text: str) -> set[str]:
-    return {m.replace(",", "") for m in _NUMBER.findall(text or "")}
+    text = text or ""
+    out = {m.replace(",", "") for m in _NUMBER.findall(text)}
+    out |= {m.lower() for m in _NUMBER_WORDS.findall(text)}
+    # Any other character that stands for a number: a fraction (½), a Roman numeral (Ⅻ), a superscript.
+    out |= {c for c in text if not "0" <= c <= "9" and unicodedata.numeric(c, None) is not None}
+    return out
 
 
 def claim_lock(words: str, cited: list[dict[str, Any]]) -> list[str]:
     """The numbers in a model's ``words`` (placeholders taken out) that are not in the facts it cites: the
-    value as shown, its date, its place and its label. Empty means the words pass."""
+    value as shown, its date, its place and its label. Digits, numbers in words ("twelve", "half") and other
+    numeric characters ("½") all count. Empty means the words pass."""
     allowed: set[str] = set()
     for f in cited:
         # The label too: "Peak against the 2-year flow" is how code named the fact.
@@ -1014,7 +1045,8 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
         "goes), 'title' is at most six words, 'text' is one or two short plain sentences.",
         "Write every number, date and place name as its placeholder, exactly: {f3}, {f3.when}, {f3.place} "
         "(only the ones listed above; a place without one has no name yet, so do not name it). "
-        "Never write a digit yourself: a note with a number its facts do not hold is thrown away.",
+        "Never write a number yourself, in digits or in words (twelve, half, twice): a note with a number "
+        "its facts do not hold is thrown away.",
         "Say only what the facts say. Do not guess causes, impacts or forecasts beyond them. "
         "Colours: much below normal is dark brown, below normal tan, above normal light teal, "
         "much above normal dark teal.",
@@ -1027,7 +1059,7 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
 
 def check_model_notes(reply: Any, facts: list[dict[str, Any]], bbox: list[float] | None = None) -> dict[str, Any]:
     """A model's reply (text or parsed JSON) read into notes, each checked: known fact ids, at least one with a
-    place, placeholders that exist, and the claim lock (no digit that is not in its facts). Numbers are put in
+    place, placeholders that exist, and the claim lock (no number that is not in its facts). Numbers are put in
     by code. When fewer than three notes pass, template notes on other facts top them up (marked
     ``"by": "rules"``). Returns ``{"notes", "refused"}``; ``refused`` says why each dropped note was dropped."""
     data = reply

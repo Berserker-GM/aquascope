@@ -1021,6 +1021,8 @@ def _cmd_layers_explain(args: argparse.Namespace) -> None:
         print(f"  could not read {line}")
     if res.get("credits"):
         print("\n  " + "\n  ".join(res["credits"]))
+
+
 def _print_flood_depth(res: dict) -> None:
     """`aquascope layers depth`: the depth map chosen by the forecast, its tiles and what it found."""
     if res.get("error"):
