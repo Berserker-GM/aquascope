@@ -188,7 +188,8 @@ part of the map you can see (`aquascope.map_explain.view_facts`):
   pass the highest return-period flow, with its peak and its day. On a date inside the
   forecast's 15 days, the class is that day's, as on the map.
 - **Gauges** (coloured by today against normal): the ones furthest above and below
-  normal for the date, with the years of record behind them.
+  normal for the date, with the years of record behind them. The side with more gauges
+  far from normal comes first, and the other side's gauge keeps clear of it.
 - **Floods past**: the half-degree cells with the most flood events in the news and the
   most radar detections over the months on show, and the totals in view.
 
@@ -206,11 +207,12 @@ Who words the notes:
 2. **The model on your device** or **your own key** from Ask ✨, in the same order as
    Ask the map. The model only chooses and orders the facts and writes the words
    between them. It writes each number as a placeholder (`{f3}`), which code fills in
-   from the facts, and a note whose words hold any other number is refused (the claim
-   lock); the line under the box says how many were refused and why. When fewer than
+   from the facts, and a note whose words hold any other number, in digits or in words
+   ("twelve", "half"), is refused (the claim lock); the line under the box says how many were refused and why. When fewer than
    three pass, notes in fixed wording on the other facts make up the rest.
 
-A click on a note opens it in the map card, with every fact it cites and the full
+A layer still reading its file (just after the page opens, or after a new date) is
+waited for before the view is read. A click on a note opens it in the map card, with every fact it cites and the full
 credit. Each note is in the action log (marked with who wrote it) with its own undo,
 and **Undo all** clears them; explaining again replaces the notes of the time before.
 Place names come from the search's gazetteer (Photon by komoot, OpenStreetMap data,
