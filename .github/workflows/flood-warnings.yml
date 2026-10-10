@@ -96,15 +96,18 @@ jobs:
 
       # Scout (#563): what stands out today, from this issue and the other published layers (river status since 1990
       # for the record checks, Floods past, today's gauges, the evidence table). Runs even when the issue failed,
-      # on the published one; never on a smoke run. Writes and publishes scout/ only.
+      # on the published one; never on a smoke run. Writes and publishes scout/ only. A scout that fails does not
+      # turn the day's Floods ahead issue red: yesterday's scout/latest.json stays and the Explorer scans live.
       - name: Today's scout
         if: always() && inputs.smoke == ''
+        continue-on-error: true
         run: python -m aquascope.map_scout daily --out build --warnings build
 
       - name: Publish scout/ to Hugging Face
         if: >-
           always() && env.HF_TOKEN != '' && inputs.smoke == '' && hashFiles('build/scout/latest.json') != '' &&
           (github.event_name == 'schedule' || inputs.publish == true)
+        continue-on-error: true
         run: python -m aquascope.map_scout publish --out build
 
       - name: Say why a smoke run was not published

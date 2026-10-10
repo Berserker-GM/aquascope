@@ -69,6 +69,20 @@ function wrap(lon) {
   return x;
 }
 
+/**
+ * The findings a reader can see: the package ranks the part of the globe on screen (a circle on the globe zoomed
+ * out, whose corners reach under the bars), so the page keeps those whose pin stands clear of the bars and the
+ * time bar (`visible(f)`), in the package's order, renumbered: `max` picks, then `extra` more for a model.
+ */
+export function keepVisible(res, visible, max = SCOUT_MAX, extra = 0) {
+  const all = (res && (res.candidates || res.picks)) || [];
+  const seen = all.filter((f) => {
+    try { return Boolean(visible(f)); } catch { return true; }
+  });
+  const cands = seen.slice(0, max + Math.max(0, extra)).map((f, i) => ({ ...f, rank: i + 1 }));
+  return { ...res, candidates: cands, picks: cands.slice(0, max), hidden: all.length - seen.length };
+}
+
 /** The map date's month ("2026-09"), the month the status and Floods past findings are for. */
 export function scoutMonth(date) {
   const m = /^(\d{4})-(\d{2})/.exec(String(date || ""));

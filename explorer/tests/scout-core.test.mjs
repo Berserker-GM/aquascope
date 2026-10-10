@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  GLOBE_RADIUS_KM, KIND_LABELS, PIN_GAP_PX, SCOUT_MAX, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho,
+  GLOBE_RADIUS_KM, KIND_LABELS, PIN_GAP_PX, SCOUT_MAX, keepVisible, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho,
 } from "../src/scout-core.js";
 import { checkPin } from "../src/map-actions-core.js";
 
@@ -62,4 +62,21 @@ test("who found them, and the line", () => {
   assert.match(scoutLine({ notes: ["no Floods ahead issue could be read"] }, 0), /^Nothing stands out in this view \(no Floods/);
   assert.equal(SCOUT_MAX, 10);
   assert.deepEqual(Object.keys(KIND_LABELS), ["floods_ahead", "status", "gauges_today", "floods_past", "models_disagree"]);
+});
+
+test("pins under a bar are left out and the rest renumbered, a model's extras kept after them", () => {
+  const cands = Array.from({ length: 14 }, (_, i) => ({ id: `f${i}`, rank: i + 1, lat: i, lon: 0 }));
+  const res = { mode: "live", picks: cands.slice(0, 10), candidates: cands };
+  const hide = new Set(["f0", "f3"]);
+  const out = keepVisible(res, (f) => !hide.has(f.id), 10, 0);
+  assert.equal(out.picks.length, 10);
+  assert.deepEqual(out.picks.map((f) => f.id), ["f1", "f2", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11"]);
+  assert.deepEqual(out.picks.map((f) => f.rank), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  assert.equal(out.candidates.length, 10);
+  assert.equal(out.hidden, 2);
+  assert.equal(out.mode, "live");
+  const withModel = keepVisible(res, (f) => !hide.has(f.id), 10, 6);
+  assert.equal(withModel.candidates.length, 12);
+  // A check that throws keeps the finding (better a pin under a bar than none).
+  assert.equal(keepVisible(res, () => { throw new Error("no map"); }, 10, 0).picks[0].id, "f0");
 });

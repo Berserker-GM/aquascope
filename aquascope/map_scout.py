@@ -383,6 +383,10 @@ def _finding(fid: str, kind: str, template: str, lat: float, lon: float, *, scor
     out = {"id": fid, "kind": kind, "template": template, "lat": round(lat, 4), "lon": round(lon, 4),
            "score": round(float(score), 4), "when": when, "slots": slots, "facts": facts, "source": source,
            "title": render(t["title"], slots), "reason": render(t["reason"], slots), "by": "rules"}
+    if facts:
+        # The headline number, for a reader that wants one value per finding (the facts hold them all).
+        head = facts[0]
+        out.update(value=head["value"], value_label=head["label"], unit=head.get("unit"))
     if extent:
         out["extent"] = [round(x, 2) for x in extent]
     return out
@@ -1390,6 +1394,9 @@ def daily(out: str | Path, *, base: str = ARCHIVE_BASE, warnings_dir: str | Path
             live = floods_past_findings(load_month(fm), fm, deg=float(index.get("deg") or 0.5), history=hist,
                                         top=top)
             findings = [f for f in findings if f["kind"] != "floods_past"] + live
+    if not findings:
+        # Nothing could be read (every layer failed): keep yesterday's file rather than publish an empty one.
+        raise RuntimeError("the scout found nothing to write: " + "; ".join(res["notes"] or ["no layer was read"]))
     picks = rank_findings([dict(f, slots=dict(f["slots"])) for f in findings], max_pins=MAX_PINS)
     if places:
         # Name what the world view shows and the strongest of each kind (a model words those).

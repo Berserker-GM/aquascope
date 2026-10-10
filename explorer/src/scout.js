@@ -17,7 +17,7 @@ import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-
 import { duck } from "./catalog.js?v=__BUILD__";
 import { ensureNowStatus } from "./now-map.js?v=__BUILD__";
 import { skillUrl } from "./evidence-core.js?v=__BUILD__";
-import { SCOUT_EXTRA, SCOUT_MAX, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho } from "./scout-core.js?v=__BUILD__";
+import { SCOUT_EXTRA, SCOUT_MAX, keepVisible, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho } from "./scout-core.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 
@@ -41,12 +41,31 @@ function busy(on) {
   b.setAttribute("aria-busy", on ? "true" : "false");
 }
 
-// The part of the map a pin can be seen in: inside the bar at the top (a pin stands 37 px tall), the time bar at
-// the bottom, the side controls and the legend stack, read back to degrees at points around that inner frame.
+// How far down the map the bars at the top reach, and where the time bar starts, in the map's own pixels: a pin
+// stands 37 px tall above its point, so its point sits a pin's height under the lowest bar (the line over the
+// globe comes back when the scout's line steps aside).
+function frameEdges(el, h) {
+  const f = el.getBoundingClientRect();
+  let top = 56, bottom = h - 110;
+  for (const sel of [".ma-bar", ".map-lead", "#ma-status"]) {
+    const e = document.querySelector(sel);
+    const r = e && !e.hidden ? e.getBoundingClientRect() : null;
+    if (r && r.height && r.bottom - f.top < h / 3) top = Math.max(top, r.bottom - f.top);
+  }
+  const tb = $("timebar");
+  const r = tb && !tb.hidden ? tb.getBoundingClientRect() : null;
+  if (r && r.height && r.top - f.top > h / 2) bottom = Math.min(bottom, r.top - f.top - 8);
+  return [top + 42, bottom];
+}
+
+// The part of the map a pin can be seen in: under the bars at the top, above the time bar, inside the side
+// controls and around the legend stack, read back to degrees at points close together around that inner frame
+// (on the globe a straight line on screen is a curve in degrees, so the points are dense).
 function innerOutline(el) {
   const w = el.clientWidth, h = el.clientHeight;
   const wide = w > 700;
-  const x0 = wide ? 70 : 16, x1 = w - (wide ? 70 : 16), y0 = 96, y1 = h - 110;
+  const [y0, y1] = frameEdges(el, h);
+  const x0 = wide ? 70 : 16, x1 = w - (wide ? 70 : 16);
   // The legends sit bottom left on a wide screen: the frame steps around them.
   let corner = [[x1, y1], [x0, y1]];
   const leg = $("map-legends");
@@ -59,7 +78,7 @@ function innerOutline(el) {
   const pts = [];
   ring.forEach((a, i) => {
     const b = ring[(i + 1) % ring.length];
-    for (let k = 0; k < 4; k++) pts.push([a[0] + ((b[0] - a[0]) * k) / 4, a[1] + ((b[1] - a[1]) * k) / 4]);
+    for (let k = 0; k < 10; k++) pts.push([a[0] + ((b[0] - a[0]) * k) / 10, a[1] + ((b[1] - a[1]) * k) / 10]);
   });
   const out = [];
   for (const p of pts) {
@@ -68,6 +87,29 @@ function innerOutline(el) {
     out.push([ll.lng, ll.lat]);
   }
   return out;
+}
+
+// Whether a finding's pin stands where it can be seen: its point inside the frame innerOutline traces (under
+// the bars, above the time bar, clear of the side controls) and, on the globe, on the side facing the reader.
+function pinVisible(f) {
+  const el = map.getContainer();
+  const w = el.clientWidth, h = el.clientHeight;
+  const [y0, y1] = frameEdges(el, h);
+  const pad = w > 700 ? 70 : 16;
+  const p = map.project([f.lon, f.lat]);
+  if (!p || !(p.x >= pad && p.x <= w - pad && p.y >= y0 && p.y <= y1)) return false;
+  // Not under the legend stack either (a pin stands 37 px above its point).
+  const leg = $("map-legends");
+  const r = leg && !leg.hidden ? leg.getBoundingClientRect() : null;
+  if (r && r.width && r.height) {
+    const f0 = el.getBoundingClientRect();
+    const lx = r.left - f0.left, rx = r.right - f0.left, ty = r.top - f0.top, by = r.bottom - f0.top;
+    if (p.x >= lx - 14 && p.x <= rx + 14 && p.y >= ty && p.y <= by + 42) return false;
+  }
+  if (state.globe && typeof map.transform?.isLocationOccluded === "function") {
+    return !map.transform.isLocationOccluded({ lng: f.lon, lat: f.lat });
+  }
+  return true;
 }
 
 function currentView() {
@@ -227,10 +269,12 @@ export async function runScout() {
     const t1 = performance.now();
     const res = await callLight("scout", {
       op: "view", view: currentView(), month: scoutMonth(state.date), gauges, skill,
-      extra: modelReady ? SCOUT_EXTRA : 0, max_pins: SCOUT_MAX, places: "page",
+      // A few more than ten always: the ones whose pin would sit under a bar are left out on the page.
+      extra: SCOUT_EXTRA, max_pins: SCOUT_MAX, places: "page",
     }, { priority: 2 });
     if (my !== running) return null;
     if (!res || res.error) throw new Error((res && res.error) || "the scout returned nothing");
+    Object.assign(res, keepVisible(res, pinVisible, SCOUT_MAX, modelReady ? SCOUT_EXTRA : 0));
     // How long each part took, in ms, for a look in the console (names: filled in when they arrive).
     res.page_ms = { rows: Math.round(t1 - t0), scan: Math.round(performance.now() - t1), names: null };
     lastResult = res;

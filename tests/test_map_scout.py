@@ -442,6 +442,18 @@ def test_daily_file_published_and_read_back(offline, tmp_path, monkeypatch):
     assert ms.scout_view({"bbox": [0, 40, 10, 50]}, None, doc=doc, places=False)["mode"] == "live"
     with pytest.raises(FileNotFoundError):
         ms.publish(tmp_path / "empty")
+    # Every finding carries its headline number beside its facts.
+    for f in doc["findings"]:
+        assert f["value"] == f["facts"][0]["value"] and f["value_label"] == f["facts"][0]["label"]
+    assert next(f for f in doc["findings"] if f["kind"] == "status")["unit"] == "km²"
+
+
+def test_daily_never_writes_an_empty_file(offline, tmp_path, monkeypatch):
+    # Every layer unreadable: no scout/latest.json, so the workflow does not publish over yesterday's.
+    monkeypatch.setattr(ms, "scan", lambda *a, **k: {"findings": [], "inputs": {}, "notes": ["nothing read"]})
+    with pytest.raises(RuntimeError, match="nothing read"):
+        ms.daily(tmp_path, places=False)
+    assert not (tmp_path / "scout" / "latest.json").exists()
 
 
 def test_cli_layers_scout(offline, monkeypatch, capsys):
@@ -496,6 +508,9 @@ def test_daily_workflow_writes_and_publishes_scout_only():
     assert "python -m aquascope.map_scout daily --out build --warnings build" in run
     assert "inputs.smoke == ''" in steps["Today's scout"]["if"]
     assert steps["Publish scout/ to Hugging Face"]["run"].strip() == "python -m aquascope.map_scout publish --out build"
+    # A failed scout never turns the day's Floods ahead issue red.
+    assert steps["Today's scout"]["continue-on-error"] is True
+    assert steps["Publish scout/ to Hugging Face"]["continue-on-error"] is True
     src = (ROOT / "aquascope" / "map_scout.py").read_text()
     assert 'allow_patterns=[f"{FOLDER}/*"]' in src and 'FOLDER = "scout"' in src
 
