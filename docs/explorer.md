@@ -191,8 +191,9 @@ What it looks for, by fixed rules in `aquascope.map_scout`:
 
 The month is the map's: move the time bar to a month and Scout looks at that month's
 river status and floods in the news. Floods ahead and the gauges are always today's.
-Two pins never sit closer than about a pin's height on screen, and each kind has a
-share of the ten (the past and the evidence table fewer), so one busy place does not
+Two pins never sit closer than about a pin's height on screen, a pin that would stand
+under the bars, the time bar or the legends is left out for the next finding, and each
+kind has a share of the ten (the past and the evidence table fewer), so one busy place does not
 take every pin. A pin's place name comes from the same gazetteer as the search
 (Photon reverse geocoding, OpenStreetMap data, ODbL). Photon answers one request at a
 time, so the pins drop at once under a named region or their coordinates and take
