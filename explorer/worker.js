@@ -1,7 +1,9 @@
 // AquaScope Explorer, worker thread: Pyodide + aquascope. Fetches the observed
 // record through aquascope's own collectors and runs aquascope.explore (the
 // same code the CLI and MCP server use). Sync XHR (pyodide-http) is allowed in
-// workers, so the page stays responsive while Python is busy.
+// workers, so the page stays responsive while Python is busy. Started as a module
+// worker ({ type: "module" } in worker-client.js): Pyodide 314 no longer runs in
+// classic workers, so the runtime comes in through import(), not importScripts.
 
 let pyodide = null;
 let ready = null;
@@ -16,7 +18,7 @@ function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 async function init({ pyodideIndexURL, wheelsJson, lite: light = false }) {
   lite = Boolean(light);
   post("progress", { text: "Loading Python runtime (Pyodide)…" });
-  importScripts(`${pyodideIndexURL}pyodide.js`);
+  const { loadPyodide } = await import(`${pyodideIndexURL}pyodide.mjs`);
   pyodide = await loadPyodide({ indexURL: pyodideIndexURL });
 
   post("progress", { text: lite ? "Loading numpy…" : "Loading numpy, scipy, pandas…" });
