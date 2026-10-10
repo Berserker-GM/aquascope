@@ -800,7 +800,8 @@ def _candidates(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         text = ", ".join(bits) + "." if bits else f"At its {c['shown']} {c['when']}."
         many = count and count["value"] > 1
         if many:
-            text += f" {count['shown']} reaches in view pass theirs."
+            shown = count["shown"]
+            text += f" {shown[:1].upper()}{shown[1:]} reaches in view pass theirs."   # "At least 45 reaches"
         add(2 + 0.1 * rank, "floods_ahead", [c, peak, ratio, count if many else None],
             f"{c['shown'].capitalize()} ahead", text)
     # Gauges: the one furthest from normal on each side; one far out ranks before the forecast's reach.
@@ -957,16 +958,22 @@ def claim_lock(words: str, cited: list[dict[str, Any]]) -> list[str]:
     return sorted(n for n in _numbers(bare) if n not in allowed)
 
 
+def _part(fact: dict[str, Any], part: str | None) -> str:
+    """What a placeholder puts in: the fact's value as shown, its date (``when``) or its place's name."""
+    if part == "when":
+        return str(fact.get("when") or "")
+    if part == "place":
+        return str((fact.get("place") or {}).get("name") or "")
+    return str(fact["shown"])
+
+
 def _fill(words: str, facts: dict[str, dict[str, Any]]) -> str:
     def one(m: re.Match[str]) -> str:
-        f = facts[m.group(1)]
-        if m.group(2) == "when":
-            return f.get("when") or ""
-        if m.group(2) == "place":
-            return (f.get("place") or {}).get("name") or ""
-        return f["shown"]
+        return _part(facts[m.group(1)], m.group(2))
 
-    return re.sub(r"\s+", " ", _PLACEHOLDER.sub(one, words or "")).strip()
+    out = re.sub(r"\s+", " ", _PLACEHOLDER.sub(one, words or "")).strip()
+    # A value that opens a sentence ("at least 45") starts it with a capital.
+    return re.sub(r"(^|[.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), out)
 
 
 def notes_schema() -> dict[str, Any]:
@@ -989,7 +996,9 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
     code fills in."""
     lines = []
     for f in facts:
-        where = (f.get("place") or {}).get("name") or ("a point on the map" if f.get("place") else "the whole view")
+        name = (f.get("place") or {}).get("name")
+        where = f"{name} (write {{{f['id']}.place}})" if name else \
+            ("a point on the map" if f.get("place") else "the whole view")
         when = f" when {f['when']} (write {{{f['id']}.when}})" if f.get("when") else ""
         lines.append(f"{f['id']}: {f['label']} is {f['shown']} (write {{{f['id']}}}){when}; "
                      f"layer {f['layer']}; where: {where}")
@@ -1003,7 +1012,8 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
         "one note, and order the notes by importance.",
         "For each note: 'facts' lists the fact ids it uses (the first one with a place decides where the pin "
         "goes), 'title' is at most six words, 'text' is one or two short plain sentences.",
-        "Write every number, date and place as its placeholder, exactly: {f3}, {f3.when}, {f3.place}. "
+        "Write every number, date and place name as its placeholder, exactly: {f3}, {f3.when}, {f3.place} "
+        "(only the ones listed above; a place without one has no name yet, so do not name it). "
         "Never write a digit yourself: a note with a number its facts do not hold is thrown away.",
         "Say only what the facts say. Do not guess causes, impacts or forecasts beyond them. "
         "Colours: much below normal is dark brown, below normal tan, above normal light teal, "
@@ -1052,6 +1062,12 @@ def check_model_notes(reply: Any, facts: list[dict[str, Any]], bbox: list[float]
         unknown = [m.group(1) for m in _PLACEHOLDER.finditer(title + " " + text) if m.group(1) not in by_id]
         if unknown:
             refused.append(f"note {i}: cites {', '.join(unknown)}, which is not a fact")
+            continue
+        # {f3.when} or {f3.place} of a fact with no date or no name would leave a hole in the words.
+        empty = [m.group(0) for m in _PLACEHOLDER.finditer(title + " " + text)
+                 if m.group(2) and not _part(by_id[m.group(1)], m.group(2))]
+        if empty:
+            refused.append(f"note {i}: {', '.join(empty)} has nothing to put in")
             continue
         # Placeholders the note uses count as cited too: their numbers are put in by code.
         used = [by_id[m.group(1)] for m in _PLACEHOLDER.finditer(title + " " + text)]

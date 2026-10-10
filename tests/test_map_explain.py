@@ -152,7 +152,7 @@ def test_a_cut_issue_gives_its_count_as_a_floor():
     count = by_kind(res, "fa_count")[0]
     assert count["value"] == 2 and count["shown"] == "at least 2"
     notes = me.template_notes(res["facts"], VIEW["bbox"])
-    assert "at least 2 reaches in view pass theirs" in notes[0]["text"]
+    assert ". At least 2 reaches in view pass theirs." in notes[0]["text"]
 
 
 def test_outside_the_fifteen_days_the_peak_class_is_shown(status):
@@ -323,6 +323,22 @@ def test_model_notes_are_filled_in_by_code_and_held_to_their_facts(facts):
     assert "no known fact" in reasons and "none of its facts has a place" in reasons
 
 
+def test_a_placeholder_with_nothing_to_put_in_is_refused(facts):
+    area = by_kind(facts, "status_area")[0]
+    assert not area["place"].get("name")
+    note = {"facts": [area["id"]], "title": "Dry", "text": f"Dry near {ph(area['id'], 'place')}."}
+    out = me.check_model_notes({"notes": [note]}, facts["facts"], VIEW["bbox"])
+    assert any("has nothing to put in" in r for r in out["refused"])
+    # A value that opens a sentence is capitalised.
+    cut = me.view_facts(VIEW, warnings={**WARNINGS, "truncated": True})["facts"]
+    count = next(f for f in cut if f["kind"] == "fa_count")
+    assert me._fill(f"Busy. {ph(count['id'])} reaches.", {count["id"]: count}) == "Busy. At least 2 reaches."
+    assert all("near ." not in n["text"] for n in out["notes"])
+    # Only a place with a name is offered as {fN.place}.
+    p = me.notes_prompt(facts["facts"])["system"]
+    assert ph(area["id"], "place") not in p.split("Write every number")[0]
+
+
 def test_a_reply_that_is_not_notes_is_refused_whole(facts):
     assert me.check_model_notes("Sorry, I cannot help.", facts["facts"])["notes"] == []
     assert me.check_model_notes({"actions": []}, facts["facts"])["refused"] == ["the model did not reply with notes"]
@@ -382,7 +398,7 @@ def test_the_cli_prints_the_notes(monkeypatch, capsys, facts):
 
     monkeypatch.setattr(me, "explain_view", fake)
     monkeypatch.setattr(sys, "argv", ["aquascope", "layers", "explain", "0", "0", "40", "30", "--date", "2026-10-12",
-                                      "--layers", "status", "gauges", "--facts"])
+                                      "--layers", "status,gauges", "--facts"])   # a comma reads as a space
     cli.main()
     out = capsys.readouterr().out
     assert seen == {"bbox": [0.0, 0.0, 40.0, 30.0], "day": "2026-10-12", "layers": ["status", "gauges"], "llm": None}

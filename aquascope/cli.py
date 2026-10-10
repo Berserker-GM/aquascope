@@ -982,7 +982,8 @@ def _cmd_layers_explain(args: argparse.Namespace) -> None:
     """`aquascope layers explain W S E N`: what is on the Explorer's map in a view, as facts and notes (#562)."""
     from aquascope.map_explain import LAYERS, explain_view
 
-    layers = args.layers or list(LAYERS)
+    # "status floods_ahead" or "status,floods_ahead": both read the same.
+    layers = [x for item in args.layers or [] for x in item.split(",") if x] or list(LAYERS)
     bad = [x for x in layers if x not in LAYERS]
     if bad:
         print(f"  Unknown layer {', '.join(bad)}: choose from {', '.join(LAYERS)}")
