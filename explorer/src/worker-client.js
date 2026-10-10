@@ -140,7 +140,7 @@ export async function ensureCatalogInWorker() {
 }
 
 export function workerBusyMessage() {
-  return state.workerReady ? null : "Loading Python in your browser (about 15 MB, once).";
+  return state.workerReady ? null : "Loading Python in your browser (about 30 MB, once).";
 }
 
 // ── the light pool ──────────────────────────────────────────────────────────

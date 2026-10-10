@@ -906,8 +906,9 @@ loop is nine times faster, same numbers to 1e-14), which is what makes
   with `showcase.js` and `local-model.js`, `studio.js` with `intake.js`,
   `studio-device.js` and `study-store.js` (Study, loaded on first use), and
   `webmcp.js`. `app.js` wires them together.
-- `worker.js`: a Web Worker that loads Pyodide, numpy / scipy / pandas, and the
-  aquascope wheel, then calls `aquascope.explore`; the `studio` message drives
+- `worker.js`: a module Web Worker that loads Pyodide (the version pinned once,
+  in `config.js`; Pyodide 314 runs only in module workers), numpy / scipy /
+  pandas, and the aquascope wheel, then calls `aquascope.explore`; the `studio` message drives
   `aquascope.studio.Studio` for Study, loading matplotlib and the document
   libraries only when a study runs. Its ops: `start`, `say` (with a
   `proposed` brief), `approve` (with a `plan`), `follow_up`, `narrate`,
@@ -921,7 +922,7 @@ loop is nine times faster, same numbers to 1e-14), which is what makes
   `.github/workflows/explorer.yml` publishes it to the Hugging Face static Space
   on every push to `main`; `docs.yml` adds it under `/explorer/app/` here.
 
-First analysis in a session loads about 15 MB of Python once; the catalog
+The first analysis loads about 30 MB of Python (Pyodide 314) once; the catalog
 itself arrives in a few seconds. Sources that don't allow browser fetches
 (CORS) will come through the Archive as it grows.
 
