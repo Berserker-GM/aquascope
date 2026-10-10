@@ -9,7 +9,7 @@ let ready = null;
 // network without them: a place's context layers, a click's river snap and the quick forecast. Several run at
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
-const LITE_TYPES = new Set(["context", "river", "now", "map_command"]);
+const LITE_TYPES = new Set(["context", "river", "now", "map_command", "map_explain"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1155,6 +1155,58 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── Explain what is on screen (#562): aquascope.map_explain, the same functions as `aquascope layers explain`
+// and the MCP tool explain_view. op "facts" reads the view into facts and template notes (the month's status
+// file is fetched here and handed over as bytes); "check" holds a model's notes to the facts (the claim lock);
+// "llm" asks the reader's own model with their key (the main worker only, beside the Analyst's client).
+async function mapExplain({ id, op, view, status_url, status_month, warnings, floods_past, gauges, reply, facts,
+  context, provider, model, api_key, base_url }) {
+  let bytes = null;
+  if (op === "facts" && status_url) {
+    const res = await fetch(status_url);
+    if (res.ok) bytes = new Uint8Array(await res.arrayBuffer());
+  }
+  self.__aqExplain = JSON.stringify({
+    op: String(op || "facts"), view: view || {}, status_month: status_month || null, warnings: warnings || null,
+    floods_past: floods_past || null, gauges: gauges || [], reply: reply === undefined ? null : reply,
+    facts: facts || [], context: String(context || ""),
+    llm: { provider: provider || null, model: model || null, api_key: api_key || null, base_url: base_url || null },
+  });
+  self.__aqExplainBytes = bytes;
+  const code = `
+import json
+from js import __aqExplain, __aqExplainBytes
+from aquascope import map_explain as _me
+_a = json.loads(__aqExplain)
+_bbox = (_a["view"] or {}).get("bbox")
+try:
+    if _a["op"] == "facts":
+        _st = None
+        if _a["status_month"] and __aqExplainBytes is not None:
+            _st = {"month": _a["status_month"], "data": bytes(__aqExplainBytes.to_py())}
+        _out = _me.explain(_a["view"], status=_st, warnings=_a["warnings"], floods_past=_a["floods_past"],
+                           gauges=_a["gauges"], context=_a["context"])
+    elif _a["op"] == "check":
+        _out = _me.check_model_notes(_a["reply"], _a["facts"], _bbox)
+        _me.name_notes(_out["notes"], (_a["view"] or {}).get("zoom") or 5)
+    elif _a["op"] == "llm":
+        _out = _me.model_notes(_a["facts"], context=_a["context"], bbox=_bbox, **_a["llm"])
+        _me.name_notes(_out["notes"], (_a["view"] or {}).get("zoom") or 5)
+    else:
+        _out = {"error": "unknown op"}
+except (ValueError, RuntimeError) as exc:
+    _out = {"error": str(exc)}
+json.dumps(_out, default=str)
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqExplain = null;
+    self.__aqExplainBytes = null;
+  }
+}
+
 self.onmessage = async (e) => {
   const m = e.data;
   try {
@@ -1186,6 +1238,7 @@ self.onmessage = async (e) => {
     if (m.type === "context") return await placeContext(m);
     if (m.type === "watch") return await watchDigest(m);
     if (m.type === "map_command") return await mapCommand(m);
+    if (m.type === "map_explain") return await mapExplain(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
     // exception line (last non-empty) and log the whole thing for debugging.

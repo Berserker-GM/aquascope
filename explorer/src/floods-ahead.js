@@ -378,6 +378,18 @@ function openCard(f, lngLat) {
 
 export function floodsVisible() { return visible; }
 
+/** Resolves once the issue has been read (or found missing), so Explain does not run ahead of it (#562). */
+export const floodsAheadReady = () => (visible ? load() : Promise.resolve());
+
+/**
+ * The issue on the map, for Explain (#562): { issue_date, features } with the reaches inside `inBox(lat, lon)`,
+ * or null when the layer is off or has nothing. The day each reach is classed on is the package's to work out.
+ */
+export function floodsAheadShown(inBox = () => true) {
+  if (!visible || !data || data.manifest.missing || !data.features.length) return null;
+  const features = data.features.filter((f) => inBox(f.geometry.coordinates[1], f.geometry.coordinates[0]));
+  return { issue_date: data.manifest.issue_date, features, truncated: Boolean(data.manifest.geojson_truncated) };
+}
 /** The issue and its reaches once read ({ manifest, features }), for the layers drawn from it: flood depth (#554). */
 export function floodsAheadData() { return load().then(() => data); }
 

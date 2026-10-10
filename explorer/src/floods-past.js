@@ -224,7 +224,14 @@ async function show(fc) {
 
 // ── following the time bar ──────────────────────────────────────────────────
 
-async function redraw() {
+// The newest redraw, so Explain (#562) can wait for the months it is reading.
+let redrawing = null;
+function redraw() {
+  redrawing = redrawNow();
+  return redrawing;
+}
+
+async function redrawNow() {
   if (!state.floodsPast) { renderLegend(); return; }
   const idx = await loadIndex();
   if (!state.floodsPast) return;
@@ -268,6 +275,24 @@ function syncDated(idx) {
   const now = datedExtras.get("floods-past");
   if (Boolean(had) !== Boolean(now)) syncTimeBar({ layersChanged: true });
   else if (now && had.until !== now.until) syncTimeBar();
+}
+
+/** Resolves once the months on the time bar are drawn (or failed), so Explain reads them, not the last ones. */
+export const floodsPastReady = () => (state.floodsPast && redrawing ? redrawing.catch(() => {}) : Promise.resolve());
+
+/**
+ * What the layer holds now, for Explain (#562): { months, deg, cells: [[row, col, news, radar]] } summed over
+ * the months on show, the cells inside `inBox(lat, lon)`; null when it is off or still loading.
+ */
+export function floodsPastShown(inBox = () => true) {
+  if (!state.floodsPast || !shown || !drawn) return null;
+  const cells = [];
+  for (const f of shown.features) {
+    if (f.geometry.type !== "Point") continue;
+    const [lon, lat] = f.geometry.coordinates;
+    if (inBox(lat, lon)) cells.push([f.properties.row, f.properties.col, f.properties.news, f.properties.radar]);
+  }
+  return { months: drawn.split(","), deg: (index && index.deg) || 0.5, cells };
 }
 
 export function setFloodsPast(on, { write = true } = {}) {

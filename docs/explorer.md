@@ -168,6 +168,68 @@ facts, source})` in `explorer/src/map-actions.js` (also `actions.addPin`) drops 
 pin that opens a map card with its note, facts and source, listed in the log like
 any action; `pins()` lists them.
 
+## Explain this view
+
+"What am I seeing?" gets an answer on the map, not in a report. Press **Explain this
+view** beside the Ask the map pill, or type "what am I seeing?" in the box, and three
+to five short notes are pinned where they belong: a numbered dot in the colour of what
+it describes, with a card beside it that names its source.
+
+![Explain this view: four notes over Bangladesh and northern India](img/globe/explain-bangladesh.png)
+
+The notes come from facts the package reads off the layers that are on, inside the
+part of the map you can see (`aquascope.map_explain.view_facts`):
+
+- **World river status**: the share of the mapped land in view below and above normal,
+  and the largest area in each class but normal, with what its colour means ("Dark
+  brown: flow below the 10th percentile for September, on 22% of the mapped land in
+  view"). It reads the month's file, the one the map shows.
+- **Floods ahead**: how many reaches pass their 2-year flow, and the one forecast to
+  pass the highest return-period flow, with its peak and its day. On a date inside the
+  forecast's 15 days, the class is that day's, as on the map.
+- **Gauges** (coloured by today against normal): the ones furthest above and below
+  normal for the date, with the years of record behind them. The side with more gauges
+  far from normal comes first, and the other side's gauge keeps clear of it.
+- **Floods past**: the half-degree cells with the most flood events in the news and the
+  most radar detections over the months on show, and the totals in view.
+
+Each fact has its value, unit, place, date and source. The pins stay off the legend,
+the box and the time bar, keep apart from each other, and on the globe keep off its
+rim; a large area offers a few spots inside it, so its note can move aside for a reach
+or a gauge. The cards take whichever side keeps them clear of each other.
+
+![Explain on the globe](img/globe/explain-globe.png)
+
+Who words the notes:
+
+1. **No model, no key**: fixed wording from the same facts (`template_notes`). This
+   always works.
+2. **The model on your device** or **your own key** from Ask ✨, in the same order as
+   Ask the map. The model only chooses and orders the facts and writes the words
+   between them. It writes each number as a placeholder (`{f3}`), which code fills in
+   from the facts, and a note whose words hold any other number, in digits or in words
+   ("twelve", "half"), is refused (the claim lock); the line under the box says how many were refused and why. When fewer than
+   three pass, notes in fixed wording on the other facts make up the rest.
+
+A layer still reading its file (just after the page opens, or after a new date) is
+waited for before the view is read. A click on a note opens it in the map card, with every fact it cites and the full
+credit. Each note is in the action log (marked with who wrote it) with its own undo,
+and **Undo all** clears them; explaining again replaces the notes of the time before.
+Place names come from the search's gazetteer (Photon by komoot, OpenStreetMap data,
+ODbL), only for the places the notes use; when it cannot be reached the notes stand
+without names.
+
+![A note opened in the map card](img/globe/explain-note-card.png)
+
+On a phone the cards show their titles only, and a tap opens the whole note.
+
+![Explain on a phone](img/globe/explain-phone.png)
+
+The same engine answers outside the page: `aquascope layers explain W S E N [--date]
+[--layers ...] [--facts] [--llm]` prints the notes (and with `--facts`, every fact),
+and the MCP tool `explain_view(bbox, date, layers)` returns the facts and the notes as
+JSON. Both read the published layers themselves.
+
 ## Map layers
 
 The rail is a layer stack, and every layer in it is keyless and free to use.

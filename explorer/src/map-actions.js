@@ -10,7 +10,9 @@
 
 import { $, actions, escapeHtml, setTime, state, timeState } from "./core.js?v=__BUILD__";
 import { DEFAULT_CENTER, fitWorldZoom, map } from "./map.js?v=__BUILD__";
-import { ActionLog, BY_LABEL, LAYER_CONTROLS, agoWords, checkPin, slotOf } from "./map-actions-core.js?v=__BUILD__";
+import {
+  ActionLog, BY_LABEL, LAYER_CONTROLS, agoWords, checkPin, inkOn, noteBody, placeNotes, slotOf,
+} from "./map-actions-core.js?v=__BUILD__";
 import { getStatusFocus, setStatusFocus } from "./status-layer.js?v=__BUILD__";
 import { clearRiverNetwork, lightRiverNetwork } from "./river-map.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
@@ -143,7 +145,7 @@ function removeArea(id) {
 
 function factLine(f) {
   const v = typeof f.value === "number" ? f.value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : String(f.value);
-  return `${f.label}: ${v}${f.unit ? ` ${f.unit}` : ""}`;
+  return `${f.label}: ${v}${f.unit ? ` ${f.unit}` : ""}${f.when ? ` (${f.when})` : ""}`;
 }
 
 function openPinCard(id) {
@@ -152,16 +154,72 @@ function openPinCard(id) {
   const p = e.after;
   const [first, ...rest] = p.facts || [];
   const v = first && (typeof first.value === "number" ? first.value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : String(first.value));
-  const note = [p.text, ...rest.map(factLine)].filter(Boolean).join(" · ");
+  const isNote = p.kind === "note";
+  // A note's card leads with its words; the facts they do not already give follow (#562).
+  const note = isNote ? noteBody(p) : [p.text, ...rest.map(factLine)].filter(Boolean).join(" · ");
   // The pin's card is what was asked for now: the log folds so the two do not stack (its count reopens it).
   if (logOpen) setLogOpen(false);
   actions.openMapCard({
-    id: `pin:${id}`, lngLat: [p.lon, p.lat], lift: 30,
+    id: `pin:${id}`, lngLat: [p.lon, p.lat], lift: isNote ? 14 : 30,
     what: `Note, ${BY_LABEL[e.by] || e.by}`, whatIcon: `<span class="ma-pin-mini" aria-hidden="true">${PIN_SVG}</span>`,
-    title: p.title, sub: `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}`,
-    figure: first ? { value: v, unit: first.unit || "", label: first.label } : null,
-    note, credit: p.source || "",
-    buttons: [{ id: "unpin", label: "Remove pin", title: "Undo this pin", onClick: () => { undoEntry(id); actions.closeMapCard(); } }],
+    title: p.title, sub: [p.place || `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}`, p.when].filter(Boolean).join(" · "),
+    figure: !isNote && first ? { value: v, unit: first.unit || "", label: first.label } : null,
+    note, credit: p.credit || p.source || "",
+    buttons: [{ id: "unpin", label: isNote ? "Remove note" : "Remove pin", title: "Undo this pin",
+      onClick: () => { undoEntry(id); actions.closeMapCard(); } }],
+  });
+  // Its callout steps back while the card says the same thing in full.
+  for (const [nid, n] of noteMarkers) n.el.classList.toggle("carded", nid === id);
+}
+
+// A note (Explain, #562): a numbered dot at the place and a short card beside it, on whichever side keeps the
+// cards off each other and off the legend, the box and the time bar (map-actions-core.js placeNotes).
+const noteMarkers = new Map();  // entry id -> { marker, el, pin }
+
+function drawNote(id, pin) {
+  const el = document.createElement("div");
+  el.className = "ma-note side-right";
+  if (pin.tone) { el.style.setProperty("--tone", pin.tone); el.style.setProperty("--tone-ink", inkOn(pin.tone)); }
+  el.innerHTML = `<button type="button" class="ma-note-dot" aria-label="Note ${pin.n || ""}: ${escapeHtml(pin.title)}">` +
+    `${pin.n || ""}</button><div class="ma-note-card"><b class="ma-note-title">${escapeHtml(pin.title)}</b>` +
+    (pin.text ? `<span class="ma-note-text">${escapeHtml(pin.text)}</span>` : "") +
+    (pin.source ? `<span class="ma-note-src">${escapeHtml(pin.source)}</span>` : "") + "</div>";
+  el.addEventListener("click", (ev) => { ev.stopPropagation(); openPinCard(id); });
+  const marker = new maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([pin.lon, pin.lat]).addTo(map);
+  noteMarkers.set(id, { marker, el, pin });
+  pinMarkers.set(id, marker);
+  placeNoteCards();
+}
+
+// The furniture a card should not sit on, in the map's own pixels.
+function furniture(frame) {
+  const out = [];
+  for (const sel of ["#map-legends", "#map-ask .ma-bar", "#ma-status", "#ma-log", "#timebar", "#map-tools", "#map-card",
+    ".map-lead", ".maplibregl-ctrl-bottom-left", ".maplibregl-ctrl-bottom-right"]) {
+    const el = document.querySelector(sel);
+    if (!el || el.hidden) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width && r.height) out.push({ x: r.left - frame.left, y: r.top - frame.top, w: r.width, h: r.height });
+  }
+  return out;
+}
+
+let placing = 0;
+function placeNoteCards() {
+  if (placing || !noteMarkers.size) return;
+  placing = requestAnimationFrame(() => {
+    placing = 0;
+    const frame = map.getContainer().getBoundingClientRect();
+    const list = [...noteMarkers.values()];
+    const points = list.map((n) => map.project([n.pin.lon, n.pin.lat]));
+    const sizes = list.map((n) => {
+      const c = n.el.querySelector(".ma-note-card");
+      return { w: (c && c.offsetWidth) || 200, h: (c && c.offsetHeight) || 60 };
+    });
+    const sides = placeNotes(points, sizes, { w: frame.width, h: frame.height }, furniture(frame));
+    list.forEach((n, i) => {
+      for (const side of ["right", "left", "top", "bottom"]) n.el.classList.toggle(`side-${side}`, side === sides[i]);
+    });
   });
 }
 
@@ -169,6 +227,8 @@ function drawPin(id, pin) {
   if (!state.mapOk || !map) return;
   const old = pinMarkers.get(id);
   if (old) old.remove();
+  noteMarkers.delete(id);
+  if (pin.kind === "note") { drawNote(id, pin); return; }
   const el = document.createElement("button");
   el.type = "button";
   el.className = "ma-pin";
@@ -184,6 +244,7 @@ function removePin(id) {
   const m = pinMarkers.get(id);
   if (m) m.remove();
   pinMarkers.delete(id);
+  if (noteMarkers.delete(id)) placeNoteCards();
 }
 
 // ── applying one action ─────────────────────────────────────────────────────
@@ -199,7 +260,7 @@ async function snapRiver(a) {
 
 // What the floating pieces cover, so a place lands in the part of the map you can see: the box and its log
 // at the top, the legend stack on the left of a wide screen, the time bar at the bottom.
-function cameraPadding() {
+export function cameraPadding() {
   const frame = map.getContainer().getBoundingClientRect();
   const pad = { top: 70, bottom: 120, left: 60, right: 60 };
   // The box itself, not its log: the log is short-lived and folds away, the place is what you asked for.
@@ -424,7 +485,19 @@ export function initMapActions() {
   if (toggle) toggle.addEventListener("click", () => setLogOpen(!logOpen));
   log.subscribe(() => renderLog());
   // A basemap swap replaces the style: put the drawn areas back on the new one.
-  if (state.mapOk && map) map.on("style.load", () => { if (areas.size) refreshAreas(); });
+  // A closed map card gives a note back its callout.
+  const card = $("map-card");
+  if (card && globalThis.MutationObserver) {
+    new MutationObserver(() => {
+      if (card.hidden) for (const n of noteMarkers.values()) n.el.classList.remove("carded");
+    }).observe(card, { attributes: true, attributeFilter: ["hidden"] });
+  }
+  if (state.mapOk && map) {
+    map.on("style.load", () => { if (areas.size) refreshAreas(); });
+    // The notes' cards find their sides again once the map has moved (#562).
+    map.on("moveend", placeNoteCards);
+    map.on("resize", placeNoteCards);
+  }
   actions.addPin = addPin;
   actions.mapPins = pins;
   actions.removePin = removePinById;
