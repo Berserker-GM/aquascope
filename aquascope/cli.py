@@ -978,6 +978,50 @@ def _print_river_status(res: dict) -> None:
         print(f"  {res['attribution']} ({res['licence']})")
 
 
+def _cmd_layers_explain(args: argparse.Namespace) -> None:
+    """`aquascope layers explain W S E N`: what is on the Explorer's map in a view, as facts and notes (#562)."""
+    from aquascope.map_explain import LAYERS, explain_view
+
+    layers = args.layers or list(LAYERS)
+    bad = [x for x in layers if x not in LAYERS]
+    if bad:
+        print(f"  Unknown layer {', '.join(bad)}: choose from {', '.join(LAYERS)}")
+        sys.exit(2)
+    llm = None
+    if args.llm:
+        llm = {"provider": args.provider, "model": args.model, "api_key": args.api_key, "base_url": None}
+    try:
+        res = explain_view(args.bbox, args.date, layers, name_places=not args.no_places, llm=llm)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    w, s, e, n = res["view"]["bbox"]
+    print(f"  The view {w:g}, {s:g} to {e:g}, {n:g} on {res['view']['date']}: {len(res['facts'])} facts, "
+          f"{len(res['notes'])} notes ({res['by']}).\n")
+    for i, note in enumerate(res["notes"], 1):
+        where = note["place"] or f"{note['lat']:.3f}, {note['lon']:.3f}"
+        print(f"  {i}. {note['title']} ({where})")
+        print(f"     {note['text']}")
+        print(f"     Source: {note['source']}")
+    if args.facts:
+        print("\n  Facts:")
+        for f in res["facts"]:
+            p = f.get("place")
+            at = f" at {p['lat']:.3f}, {p['lon']:.3f}" if p else ""
+            print(f"  {f['id']:>4}  {f['label']}: {f['shown']}{(' ' + f['when']) if f.get('when') else ''}{at}")
+    for line in res.get("skipped") or []:
+        print(f"  ({line})")
+    for line in res.get("refused") or []:
+        print(f"  refused: {line}")
+    for line in res.get("errors") or []:
+        print(f"  could not read {line}")
+    if res.get("credits"):
+        print("\n  " + "\n  ".join(res["credits"]))
+
+
 def cmd_layers(args: argparse.Namespace) -> None:
     """`aquascope layers`: the dated map layers and their valid dates, or the frames of a time-lapse (#522)."""
     from aquascope.map_time import dated_layers, layer_frames
@@ -995,6 +1039,9 @@ def cmd_layers(args: argparse.Namespace) -> None:
         _print_river_status(res)
         if not res.get("available"):
             sys.exit(1)
+        return
+    if args.layers_cmd == "explain":
+        _cmd_layers_explain(args)
         return
     if args.layers_cmd == "frames":
         res = layer_frames(args.layer, args.start, args.end, step=args.step, max_frames=args.max_frames)
@@ -4166,6 +4213,19 @@ def main() -> None:
                            help="Read the month's map and say in one line where the rivers are low or high, "
                                 "with each named region's share below and above normal")
     p_lstatus.add_argument("--json", action="store_true")
+    p_lexplain = layers_sub.add_parser("explain", help="Explain a view of the Explorer's map: facts read by code from "
+                                       "the river status, Floods ahead, Floods past and the gauges, and 3 to 5 notes")
+    p_lexplain.add_argument("bbox", nargs=4, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_lexplain.add_argument("--date", default=None, help="The map date, YYYY-MM-DD (default: today)")
+    p_lexplain.add_argument("--layers", nargs="+", default=None,
+                            help="Among status, floods_ahead, floods_past, gauges (default: all four)")
+    p_lexplain.add_argument("--facts", action="store_true", help="List every fact, not only the notes")
+    p_lexplain.add_argument("--no-places", action="store_true", help="Do not name places with the gazetteer")
+    p_lexplain.add_argument("--llm", action="store_true", help="Word the notes with your own model (claim-locked)")
+    p_lexplain.add_argument("--provider", choices=provider_ids(), default=None)
+    p_lexplain.add_argument("--model", default=None)
+    p_lexplain.add_argument("--api-key", default=None)
+    p_lexplain.add_argument("--json", action="store_true")
     # ── map (#561) ───────────────────────────────────────────────────
     p_map = sub.add_parser("map", help="Read a plain-English request about the Explorer's map into map actions "
                            "(the keyless phrase grammar, or --llm with your own key)")

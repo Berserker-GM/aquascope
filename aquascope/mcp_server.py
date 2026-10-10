@@ -661,6 +661,19 @@ def map_command(text: str, resolve: bool = False) -> dict[str, Any]:
     return res
 
 
+def explain_view(bbox: list[float], date: str | None = None, layers: list[str] | None = None) -> dict[str, Any]:
+    """Explain a view of the AquaScope Explorer's map (#562): bbox is [west, south, east, north] in degrees,
+    date the map date (YYYY-MM-DD, default today), layers among status, floods_ahead, floods_past and gauges
+    (default all). Reads the month's world river status file, the Floods ahead issue, the Floods past grid
+    and today's gauge status, and returns the facts taken from them by code (each with value, unit, place
+    and source: the share of mapped land in each status class, the largest areas much above or below
+    normal, the reach forecast to pass the highest return-period flow, the gauges furthest from normal,
+    where most floods were reported) and three to five notes in fixed wording, each pinned to a place."""
+    from aquascope.map_explain import explain_view as _explain
+
+    return _explain(bbox, date, layers)
+
+
 def archive_health() -> dict[str, Any]:
     """Status of the last catalog harvest per source (health.json from the Archive)."""
     import httpx
@@ -1395,6 +1408,7 @@ def build_server():
     server.tool()(river_status_month)
     server.tool()(river_status_summary)
     server.tool()(map_command)
+    server.tool()(explain_view)
     server.tool()(list_analyses)
     server.tool()(analyse_table)
     server.tool()(station_view)
