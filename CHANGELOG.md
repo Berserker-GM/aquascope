@@ -7,6 +7,12 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **A real HEC-RAS 2D run with terrain and volume accounting** (#592, part of the 1.0 milestone): the mesh viewer and the review checked on a HEC-RAS 6.5 plan of Portsmouth, Virginia (HydroShare, CC BY 4.0, not committed). The depth equals HEC-RAS's own `Cell Invert Depth` to 2.2e-6 m at every cell and step, and the cell volumes from the elevation-volume tables sum to the file's `Volume Ending`. Three fixes ([assessment](docs/assessments/hec-ras.md)):
+  - The volume check now reads each 2D area's volumes under the names HEC-RAS gives them (`Vol Starting`, `Vol Ending`, `Cum Inflow`, `Cum Outflow` under `Volume Accounting 2D/<area>`); before, the area's error was found but its volumes came back empty.
+  - Where the plan wrote HEC-RAS's own cell velocity (`Cell Velocity - Velocity X / Y`), the reader uses it for the arrows, a cell's series and the largest speed, instead of rebuilding it from the faces (on this run the rebuild gave 4.35 m/s where HEC-RAS says 3.83 m/s). A run that wrote cell velocity but not face velocity now has arrows.
+  - The film check's share of wet cells under 1% read "0%"; it now reads, for example, "0.13%".
+
 ## [0.27.0] - 2026-10-12
 
 ### Added
