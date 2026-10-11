@@ -756,19 +756,22 @@ def explain_view(bbox: list[float], date: str | None = None, layers: list[str] |
     return _explain(bbox, date, layers)
 
 
-def mesh_summary(path: str, crs: str | None = None) -> dict[str, Any]:
+def mesh_summary(path: str, crs: str | None = None, geometry: str | None = None) -> dict[str, Any]:
     """What a model result on a mesh holds (#555): a HEC-RAS 2D plan HDF5 file (*.p01.hdf) or a UGRID NetCDF
     file (D-Flow FM, ADH, ADCIRC and others) on this machine. Returns the format, the model, the coordinate
     system (from the file, or crs as an EPSG code when the file states none), the extent in degrees, the cells
     per 2D area, the model's own time steps, the units, and the largest depth (or water surface, for a file
     without bed levels) and the largest speed with the cell and place where each happens. Every number is
-    computed from the file by aquascope.io.mesh; ok is false with a plain error for a file it cannot read."""
+    computed from the file by aquascope.io.mesh; ok is false with a plain error for a file it cannot read.
+    geometry is the HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the results but not
+    the mesh (a *.p01.timeseries.hdf)."""
     from aquascope.io.mesh import mesh_summary as _summary
 
-    return _summary(path, crs=crs)
+    return _summary(path, crs=crs, geometry=geometry)
 
 
-def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dict[str, Any]:
+def mesh_review(path: str, crs: str | None = None, offline: bool = False,
+                geometry: str | None = None) -> dict[str, Any]:
     """Review a model result on a mesh (#564): checks made by code on a HEC-RAS 2D plan HDF5 file or a UGRID
     NetCDF file on this machine. The deepest places (with depth and the model time), negative depths, cells
     wetted only by a film, isolated wet cells, wet and dry flicker, the model's own volume error (HEC-RAS
@@ -777,10 +780,11 @@ def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dic
     when the run's months are outside those records), and the modelled peak against each Archive gauge inside
     the mesh (or a line saying there is none). Each finding has its lat/lon, severity (problem, warning,
     info), value, unit, reason and source; each check has a line saying what it found or why it was skipped.
-    offline=true runs only the checks on the file. Numbers come from code."""
+    offline=true runs only the checks on the file. geometry is the HEC-RAS geometry file (*.g01.hdf) for a
+    stripped plan file. Numbers come from code."""
     from aquascope.mesh_review import review_file
 
-    return review_file(path, crs=crs, context=not offline)
+    return review_file(path, crs=crs, context=not offline, geometry=geometry)
 
 
 def swmm_summary(inp: str | None = None, out: str | None = None, crs: str | None = None, top: int = 5,

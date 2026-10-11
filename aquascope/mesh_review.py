@@ -936,7 +936,7 @@ def _reply_json(reply: Any) -> Any:
 
 def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str] | None, str | None]:
     """A model's title and reason for one finding, held to its facts: filled text, or None and why not."""
-    from aquascope.map_explain import _PLACEHOLDER, _fill, claim_lock
+    from aquascope.map_explain import _PLACEHOLDER, _fill, claim_lock, placeholder_touches
 
     title = re.sub(r"\s+", " ", str(title or "")).strip()
     reason = re.sub(r"\s+", " ", str(reason or "")).strip()
@@ -953,11 +953,11 @@ def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str]
             return None, f"{{{mt.group(1)}.when}} has no time"
         if mt.group(2) == "place":
             return None, "a place placeholder (findings carry coordinates, not names)"
-    # A sign or a digit against a placeholder changes the number code fills in ("-{f1}" turns 3.2% into -3.2%).
-    touch = re.search(r"[-+−±]\s?(?=\{f\d)|[\d.,](?=\{f\d)|\}(?=\d|[.,]\d)|\b(?:minus|negative|plus)\s+(?=\{f\d)",
-                      words, re.I)
+    # A sign or a digit against a placeholder changes the number code fills in ("-{f1}" turns 3.2% into -3.2%):
+    # the shared check Explain and Scout make too.
+    touch = placeholder_touches(words)
     if touch:
-        return None, f"a sign or a digit against a placeholder ({touch.group(0).strip() or touch.group(0)})"
+        return None, f"a sign or a digit against a placeholder ({', '.join(touch)})"
     # A fact's unit is code's too ("m3/s", "1000 m3", "km²"): its digits are not a claim.
     stray = claim_lock(words, [{**x, "label": f"{x['label']} {x.get('unit') or ''}"} for x in own.values()])
     if stray:
@@ -1134,15 +1134,16 @@ def gather_context(m: Mesh, *, floods: bool = True, gauges: bool = True,
 
 
 def review_file(path: str, *, crs: str | int | None = None, context: bool = True, top: int = TOP_DEEPEST,
-                llm: dict[str, Any] | None = None) -> dict[str, Any]:
+                llm: dict[str, Any] | None = None, geometry: str | None = None) -> dict[str, Any]:
     """Review a model result on this machine (``aquascope mesh review FILE`` and the MCP tool ``mesh_review``):
     read it, gather the observed floods and gauges (unless ``context`` is False), run the checks and, with
     ``llm`` = ``{provider, model, api_key, base_url}``, have the reader's own model order and word them,
-    claim-locked. ``ok`` is false with a plain error for a file the reader cannot open."""
+    claim-locked. ``geometry`` is the HEC-RAS geometry file (``*.g01.hdf``) for a stripped plan file. ``ok`` is
+    false with a plain error for a file the reader cannot open."""
     from aquascope.io.mesh import read_mesh
 
     try:
-        m = read_mesh(path, crs=crs)
+        m = read_mesh(path, crs=crs, geometry=geometry)
     except MeshError as exc:
         return {"ok": False, "error": str(exc)}
     try:

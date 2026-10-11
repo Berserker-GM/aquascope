@@ -6,7 +6,8 @@
 // tool) reads the geometry and the maxima once, then one time step or one cell when asked. Nothing leaves
 // the browser.
 //
-// Messages in: { type: "init", pyodideIndexURL, wheelsJson }, { type: "open", id, file, crs },
+// Messages in: { type: "init", pyodideIndexURL, wheelsJson }, { type: "open", id, file, crs, geometry } (geometry
+// the HEC-RAS .g01.hdf dropped with a stripped plan file, or null),
 // { type: "frame", id, step }, { type: "series", id, cell }, { type: "close", id }, and for the review (#564,
 // aquascope.mesh_review): { type: "inside", id, rows } (the gauges standing in a cell), { type: "review", id,
 // context }, { type: "prompt", id, findings, context } and { type: "words", id, findings, reply, by } (a model's
@@ -66,7 +67,7 @@ function pyError(err) {
   return { message: last.replace(/^\w+Error: /, ""), mesh: false };
 }
 
-async function openFile({ id, file, crs }) {
+async function openFile({ id, file, crs, geometry }) {
   // NetCDF-3 classic files are read with scipy, loaded only when one comes.
   const head = new Uint8Array(await file.slice(0, 4).arrayBuffer());
   if (head[0] === 0x43 && head[1] === 0x44 && head[2] === 0x46 && !scipyLoaded) {
@@ -79,14 +80,15 @@ async function openFile({ id, file, crs }) {
   mounted += 1;
   const dir = `/drop${mounted}`;
   pyodide.FS.mkdirTree(dir);
-  pyodide.FS.mount(pyodide.FS.filesystems.WORKERFS, { files: [file] }, dir);
+  pyodide.FS.mount(pyodide.FS.filesystems.WORKERFS, { files: geometry ? [file, geometry] : [file] }, dir);
   pyodide.globals.set("_path", `${dir}/${file.name}`);
+  pyodide.globals.set("_geom", geometry ? `${dir}/${geometry.name}` : "");
   pyodide.globals.set("_crs", crs ? String(crs) : "");   // "" for none: a JS null arrives as jsnull, not None
   const t0 = performance.now();
   let res;
   try {
     res = pyodide.runPython(`
-_N = _mesh.read_mesh(_path, crs=_crs)
+_N = _mesh.read_mesh(_path, crs=_crs, geometry=_geom or None)
 _meta, _arr = _mesh.browser_payload(_N)
 (json.dumps(_meta), _arr)
 `);
