@@ -444,3 +444,143 @@ def test_importing_the_mesh_reader_stays_light():
     code = "import sys, aquascope.io.mesh; print('pandas' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True).stdout.strip()
     assert out == "False"
+
+
+# ── a stripped plan file: the results without the mesh (#555 follow-up) ─────
+
+
+def strip_geometry(full, path, *, keep_attrs=False, drop=M.RAS_GEOM.split("/")[0]):
+    """A copy of a plan file without its geometry (as a *.p01.timeseries.hdf holds it): ``drop`` and, unless
+    ``keep_attrs``, the file's own attributes (RAS Mapper's projection lives with the geometry)."""
+    with h5py.File(full, "r") as src, h5py.File(path, "w") as dst:
+        for key in src:
+            src.copy(src[key], dst, name=key)
+        if keep_attrs:
+            for k, v in src.attrs.items():
+                dst.attrs[k] = v
+        del dst[drop]
+    return path
+
+
+def make_geometry(full, path, *, rename=None):
+    """A HEC-RAS geometry file (*.g01.hdf) of the same mesh: the plan's Geometry group and projection."""
+    with h5py.File(full, "r") as src, h5py.File(path, "w") as dst:
+        src.copy(src["Geometry"], dst, name="Geometry")
+        dst.attrs["File Type"] = b"HEC-RAS Geometry"
+        dst.attrs["Projection"] = src.attrs["Projection"]
+        if rename:
+            dt = np.dtype([("Name", "S16"), ("Cell Count", "<i4")])
+            count = int(dst[f"{M.RAS_GEOM}/Attributes"][0]["Cell Count"])
+            del dst[f"{M.RAS_GEOM}/Attributes"]
+            dst.create_dataset(f"{M.RAS_GEOM}/Attributes", data=np.array([(rename.encode(), count)], dtype=dt))
+            dst.move(f"{M.RAS_GEOM}/Grid", f"{M.RAS_GEOM}/{rename}")
+    return path
+
+
+def test_a_plan_without_its_geometry_says_what_is_missing_and_how_to_fix_it(tmp_path):
+    stripped = strip_geometry(make_ras(tmp_path / "run.p01.hdf"), tmp_path / "run.p01.timeseries.hdf")
+    for read in (M.read_ras_plan, M.read_mesh):   # read_mesh knows it for a RAS file by its results alone
+        with pytest.raises(M.MeshError) as err:
+            read(stripped)
+        msg = str(err.value)
+        assert msg.startswith("run.p01.timeseries.hdf holds model results but not the mesh they sit on")
+        assert "Geometry/2D Flow Areas is missing" in msg
+        assert "full plan file (.p01.hdf)" in msg and "geometry file the plan was run with (.g01.hdf)" in msg
+        assert "\n" not in msg
+    assert M.mesh_summary(stripped) == {"ok": False, "error": msg}
+
+
+@pytest.mark.parametrize("drop, missing", [
+    (f"{M.RAS_GEOM}/Grid", f"{M.RAS_GEOM}/Grid is missing"),
+    (f"{M.RAS_GEOM}/Grid/FacePoints Coordinate", "Grid/FacePoints Coordinate is missing"),
+    (f"{M.RAS_GEOM}/Grid/Cells Face and Orientation Info", "Grid/Cells Face and Orientation Info is missing"),
+])
+def test_a_plan_with_part_of_its_geometry_names_the_part(tmp_path, drop, missing):
+    stripped = strip_geometry(make_ras(tmp_path / "run.p01.hdf"), tmp_path / "part.p01.hdf", keep_attrs=True,
+                              drop=drop)
+    with pytest.raises(M.MeshError, match="not the mesh they sit on") as err:
+        M.read_ras_plan(stripped)
+    assert missing in str(err.value)
+
+
+def test_a_stripped_plan_reads_with_its_geometry_file(tmp_path):
+    full = make_ras(tmp_path / "run.p01.hdf")
+    stripped = strip_geometry(full, tmp_path / "run.p01.timeseries.hdf")
+    geom = make_geometry(full, tmp_path / "run.g01.hdf")
+    a, b = M.read_ras_plan(full), M.read_mesh(stripped, geometry=geom)
+    try:
+        assert b.n_cells == a.n_cells == 6 and b.times == a.times
+        assert b.crs["from"] == "file" and "EPSG:32633" in b.crs["label"]   # the projection from the geometry file
+        np.testing.assert_allclose(b.lon, a.lon)
+        np.testing.assert_allclose(b.max_value, a.max_value)
+        np.testing.assert_allclose(b.max_speed, a.max_speed)
+        np.testing.assert_allclose(b.frame(1)["value"], a.frame(1)["value"])
+        assert b.title == a.title   # the plan's own data, not the geometry's
+    finally:
+        a.close()
+        b.close()
+    # A full plan with a geometry file given anyway reads its own mesh.
+    c = M.read_ras_plan(full, geometry=geom)
+    assert c.n_cells == 6
+    c.close()
+    s = M.mesh_summary(stripped, geometry=geom)
+    assert s["ok"] and s["cells"] == 6 and s["max"]["value"] == 3.0
+
+
+def test_a_geometry_file_that_does_not_fit_is_refused(tmp_path):
+    full = make_ras(tmp_path / "run.p01.hdf")
+    stripped = strip_geometry(full, tmp_path / "run.p01.timeseries.hdf")
+    other = make_geometry(full, tmp_path / "other.g01.hdf", rename="Elsewhere")
+    with pytest.raises(M.MeshError, match="'Elsewhere' that the plan has no results for"):
+        M.read_ras_plan(stripped, geometry=other)
+    bigger = make_geometry(full, tmp_path / "big.g01.hdf")
+    with h5py.File(bigger, "a") as f:
+        dt = np.dtype([("Name", "S16"), ("Cell Count", "<i4")])
+        del f[f"{M.RAS_GEOM}/Attributes"]
+        f.create_dataset(f"{M.RAS_GEOM}/Attributes", data=np.array([(b"Grid", 99)], dtype=dt))
+    with pytest.raises(M.MeshError, match="99 cells, more than the plan's results hold"):
+        M.read_ras_plan(stripped, geometry=bigger)
+    with pytest.raises(M.MeshError, match="no 2D mesh to give the plan"):
+        M.read_ras_plan(stripped, geometry=stripped)
+    text = tmp_path / "run.g01.hdf"
+    text.write_text("not hdf5")
+    with pytest.raises(M.MeshError, match="not an HDF5 file"):
+        M.read_ras_plan(stripped, geometry=text)
+
+
+def test_cli_mesh_and_review_say_it_without_a_traceback(tmp_path, capsys, monkeypatch):
+    import sys
+
+    from aquascope import cli
+
+    full = make_ras(tmp_path / "run.p01.hdf")
+    stripped = strip_geometry(full, tmp_path / "run.p01.timeseries.hdf")
+    geom = make_geometry(full, tmp_path / "run.g01.hdf")
+    for argv in (["mesh", str(stripped)], ["mesh", "review", str(stripped), "--offline"]):
+        monkeypatch.setattr(sys, "argv", ["aquascope", *argv])
+        with pytest.raises(SystemExit) as ex:
+            cli.main()
+        assert ex.value.code == 1
+        out, errout = capsys.readouterr()
+        assert "holds model results but not the mesh they sit on" in out and "--geometry" in out
+        assert "Traceback" not in out + errout and "KeyError" not in out + errout
+    monkeypatch.setattr(sys, "argv", ["aquascope", "mesh", str(stripped), "--geometry", str(geom)])
+    cli.main()
+    assert "6 cells" in capsys.readouterr().out
+    monkeypatch.setattr(sys, "argv", ["aquascope", "mesh", "review", str(stripped), "--offline", "--geometry",
+                                      str(geom)])
+    cli.main()
+    assert "run.p01.timeseries.hdf: 6 cells, 3 time steps" in capsys.readouterr().out
+
+
+def test_the_explorer_knows_the_words_of_the_no_geometry_error(tmp_path):
+    import re
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[2] / "explorer" / "src" / "mesh-core.js").read_text(encoding="utf-8")
+    phrase = re.search(r'export const NO_GEOMETRY = "([^"]+)"', js).group(1)
+    stripped = strip_geometry(make_ras(tmp_path / "run.p01.hdf"), tmp_path / "run.p01.timeseries.hdf")
+    err = M.mesh_summary(stripped)["error"]
+    assert phrase in err and re.search(r": (.+?) is missing\.", err)
+    worker = (Path(__file__).resolve().parents[2] / "explorer" / "src" / "mesh-worker.js").read_text(encoding="utf-8")
+    assert "geometry=_geom or None" in worker

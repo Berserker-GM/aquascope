@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 import {
   MAX_FILE_BYTES, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt,
-  heading, legendLine, metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rangeWords,
+  NO_GEOMETRY, friendlyError, heading, legendLine, pickModelFiles, metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rangeWords,
   rasterizeIds, scaleFor, shortName, thinArrows, ticks,
 } from "../src/mesh-core.js";
 
@@ -22,6 +22,29 @@ test("files the viewer reads, and the ones it turns away in plain words", () => 
   assert.match(checkFile({ name: "Muncie.g05.hdf", size: 10 }), /geometry file, with no results/);
   assert.match(checkFile({ name: "huge.hdf", size: MAX_FILE_BYTES + 1 }), /up to 2 GB/);
   assert.match(checkFile({ name: "empty.nc", size: 0 }), /empty/);
+});
+
+test("a stripped plan file and its geometry file dropped together are paired", () => {
+  const plan = { name: "Muncie.p04.timeseries.hdf", size: 5e6 };
+  const geom = { name: "Muncie.g05.hdf", size: 1e6 };
+  assert.deepEqual(pickModelFiles([geom, plan]), { file: plan, geometry: geom });
+  assert.deepEqual(pickModelFiles([plan]), { file: plan, geometry: null });
+  // A geometry file alone has no results; a drop with nothing readable says why.
+  assert.match(pickModelFiles([geom]).why, /geometry file, with no results/);
+  assert.match(pickModelFiles([{ name: "notes.txt", size: 3 }]).why, /not a model result/);
+  assert.equal(pickModelFiles([]).why, "No file.");
+  // The first readable file is the result: a stray text file does not stop the drop.
+  assert.deepEqual(pickModelFiles([{ name: "notes.txt", size: 3 }, plan]), { file: plan, geometry: null });
+});
+
+test("a plan file without its mesh is told what to drop next; other errors stay the package's words", () => {
+  const py = `Muncie.p04.timeseries.hdf ${NO_GEOMETRY}: Geometry/2D Flow Areas is missing. It looks like a stripped ` +
+    "plan file. Open the full plan file (.p01.hdf), or give the geometry file the plan was run with (.g01.hdf) too.";
+  const said = friendlyError(py, "Muncie.p04.timeseries.hdf");
+  assert.match(said, /^Muncie\.p04\.timeseries\.hdf holds model results but not the mesh they sit on/);
+  assert.match(said, /\(Geometry\/2D Flow Areas is not in it\)/);
+  assert.match(said, /Drop the full plan file \(\.p01\.hdf\), or drop this file together with the geometry file/);
+  assert.equal(friendlyError("x.hdf has no 2D flow areas."), "x.hdf has no 2D flow areas.");
 });
 
 test("the depth scale starts at zero and is square-root; the water surface scale is linear", () => {
