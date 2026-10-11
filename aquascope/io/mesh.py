@@ -10,7 +10,10 @@ Two readers return the same slim structure, :class:`Mesh`:
 * :func:`read_ras_plan` reads a HEC-RAS plan HDF5 file (``*.p01.hdf``) with
   h5py: the 2D flow areas' cells, the water surface and face velocity time
   series, and the summary maxima. Cell velocities are rebuilt from the face
-  normal velocities by least squares, as RAS Mapper does.
+  normal velocities by least squares, as RAS Mapper does. A stripped plan
+  file that holds the results but not the mesh (a ``*.p01.timeseries.hdf``)
+  is read with the geometry file it was run with (``geometry=``, a
+  ``*.g01.hdf``); without one, the error says what is missing and that.
 * :func:`read_ugrid` reads a UGRID 2D mesh (D-Flow FM, ADH, ADCIRC and others):
   NetCDF-4 files with h5py, NetCDF-3 classic files with scipy.
 
@@ -520,19 +523,152 @@ def _ras_area(fh, name: str, count: int, cell_points: np.ndarray | None, cell_in
             "bed": bed, "lsq": lsq, "faces": int(face_fp.shape[0])}
 
 
-def read_ras_plan(path: str | Path, *, crs: str | int | None = None, max_cells: int = MAX_CELLS) -> Mesh:
+# What the reader needs of each 2D flow area's geometry (Geometry/2D Flow Areas/<name>/...).
+_RAS_AREA_NEEDS = ("FacePoints Coordinate", "Faces FacePoint Indexes", "Cells Face and Orientation Info",
+                   "Cells Face and Orientation Values")
+
+
+def _ras_has_results(fh) -> bool:
+    return "Results/Unsteady" in fh or "Results/Steady" in fh
+
+
+def _ras_missing_geometry(fh) -> str | None:
+    """The first part of the 2D mesh a RAS plan file lacks, as its HDF5 path; None when the mesh is all there.
+    Only a file with results is asked: a file with neither is not a plan result at all."""
+    if f"{RAS_GEOM}/Attributes" not in fh:
+        return RAS_GEOM if "Geometry" not in fh or _ras_2d_results(fh) else None
+    attrs = fh[f"{RAS_GEOM}/Attributes"][:]
+    names = [_text(x) for x in attrs["Name"]] if "Name" in (attrs.dtype.names or ()) else []
+    if not names:
+        return f"{RAS_GEOM}/Attributes (the names of the 2D areas)"
+    for name in names:
+        if f"{RAS_GEOM}/{name}" not in fh:
+            return f"{RAS_GEOM}/{name}"
+        need = list(_RAS_AREA_NEEDS)
+        if "Cell Count" not in attrs.dtype.names:
+            need.append("Cells Center Coordinate")
+        for part in need:
+            if f"{RAS_GEOM}/{name}/{part}" not in fh:
+                return f"{RAS_GEOM}/{name}/{part}"
+    return None
+
+
+def _ras_2d_results(fh) -> bool:
+    return f"{RAS_TS}/2D Flow Areas" in fh or f"{RAS_SUMMARY}/2D Flow Areas" in fh
+
+
+def _no_geometry(name: str, missing: str) -> MeshError:
+    """The error for a plan file with results but not the mesh they sit on (a stripped ``*.p01.timeseries.hdf``)."""
+    return MeshError(f"{name} holds model results but not the mesh they sit on: {missing} is missing. It looks like "
+                     "a stripped plan file (a .p01.timeseries.hdf, or one saved without its geometry). Open the "
+                     "full plan file (.p01.hdf), or give the geometry file the plan was run with (.g01.hdf) too.")
+
+
+class _RasWithGeometry:
+    """A stripped plan file read with its geometry file: the Geometry group from the geometry file, everything
+    else (results, plan data, the file's own attributes) from the plan, as one h5py-like file."""
+
+    def __init__(self, plan, geom):
+        self.plan, self.geom = plan, geom
+        self.attrs = _LayeredAttrs(plan.attrs, geom.attrs)
+
+    def _of(self, key: str):
+        return self.geom if key.lstrip("/").split("/", 1)[0] == "Geometry" else self.plan
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._of(key)
+
+    def __getitem__(self, key: str):
+        return self._of(key)[key]
+
+    def get(self, key: str, default: Any = None):
+        return self._of(key).get(key, default)
+
+    def close(self) -> None:
+        for f in (self.plan, self.geom):
+            try:
+                f.close()
+            except Exception:  # already closed
+                pass
+
+
+class _LayeredAttrs:
+    """The plan's attributes; for RAS Mapper's projection and the units, the geometry file's when the plan lacks
+    them. The rest (the file type, the version) stay the plan's."""
+
+    SHARED = ("Projection", "Units System")
+
+    def __init__(self, first, second):
+        self.first, self.second = first, second
+
+    def get(self, key: str, default: Any = None):
+        value = self.first.get(key)
+        if value is None and key in self.SHARED:
+            value = self.second.get(key)
+        return default if value is None else value
+
+
+def _open_ras_geometry(h5py, plan, geometry: str | Path):
+    """Pair a stripped plan file with its geometry file, after checking the geometry fits the plan's results."""
+    gname = Path(geometry).name
+    _check_size(geometry)
+    if _sniff(geometry) != "hdf5":
+        raise MeshError(f"{gname} is not an HDF5 file, so not a HEC-RAS geometry file (.g01.hdf).")
+    geom = h5py.File(geometry, "r")
+    try:
+        missing = _ras_missing_geometry(geom) if f"{RAS_GEOM}/Attributes" in geom else RAS_GEOM
+        if missing:
+            raise MeshError(f"{gname} has no 2D mesh to give the plan: {missing} is missing. Give the geometry "
+                            "file (.g01.hdf) the plan was run with.")
+        attrs = geom[f"{RAS_GEOM}/Attributes"][:]
+        names = [_text(x) for x in attrs["Name"]]
+        counts = [int(x) for x in attrs["Cell Count"]] if "Cell Count" in attrs.dtype.names else \
+            [int(geom[f"{RAS_GEOM}/{n}/Cells Center Coordinate"].shape[0]) for n in names]
+        for n, count in zip(names, counts):
+            ws = plan.get(f"{RAS_TS}/2D Flow Areas/{n}/Water Surface")
+            if ws is None:
+                ws = plan.get(f"{RAS_SUMMARY}/2D Flow Areas/{n}/Maximum Water Surface")
+            if ws is None:
+                raise MeshError(f"{gname} has a 2D area {n!r} that the plan has no results for. Give the geometry "
+                                "file (.g01.hdf) the plan was run with.")
+            if ws.shape[-1] < count:
+                raise MeshError(f"{gname}'s 2D area {n!r} has {count:,} cells, more than the plan's results hold "
+                                f"({ws.shape[-1]:,}). Give the geometry file (.g01.hdf) the plan was run with.")
+    except Exception:
+        geom.close()
+        raise
+    return _RasWithGeometry(plan, geom)
+
+
+def read_ras_plan(path: str | Path, *, crs: str | int | None = None, max_cells: int = MAX_CELLS,
+                  geometry: str | Path | None = None) -> Mesh:
     """Read a HEC-RAS 2D plan HDF5 file (``*.p##.hdf``) into a :class:`Mesh`.
 
     crs overrides (or supplies) the coordinate system: an EPSG code or WKT. The file's own is RAS Mapper's
     projection, stored with the results.
+
+    geometry is the geometry HDF5 file (``*.g##.hdf``) the plan was run with, for a stripped plan file that
+    holds the results but not the mesh (a ``*.p##.timeseries.hdf``). Without it such a file raises a
+    :class:`MeshError` naming the missing part; it is ignored for a full plan file.
     """
     size = _check_size(path)
+    name = Path(path).name
     if _sniff(path) != "hdf5":
-        raise MeshError(f"{Path(path).name} is not an HDF5 file, so not a HEC-RAS plan result.")
+        raise MeshError(f"{name} is not an HDF5 file, so not a HEC-RAS plan result.")
     h5py = _h5py()
     fh = h5py.File(path, "r")
     try:
-        return _read_ras(fh, Path(path).name, size, crs, max_cells)
+        if "geometry" not in _text(fh.attrs.get("File Type")).lower() and _ras_has_results(fh):
+            missing = _ras_missing_geometry(fh)
+            if missing:
+                if geometry is None:
+                    raise _no_geometry(name, missing)
+                fh = _open_ras_geometry(h5py, fh, geometry)
+        return _read_ras(fh, name, size, crs, max_cells)
+    except KeyError as exc:   # a part of the file the reader needs is not there: say so, not a traceback
+        fh.close()
+        raise MeshError(f"{name} lacks a part of a HEC-RAS plan the reader needs ({exc}). Open the full plan "
+                        "file (.p01.hdf).") from exc
     except Exception:
         fh.close()
         raise
@@ -1075,16 +1211,20 @@ def _read_ugrid(nc, name: str, size: int, crs: str | int | None, max_cells: int)
 # ── one door for both ───────────────────────────────────────────────────────
 
 
-def read_mesh(path: str | Path, *, crs: str | int | None = None, max_cells: int = MAX_CELLS) -> Mesh:
-    """Open a model result whatever it is: a HEC-RAS plan HDF5 file or a UGRID NetCDF file."""
+def read_mesh(path: str | Path, *, crs: str | int | None = None, max_cells: int = MAX_CELLS,
+              geometry: str | Path | None = None) -> Mesh:
+    """Open a model result whatever it is: a HEC-RAS plan HDF5 file or a UGRID NetCDF file. geometry is the
+    HEC-RAS geometry file (``*.g01.hdf``) for a stripped plan file (see :func:`read_ras_plan`)."""
     _check_size(path)
     kind = _sniff(path)
     if kind == "hdf5":
         h5py = _h5py()
         with h5py.File(path, "r") as fh:
-            is_ras = f"{RAS_GEOM}/Attributes" in fh or "HEC-RAS" in _text(fh.attrs.get("File Type"))
-        return read_ras_plan(path, crs=crs, max_cells=max_cells) if is_ras else read_ugrid(path, crs=crs,
-                                                                                            max_cells=max_cells)
+            is_ras = (f"{RAS_GEOM}/Attributes" in fh or "HEC-RAS" in _text(fh.attrs.get("File Type"))
+                      or _ras_2d_results(fh))
+        if is_ras:
+            return read_ras_plan(path, crs=crs, max_cells=max_cells, geometry=geometry)
+        return read_ugrid(path, crs=crs, max_cells=max_cells)
     if kind == "netcdf3":
         return read_ugrid(path, crs=crs, max_cells=max_cells)
     raise MeshError(f"{Path(path).name} is neither a HEC-RAS plan (HDF5) nor a UGRID NetCDF file.")
@@ -1096,12 +1236,13 @@ def _num(x: float | None, nd: int = 2) -> float | None:
     return round(float(x), nd)
 
 
-def mesh_summary(path: str | Path, crs: str | int | None = None) -> dict[str, Any]:
+def mesh_summary(path: str | Path, crs: str | int | None = None,
+                 geometry: str | Path | None = None) -> dict[str, Any]:
     """What a model result holds, without its arrays: format, model, coordinate system, extent, cells, the
     model's time range, units, and the largest depth (or water surface) and speed with where they are.
-    Every number is computed from the file."""
+    Every number is computed from the file. geometry is the HEC-RAS geometry file for a stripped plan file."""
     try:
-        m = read_mesh(path, crs=crs)
+        m = read_mesh(path, crs=crs, geometry=geometry)
     except MeshError as exc:
         return {"ok": False, "error": str(exc)}
     try:

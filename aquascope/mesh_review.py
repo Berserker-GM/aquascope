@@ -1134,15 +1134,16 @@ def gather_context(m: Mesh, *, floods: bool = True, gauges: bool = True,
 
 
 def review_file(path: str, *, crs: str | int | None = None, context: bool = True, top: int = TOP_DEEPEST,
-                llm: dict[str, Any] | None = None) -> dict[str, Any]:
+                llm: dict[str, Any] | None = None, geometry: str | None = None) -> dict[str, Any]:
     """Review a model result on this machine (``aquascope mesh review FILE`` and the MCP tool ``mesh_review``):
     read it, gather the observed floods and gauges (unless ``context`` is False), run the checks and, with
     ``llm`` = ``{provider, model, api_key, base_url}``, have the reader's own model order and word them,
-    claim-locked. ``ok`` is false with a plain error for a file the reader cannot open."""
+    claim-locked. ``geometry`` is the HEC-RAS geometry file (``*.g01.hdf``) for a stripped plan file. ``ok`` is
+    false with a plain error for a file the reader cannot open."""
     from aquascope.io.mesh import read_mesh
 
     try:
-        m = read_mesh(path, crs=crs)
+        m = read_mesh(path, crs=crs, geometry=geometry)
     except MeshError as exc:
         return {"ok": False, "error": str(exc)}
     try:
