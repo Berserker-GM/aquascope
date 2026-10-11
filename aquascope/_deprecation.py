@@ -21,8 +21,9 @@ from __future__ import annotations
 import functools
 import importlib
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -74,7 +75,7 @@ def moved(module: str, aliases: dict[str, str], *,
         __getattr__ = moved(__name__, {"old_name": "aquascope.new_module:new_name"})
     """
 
-    def __getattr__(name: str) -> Any:
+    def module_getattr(name: str) -> Any:
         target = aliases.get(name)
         if target is None:
             raise AttributeError(f"module {module!r} has no attribute {name!r}")
@@ -82,7 +83,7 @@ def moved(module: str, aliases: dict[str, str], *,
         new_module, _, new_name = target.partition(":")
         return getattr(importlib.import_module(new_module), new_name)
 
-    return __getattr__
+    return module_getattr
 
 
 def deprecated(key: str, *, register: dict[str, Deprecation] | None = None) -> Callable[[F], F]:

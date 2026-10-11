@@ -7,6 +7,14 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Added
+- **What 1.0 promises** (#588, part of the 1.0 milestone). The public surface is now written down and tested.
+  - [`docs/stability.md`](docs/stability.md): the four public surfaces (Python names, CLI commands and flags, MCP tools and arguments, the Archive's paths and columns), what counts as breaking and what does not (a corrected number is not), how a deprecated name keeps working and warns (`AquaScopeDeprecationWarning`, a `FutureWarning`; a stderr line on the CLI; a `"deprecated"` key in an MCP result) until the next major release and for at least six months, and what experimental means.
+  - [`docs/archive-layout.md`](docs/archive-layout.md): every Archive prefix (the catalogue, `obs/`, `basins/`, `skill/`, `forecasts/`, `forecasts/warnings/`, `feeds/`, `flowstatus/`, `scout/`, `waterbalance/`, `bulletins/`, `context/`) with its files, columns, units, cadence, licence and the workflow that writes it, checked against the live dataset on 2026-10-12 (`scout/`, `waterbalance/` and the daily `flowstatus/` files are declared but not yet published).
+  - `aquascope.experimental` lists what is shipped but not frozen: everything first released in 0.26.0 and 0.27.0 (rivers, now and next, evidence, watch, bulletin, context, engineering exports, the `map_*` modules, flood depth, flow against normal, the water balance, mesh review, what if on the map, MODFLOW heads, SWMM) and `aquascope.gym` until its rename (#440). 17 CLI verbs and 36 MCP tools are experimental; 30 CLI verbs (44 commands with their subcommands) and 40 MCP tools are stable.
+  - `aquascope._deprecation`: the `DEPRECATED` register and the `moved` (module `__getattr__`) and `deprecated` (function) shims. Empty at this release: nothing is deprecated yet.
+  - `tests/test_public_api.py` and the snapshot `tests/fixtures/public_api.json` (447 Python names in 45 modules, the stable CLI commands with their flags, the stable MCP tools with their arguments): CI fails when a stable name, command, flag, tool or argument disappears without a deprecation, when a deprecated name stops warning, when a stable MCP tool gains a required argument, when a new command or tool is not classified, and when a published Archive prefix is missing from the layout page. `python tests/test_public_api.py --update` adds new stable names and never removes.
+
 ## [0.27.0] - 2026-10-12
 
 ### Added

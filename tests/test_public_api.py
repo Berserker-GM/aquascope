@@ -120,7 +120,7 @@ def python_surface() -> dict[str, list[str]]:
     return out
 
 
-class _Parsed(Exception):
+class _ParsedError(Exception):
     pass
 
 
@@ -132,13 +132,13 @@ def cli_parser() -> argparse.ArgumentParser:
 
     def capture(self: argparse.ArgumentParser, *args: Any, **kwargs: Any) -> None:
         seen["parser"] = self
-        raise _Parsed
+        raise _ParsedError
 
     with mock.patch.object(argparse.ArgumentParser, "parse_args", capture), \
             mock.patch.object(sys, "argv", ["aquascope"]):
         try:
             cli.main()
-        except _Parsed:
+        except _ParsedError:
             pass
     return seen["parser"]
 
