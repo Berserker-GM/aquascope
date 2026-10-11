@@ -362,7 +362,8 @@ class _FaceLsq:
     """Cell velocity from face normal velocities: u_c minimises sum_f L_f (n_f . u_c - v_f)^2 over the cell's
     faces (weights L_f, the face lengths)."""
 
-    def __init__(self, n_cells: int, cell_idx: np.ndarray, face_idx: np.ndarray, normals: np.ndarray, lengths: np.ndarray):
+    def __init__(self, n_cells: int, cell_idx: np.ndarray, face_idx: np.ndarray, normals: np.ndarray,
+                 lengths: np.ndarray):
         self.n = n_cells
         self.cell_idx = cell_idx
         self.face_idx = face_idx
@@ -697,21 +698,26 @@ _UNIT_SECONDS = {"second": 1, "seconds": 1, "sec": 1, "secs": 1, "s": 1, "minute
                  "days": 86400, "d": 86400}
 
 
+_CF_REF = re.compile(r"^(\d{1,4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2})(?:\.(\d+))?)?)?"
+                     r"\s*(Z|UTC|GMT|[+-]\d{1,2}(?::?\d{2})?)?$", re.I)
+
+
 def _cf_times(values: np.ndarray, units: str) -> list[str]:
+    """CF times ("hours since 2021-02-03 06:00 +01:00", standard calendar) as ISO strings in UTC."""
     m = _TIME_UNITS.match(units or "")
     if not m or m.group(1).lower() not in _UNIT_SECONDS:
         raise MeshError(f"Unreadable time units: {units!r}")
-    ref = m.group(2).strip().replace("T", " ").replace("Z", "")
-    ref = re.sub(r"\s*(UTC|GMT)$", "", ref, flags=re.I)
-    ref = re.sub(r"\s*[+-]\d{1,2}:?\d{0,2}$", "", ref) if re.search(r"\d\s*[+-]\d{1,2}:?\d{0,2}$", ref) else ref
-    for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
-        try:
-            base = datetime.strptime(ref.strip(), fmt)
-            break
-        except ValueError:
-            continue
-    else:
+    r = _CF_REF.match(m.group(2).strip())
+    if not r:
         raise MeshError(f"Unreadable time reference: {units!r}")
+    y, mo, d, hh, mm, ss, frac, tz = r.groups()
+    base = datetime(int(y), int(mo), int(d), int(hh or 0), int(mm or 0), int(ss or 0),
+                    int(((frac or "0") + "000000")[:6]))
+    if tz and tz[0] in "+-":
+        hh_mm = tz[1:].replace(":", "")
+        hours, minutes = (int(hh_mm[:-2]), int(hh_mm[-2:])) if len(hh_mm) > 2 else (int(hh_mm), 0)
+        offset = timedelta(hours=hours, minutes=minutes)
+        base = base - offset if tz[0] == "+" else base + offset
     sec = _UNIT_SECONDS[m.group(1).lower()]
     return [_iso(base + timedelta(seconds=float(v) * sec)) for v in np.asarray(values, "f8").reshape(-1)]
 
@@ -993,8 +999,8 @@ def _read_ugrid(nc, name: str, size: int, crs: str | int | None, max_cells: int)
     title = _text(gattrs.get("title")) or Path(name).stem
     return Mesh(
         format="ugrid", name=name, size_bytes=size, model=model, title=title, crs=crs_info,
-        units={"depth": vunits if variable == "depth" else None, "water_surface": vunits if variable != "depth" else None,
-               "velocity": uunits},
+        units={"depth": vunits if variable == "depth" else None,
+               "water_surface": vunits if variable != "depth" else None, "velocity": uunits},
         areas=[{"name": mesh, "cells": int(n_faces), "start": 0}], lon=lon, lat=lat, ring_offsets=ring_offsets,
         ring_lon=ring_lon, ring_lat=ring_lat, times=times, variable=variable, max_value=max_value,
         max_speed=max_speed, notes=notes, _source=src)
@@ -1090,6 +1096,9 @@ def frame_payload(m: Mesh, step: int) -> dict[str, np.ndarray]:
 def series_payload(m: Mesh, cell: int) -> dict[str, Any]:
     """The time series at one cell as plain lists (None where dry), for the map card."""
     s = m.series(cell)
-    fix = (lambda a: [None if not math.isfinite(float(x)) else round(float(x), 4) for x in a])
-    return {"times": s["times"], "value": fix(s["value"]), "speed": fix(s["speed"]) if s["speed"] is not None else None,
-            "variable": m.variable, "units": m.units}
+
+    def plain(a: np.ndarray) -> list[float | None]:
+        return [None if not math.isfinite(float(x)) else round(float(x), 4) for x in a]
+
+    return {"times": s["times"], "value": plain(s["value"]),
+            "speed": plain(s["speed"]) if s["speed"] is not None else None, "variable": m.variable, "units": m.units}
