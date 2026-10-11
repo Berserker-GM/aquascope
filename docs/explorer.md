@@ -977,6 +977,12 @@ reader is `aquascope mesh FILE` and the MCP tool `mesh_summary` ([mesh.md](mesh.
 
 ![The same run on a phone](img/globe/555-phone.png)
 
+**SWMM models are next.** A SWMM model (`.inp`) and its results (`.out`) read in the
+browser (#560): `aquascope.io.swmm` needs only numpy and gives the same values as SWMM's own
+reader. They are not on the map yet; for now `aquascope swmm model.inp model.out` and the
+MCP tool `swmm_summary` list the flooding nodes and the largest flows. What was tested and
+the plan for the map view are in [assessments/swmm.md](assessments/swmm.md).
+
 ## The monthly bulletin
 
 **Bulletin** in the Tools menu opens last month's state of the rivers in a reader:

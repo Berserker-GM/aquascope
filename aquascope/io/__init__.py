@@ -3,7 +3,7 @@
 Provides read/write support for:
 - **WaterML 2.0** (OGC/ISO standard XML for hydrological time series)
 - **HEC-DSS / HEC-RAS** (US Army Corps of Engineers modelling formats)
-- **EPA SWMM** (Storm Water Management Model input formats)
+- **EPA SWMM** (Storm Water Management Model: input writers, and readers for a model and its binary results)
 - **Model results on a mesh** (HEC-RAS 2D plan HDF5 and UGRID NetCDF, in :mod:`aquascope.io.mesh`)
 
 The names below are imported on first use, so ``import aquascope.io.mesh`` (which the Explorer's mesh worker
@@ -24,6 +24,9 @@ _EXPORTS = {
     "records_to_xarray": "aquascope.io.interop",
     "write_swmm_rainfall": "aquascope.io.swmm",
     "write_swmm_timeseries": "aquascope.io.swmm",
+    "read_swmm_inp": "aquascope.io.swmm",
+    "read_swmm_out": "aquascope.io.swmm",
+    "swmm_summary": "aquascope.io.swmm",
     "WaterMLTimeSeries": "aquascope.io.waterml",
     "dataframe_to_waterml": "aquascope.io.waterml",
     "read_waterml": "aquascope.io.waterml",
