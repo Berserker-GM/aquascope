@@ -208,8 +208,9 @@ def pick_month(well: np.ndarray, day: np.ndarray, wanted: Any) -> tuple[tuple[in
             got = (k // 12, k % 12 + 1)
             if got == ym:
                 return ym, None
-            return got, (f"{_month_label(ym)} has {per_month.get(k0, 0)} wells reporting so far, so the map shows "
-                         f"{_month_label(got)}, the latest month with most wells in.")
+            n = per_month.get(k0, 0)
+            return got, (f"{_month_label(ym)} has {n} well{'' if n == 1 else 's'} so far, so this is "
+                         f"{_month_label(got)}, the latest month most wells reported in.")
     return ym, f"Few wells report around {_month_label(ym)}."
 
 
@@ -371,10 +372,13 @@ def _robust_range(vals: np.ndarray, symmetric: bool) -> list[float] | None:
     vals = vals[np.isfinite(vals)]
     if not vals.size:
         return None
-    lo, hi = float(np.percentile(vals, 2)), float(np.percentile(vals, 98))
     if symmetric:
-        m = max(abs(lo), abs(hi), 0.05)
+        # A change saturates at the 90th percentile of its size, rounded up to a round number, so the
+        # ordinary rises and falls show and the few large ones do not wash the rest out to white.
+        m = max(float(np.percentile(np.abs(vals), 90)), 0.1)
+        m = nice_step(m, 1)
         return [-round(m, 3), round(m, 3)]
+    lo, hi = float(np.percentile(vals, 2)), float(np.percentile(vals, 98))
     if hi - lo < 0.1:
         lo, hi = lo - 0.05, hi + 0.05
     return [round(lo, 3), round(hi, 3)]

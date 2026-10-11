@@ -13,7 +13,7 @@
 //
 // The colours, the words and the cards are in groundwater-core.js (node tests it).
 
-import { $, actions, clickLayers, datedExtras, escapeHtml, onTime, setTime, state } from "./core.js?v=__BUILD__";
+import { $, actions, clickLayers, datedExtras, dbg, escapeHtml, onTime, setTime, state } from "./core.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
 import { duck } from "./catalog.js?v=__BUILD__";
 import { call } from "./worker-client.js?v=__BUILD__";
@@ -25,7 +25,7 @@ import { writeUrl } from "./url.js?v=__BUILD__";
 import { renderCredits } from "./layer-ui.js?v=__BUILD__";
 import {
   GW_EXTENT, GW_SHORT_CREDIT, GW_SINCE, GW_SOURCE, cellsGeoJSON, fmtM, frameOf, gridCellAt, gridCorners,
-  keyLines, maskScale, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
+  keyLines, maskScale, modelOutline, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
 
@@ -55,6 +55,7 @@ let modelBusy = false;
 let pending = null;            // dropped files waiting for the place form
 
 const vis = (on) => (on ? "visible" : "none");
+const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
 
 // ── where our layers go ─────────────────────────────────────────────────────
 
@@ -377,6 +378,12 @@ function edgeOf(rings) {
   return { w, s, e, n };
 }
 
+// The model's outline: the four outer corners of a structured grid (rotated with it); none for a DISV grid.
+function drawOutline() {
+  const ring = modelOutline(model.meta.grid, model.rings);
+  map.getSource(L.modelEdge).setData(ring ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ring } } : EMPTY);
+}
+
 async function loadModel(files, place = {}) {
   const sorted = sortModelFiles(files);
   if (!sorted.hds) {
@@ -400,15 +407,14 @@ async function loadModel(files, place = {}) {
     }
     model = {
       meta: out, rings: out.rings, offsets: out.offsets, heads: out.heads, shape: out.shape,
-      t: out.dates ? stepForDate(out.dates, state.date) : out.times.length - 1, l: 0, name: sorted.hds.name,
+      t: 0, l: 0, name: sorted.hds.name,
       fc: cellsGeoJSON(out.rings, out.offsets),
     };
     modelOn = true;
     pending = null;
     ensureVectorLayers();
     const b = edgeOf(out.rings);
-    map.getSource(L.modelEdge).setData({ type: "Feature", properties: {}, geometry: { type: "LineString",
-      coordinates: [[b.w, b.s], [b.e, b.s], [b.e, b.n], [b.w, b.n], [b.w, b.s]] } });
+    drawOutline();
     paintModel();
     syncModelDated();
     openLegendRow("modflow", true);
@@ -430,8 +436,8 @@ function placeForm(out, sorted) {
   openModal("Where is this model?", `
     <form class="gw-form" novalidate>
       <p>${escapeHtml(out.error)}</p>
-      <p class="muted">${escapeHtml(sorted.hds.name)}: ${out.nrow} rows x ${out.ncol} columns, ${out.layers.length} layer(s),
-        ${out.n_times} time step(s)${sorted.grid ? `; grid from ${escapeHtml(out.grid_from || sorted.grid.name)}` : ""}.</p>
+      <p class="muted">${escapeHtml(sorted.hds.name)}: ${out.nrow} rows x ${out.ncol} columns, ${plural(out.layers.length, "layer")},
+        ${plural(out.n_times, "time step")}${sorted.grid ? `; grid from ${escapeHtml(out.grid_from || sorted.grid.name)}` : ""}.</p>
       <div class="gw-grid">
         ${field("x", "Lower-left x", "in the CRS's units", out.xorigin || "")}
         ${field("y", "Lower-left y", "", out.yorigin || "")}
@@ -518,7 +524,8 @@ function initDrop() {
 
 function rampKey(m, range) {
   return `<div class="gw-ramp" style="background:${rampCss(m)}" role="img" aria-label="${m === "change" ? "Brown fell, blue-green rose" : "Pale is low, deep blue is high"}"></div>` +
-    (range ? `<div class="gw-ends"><span>${escapeHtml(range.lo)} m</span>${m === "change" ? "<span>0</span>" : ""}<span>${escapeHtml(range.hi)} m</span></div>` : "");
+    (range ? `<div class="gw-ends"><span>${m === "change" ? "&le; " : ""}${escapeHtml(range.lo)} m</span>` +
+      `${m === "change" ? "<span>0</span>" : ""}<span>${m === "change" ? "&ge; " : ""}${escapeHtml(range.hi)} m</span></div>` : "");
 }
 
 function bodyHtml() {
@@ -532,16 +539,16 @@ function bodyHtml() {
     if (res.grid) html += rampKey(res.mode, k.range);
     for (const line of k.lines) html += `<p class="gw-line">${escapeHtml(line)}</p>`;
     if (res.grid) {
-      html += `<p class="gw-mask"><i class="gw-hatch" aria-hidden="true"></i><span>${escapeHtml(res.rule)}</span></p>`;
+      html += `<p class="gw-mask"><i class="gw-hatch" aria-hidden="true"></i><span>${escapeHtml(k.mask)}</span></p>`;
     }
   } else if (busy) {
     html += '<p class="gw-line muted">Reading the wells…</p>';
   }
   if (failed) html += `<p class="gw-err">Could not draw the surface: ${escapeHtml(failed)}</p>`;
   const grace = state.overlays && state.overlays.has("storage");
-  html += `<p class="gw-line gw-grace">${grace ? "GRACE water storage is on, for the regional picture (about 300 km, to mid-2022)."
-    : 'From space: <button type="button" class="gw-link" data-act="grace">show GRACE water storage beside it</button> (about 300 km, to mid-2022).'}</p>`;
-  html += '<p class="gw-line"><button type="button" class="gw-link" data-act="modflow">Open your MODFLOW heads</button> (or drop a <code>.hds</code> on the map).</p>';
+  html += `<p class="gw-line">${grace ? "GRACE storage is on: the regional view from space."
+    : 'From space: <button type="button" class="gw-link" data-act="grace">GRACE water storage</button>'} · ` +
+    '<button type="button" class="gw-link" data-act="modflow">Your MODFLOW heads</button></p>';
   html += `<p class="gw-src">Environment Agency, OGL v3.0 · <button type="button" class="gw-link" data-act="about">About</button></p>`;
   return html;
 }
@@ -584,7 +591,8 @@ function modelBody() {
     `</div>` +
     (n > 1 ? `<p class="gw-line">${dated ? 'Plays with the time bar. <button type="button" class="gw-link" data-act="play">Play the run</button>'
       : "No start date, so the slider steps through the model times."}</p>` : "") +
-    `<p class="gw-line muted">${escapeHtml(m.grid.from)}, placed by ${escapeHtml(m.grid.placed_by)} (${escapeHtml(m.grid.crs)}).` +
+    `<p class="gw-line muted">Colours span the whole run. ${escapeHtml(m.grid.from)}, placed by ${escapeHtml(m.grid.placed_by)}` +
+    `${/^EPSG:\d+$/.test(m.grid.crs) ? ` (${escapeHtml(m.grid.crs)})` : ""}.` +
     `${(m.notes || []).map((x) => ` ${escapeHtml(x)}`).join("")}</p>` +
     '<p class="gw-src">Read in your browser; the file did not leave it · <button type="button" class="gw-link" data-act="fit">Zoom to it</button> · ' +
     '<button type="button" class="gw-link" data-act="remove">Remove</button></p>';
@@ -668,6 +676,9 @@ function about() {
 // ── boot ────────────────────────────────────────────────────────────────────
 
 export function initGroundwater() {
+  // Debug hooks (harmless in production, like the rest of window.__aq): the surface and the cell under a point.
+  dbg.groundwater = () => res;
+  dbg.gwCell = (lon, lat) => (res && res.grid ? gridCellAt(res.grid, lon, lat) : null);
   registerRow();
   const fromUrl = readGwParam(location.hash);
   if (fromUrl !== null) state.groundwater = fromUrl;
@@ -687,12 +698,7 @@ export function initGroundwater() {
       ensureVectorLayers();
       drawnKey = "";
       if (state.groundwater) void refresh();
-      if (model) {
-        const b = edgeOf(model.rings);
-        map.getSource(L.modelEdge).setData({ type: "Feature", properties: {}, geometry: { type: "LineString",
-          coordinates: [[b.w, b.s], [b.e, b.s], [b.e, b.n], [b.w, b.n], [b.w, b.s]] } });
-        paintModel();
-      }
+      if (model) { drawOutline(); paintModel(); }
     }, 0);
   });
   clickLayers.add(L.hit);

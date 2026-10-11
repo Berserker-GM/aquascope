@@ -149,6 +149,7 @@ export function wellsNear(wells, lon, lat, radius) {
 export function fmtM(v, { sign = false } = {}) {
   if (v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
   const n = Number(v);
+  if (Number.isInteger(n) && Math.abs(n) >= 1) return sign && n > 0 ? `+${n}` : String(n);
   const s = Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);
   return sign && n > 0 ? `+${s}` : s;
 }
@@ -171,6 +172,11 @@ export function rowSummary(res, { busy = false, error = null } = {}) {
   return res.mode === "change" ? `change, ${res.label}` : res.label;
 }
 
+/** The density mask in a few words, for the key's hatched swatch. */
+export function maskLine(res) {
+  return `Hatched: fewer than ${res.min_wells} wells within ${res.radius_km} km, too few to draw.`;
+}
+
 /** The key's lines: what the colours are, the range, the rule, any note. */
 export function keyLines(res) {
   if (!res) return { head: "", range: null, lines: [] };
@@ -179,15 +185,15 @@ export function keyLines(res) {
   if (res.notes && res.notes.length) lines.push(...res.notes);
   if (!res.grid) lines.push(res.summary);
   const head = res.mode === "change"
-    ? `Change in groundwater level, ${res.label}. Brown fell, blue-green rose.`
-    : `Groundwater head, ${res.label}, in m above Ordnance Datum.`;
+    ? `Change in level, ${res.label}`
+    : `Head, ${res.label}, m above Ordnance Datum`;
   const range = res.range ? { lo: fmtM(res.range[0], { sign: res.mode === "change" }), hi: fmtM(res.range[1], { sign: res.mode === "change" }) } : null;
   if (res.grid) {
     const n = res.n_wells_in_view;
-    lines.push(`${n} well${n === 1 ? "" : "s"} in view${res.mode === "change" ? " with both months" : ""}.`);
-    if (res.contours && res.contours.step) lines.push(`Lines every ${fmtM(res.contours.step)} m.`);
+    const step = res.contours && res.contours.step ? ` · lines every ${fmtM(res.contours.step)} m` : "";
+    lines.push(`${n} well${n === 1 ? "" : "s"} in view${res.mode === "change" ? " with both months" : ""}${step}`);
   }
-  return { head, range, lines };
+  return { head, range, lines, mask: maskLine(res) };
 }
 
 /**
@@ -295,6 +301,16 @@ export function cellsGeoJSON(rings, offsets) {
     features.push({ type: "Feature", id: c, properties: { c }, geometry: { type: "Polygon", coordinates: [ring] } });
   }
   return { type: "FeatureCollection", features };
+}
+
+/** The outer corners of a structured grid as a closed line, from the cell rings (4 corners per cell, row-major,
+ * each ring top-left, top-right, bottom-right, bottom-left); null for a DISV grid. */
+export function modelOutline(grid, rings) {
+  if (!grid || grid.type !== "dis") return null;
+  const nr = grid.drawn_nrow, nc = grid.drawn_ncol;
+  const at = (cell, corner) => [rings[2 * (cell * 4 + corner)], rings[2 * (cell * 4 + corner) + 1]];
+  const tl = at(0, 0), tr = at(nc - 1, 1), br = at(nr * nc - 1, 2), bl = at((nr - 1) * nc, 3);
+  return [tl, tr, br, bl, tl];
 }
 
 /** One frame's heads (time t, layer index l) out of the flat Float32Array (time x layer x cell). */

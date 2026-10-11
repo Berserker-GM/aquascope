@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   CHANGE_RAMP, HEAD_RAMP, SURFACE_ALPHA, cellsGeoJSON, changeWord, fmtM, frameOf, gridCellAt, gridCorners, keyLines,
-  maskScale, monthOf, paintMask, paintSurface, rampColor, rangeT, readGwParam, readPlaceForm, readingsWindow,
+  maskScale, modelOutline, monthOf, paintMask, paintSurface, rampColor, rangeT, readGwParam, readPlaceForm, readingsWindow,
   rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, viewTouches, wellCard, wellsNear,
 } from "../src/groundwater-core.js";
 
@@ -48,7 +48,7 @@ test("cards say what is there and how sure", () => {
   const near = wellsNear(res.wells, -0.5, 52.5, 20);
   assert.equal(near.length, 1);
   const c = surfaceCard(res, gridCellAt(grid, -0.5, 52.6), near);
-  assert.equal(c.title, "10.0 m above Ordnance Datum");
+  assert.equal(c.title, "10 m above Ordnance Datum");
   assert.match(c.sub, /interpolated from 1 well within 20 km/);
   const sparse = surfaceCard(res, gridCellAt(grid, 0.5, 52.6), near);
   assert.equal(sparse.title, "Too few wells here");
@@ -69,8 +69,9 @@ test("the legend's words", () => {
   assert.equal(rowSummary({ ...res, mode: "change", label: "a to b" }), "change, a to b");
   const k = keyLines(res);
   assert.match(k.head, /above Ordnance Datum/);
-  assert.deepEqual(k.range, { lo: "10.0", hi: "30.0" });
-  assert.ok(k.lines.some((l) => /every 5\.00 m/.test(l)));
+  assert.deepEqual(k.range, { lo: "10", hi: "30" });
+  assert.ok(k.lines.some((l) => /3 wells in view · lines every 5 m/.test(l)));
+  assert.match(k.mask, /fewer than 3 wells within 20 km/);
 });
 
 test("months, windows, the view and the link", () => {
@@ -113,4 +114,7 @@ test("model cells and frames", () => {
   assert.equal(stepForDate(["2015-01-02"], "2014-01-01"), 0);
   assert.equal(timeLabel({ times: [31], time_units: "days" }, 0), "t = 31 days");
   assert.equal(timeLabel({ times: [31], dates: ["2015-02-01"] }, 0), "2015-02-01");
+  // Two cells side by side: the outline runs round both.
+  assert.deepEqual(modelOutline({ type: "dis", drawn_nrow: 1, drawn_ncol: 2 }, rings), [[0, 1], [2, 1], [2, 0], [0, 0], [0, 1]]);
+  assert.equal(modelOutline({ type: "disv" }, rings), null);
 });

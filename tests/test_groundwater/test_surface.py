@@ -290,7 +290,7 @@ def test_pick_month_falls_back_when_few_wells_report():
     day = gs._days([d for _ in range(10) for d in ("2025-01-15", "2025-02-15", "2025-03-15")])
     keep = ~((day == gs._days(["2025-03-15"])[0]) & (well >= 2))  # only 2 of 10 wells report in March
     ym, note = gs.pick_month(well[keep], day[keep], "2025-03")
-    assert ym == (2025, 2) and "February 2025" in note
+    assert ym == (2025, 2) and "so this is February 2025" in note
 
 
 def test_level_surface_recovers_a_plane_and_masks_sparse_areas():
