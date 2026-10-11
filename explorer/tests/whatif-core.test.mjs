@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  CLASSES, NEUTRAL, basinRows, beforeSet, classOf, colorOf, lineColorExpr, lineFilterExpr, logLabel, outletLines,
+  BEFORE, CLASSES, NEUTRAL, basinRows, beforeSet, classOf, colorOf, lineColorExpr, lineFilterExpr, logLabel, outletLines,
   paintedIds, pct, rangeWords, reachCard, resultBounds, scenarioWords, sliderValues,
 } from "../src/whatif-core.js";
 import { slotOf } from "../src/map-actions-core.js";
@@ -52,7 +52,7 @@ test("the paint is a match on riverId; reaches left of the swipe are drawn as be
   assert.deepEqual(expr[2], [230000002]);
   assert.equal(expr[3], colorOf(-38.3));
   const swiped = lineColorExpr(RESULT.reaches, "mean", new Set([230000002]));
-  assert.ok(swiped.includes(NEUTRAL));
+  assert.ok(swiped.includes(BEFORE) && !swiped.includes(colorOf(-38.3)));
   assert.deepEqual(lineFilterExpr([1, "2", 2]), ["match", ["to-number", ["get", "riverId"]], [1, 2], true, false]);
   assert.deepEqual(lineFilterExpr([]), ["boolean", false]);
   assert.equal(lineColorExpr([], "mean"), "rgba(0,0,0,0)");

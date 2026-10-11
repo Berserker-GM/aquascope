@@ -10,7 +10,7 @@
 // whatif-core.js decides the colours, the words and the swipe's split; every number comes from Python.
 
 import { $, actions, clickLayers, escapeHtml, state } from "./core.js?v=__BUILD__";
-import { fitBoundsTo, map } from "./map.js?v=__BUILD__";
+import { map } from "./map.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js?v=__BUILD__";
 import { logAction, registerSlotWriter, slotValue } from "./map-actions.js?v=__BUILD__";
@@ -73,11 +73,14 @@ function ensureLayers() {
       paint: { "line-color": "rgba(15, 28, 38, 0.55)", "line-width": ["interpolate", ["linear"], ["zoom"], 3, 4, 7, 6.5, 12, 10] } }, before);
     map.addLayer({ id: L.line, type: "line", source: L.net, "source-layer": "streams", filter: none, layout: lineLayout,
       paint: { "line-color": NEUTRAL, "line-width": ["interpolate", ["linear"], ["zoom"], 3, 2.4, 7, 4.2, 12, 7] } }, before);
-    map.addLayer({ id: L.ring, type: "circle", source: L.pts, filter: ["==", ["get", "kind"], "outlet"],
-      paint: { "circle-radius": 7, "circle-color": "rgba(0,0,0,0)", "circle-stroke-width": 2.5, "circle-stroke-color": "#0f1c26" } });
+    // The outlet a ring, each major confluence a small dot; beside each, the change there.
+    const outlet = ["==", ["get", "kind"], "outlet"];
+    map.addLayer({ id: L.ring, type: "circle", source: L.pts,
+      paint: { "circle-radius": ["case", outlet, 7, 3.6], "circle-color": ["case", outlet, "rgba(0,0,0,0)", "#0f1c26"],
+        "circle-stroke-width": ["case", outlet, 2.5, 1.5], "circle-stroke-color": ["case", outlet, "#0f1c26", "#ffffff"] } });
     map.addLayer({ id: L.label, type: "symbol", source: L.pts,
-      layout: { "text-field": ["get", "text"], "text-font": ["Noto Sans Bold"], "text-size": 12.5, "text-offset": [0, -1.25],
-        "text-allow-overlap": false, "symbol-sort-key": ["get", "rank"] },
+      layout: { "text-field": ["get", "text"], "text-font": ["Noto Sans Bold"], "text-size": 12.5,
+        "text-anchor": "left", "text-offset": [0.9, 0], "text-allow-overlap": true, "symbol-sort-key": ["get", "rank"] },
       paint: { "text-color": "#0f1c26", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.8 } });
     hook();
     return true;
@@ -98,9 +101,16 @@ function hook() {
   }
   // A basemap change rebuilds the style: put the painting back.
   map.on("style.load", () => { if (shown) { ensureLayers(); draw(); } });
-  // Once the tiles are in, the drawn lines say where each reach is, for the swipe and the labels.
-  map.on("idle", () => { if (shown && learnPlaces()) { draw(); } });
+  // Once the tiles are in, the drawn lines say where each reach is, for the swipe and the labels. The flowing
+  // rivers keep the map from ever going idle, so this looks a few times after a run or a move instead.
+  map.on("moveend", () => { if (shown) scheduleLearn(); });
   map.on("move", () => { if (shown && swipeOn) drawSwipe(); });
+}
+
+let learnTimers = [];
+function scheduleLearn() {
+  for (const t of learnTimers) clearTimeout(t);
+  learnTimers = [700, 2000, 4500, 9000].map((ms) => setTimeout(() => { if (shown && learnPlaces()) draw(); }, ms));
 }
 
 // Each painted reach's longitude and a point on it, read from the stream tiles in view.
@@ -110,7 +120,7 @@ function learnPlaces() {
   const want = new Set(paintedIds(shown.result));
   let feats = [];
   try {
-    feats = map.querySourceFeatures(L.net, { sourceLayer: "streams", filter: lineFilterExpr(shown.result.reaches.map((r) => r.river_id)) });
+    feats = map.querySourceFeatures(L.net, { sourceLayer: "streams", filter: lineFilterExpr([...want]) });
   } catch { return false; }
   let learnt = false;
   for (const f of feats) {
@@ -148,17 +158,15 @@ function labelFeatures(result, measure, before) {
   const marks = reaches.filter((r, i) => i === 0 || r.confluence);
   marks.forEach((r, i) => {
     const id = Number(r.river_id);
-    const at = points.get(id) || (Number.isFinite(r.lon) ? [r.lon, r.lat] : null);
+    // The outlet at the snapped point; a confluence on its drawn line once the tiles have it (the routing
+    // tables' position is the unit catchment's centre, which can sit off the river).
+    const snapped = i === 0 && result.reach && Number.isFinite(result.reach.lon) ? [result.reach.lon, result.reach.lat] : null;
+    const at = snapped || points.get(id);
     if (!at) return;
     if (before.has(id)) return;   // left of the swipe: the river as it is, no change to label
     feats.push({ type: "Feature", geometry: { type: "Point", coordinates: at },
       properties: { kind: i === 0 ? "outlet" : "confluence", rank: i, text: pct(r[key]) } });
   });
-  const at = result.reach;
-  if (at && Number.isFinite(at.lon) && !feats.some((f) => f.properties.kind === "outlet")) {
-    feats.unshift({ type: "Feature", geometry: { type: "Point", coordinates: [at.lon, at.lat] },
-      properties: { kind: "outlet", rank: 0, text: pct(reaches[0] && reaches[0][key]) } });
-  }
   return { type: "FeatureCollection", features: feats };
 }
 
@@ -198,12 +206,31 @@ function paint(value, { frame = true } = {}) {
   // The click's own lit network (what drains here, the way to the sea) would compete with the painting.
   if (frame) clearRiverNetwork();
   draw();
-  if (frame) {
-    const box = resultBounds(value.result);
-    if (box) fitBoundsTo(box);
-  }
+  scheduleLearn();
+  if (frame) frameResult(value.result);
   renderResult();
   openLegendRow("whatif", true);
+}
+
+const narrow = () => Boolean(globalThis.matchMedia && matchMedia("(max-width: 640px)").matches);
+
+// Frame the basin and the river to the first major confluence in the part of the map the panel leaves free.
+function frameResult(result) {
+  const box = resultBounds(result);
+  if (!box || !state.mapOk || !map) return;
+  const p = panel();
+  const pad = { top: 70, left: 40, right: 40, bottom: 50 };
+  if (p && !p.hidden) {
+    if (narrow()) pad.bottom = Math.min(p.offsetHeight + 24, map.getContainer().clientHeight * 0.6);
+    else pad.right = p.offsetWidth + 40;
+  }
+  // The legend sits bottom left on a wide screen: keep the painting clear of it.
+  const lg = $("map-legend");
+  if (lg && !lg.hidden && !narrow()) {
+    const r = lg.getBoundingClientRect(), c = map.getContainer().getBoundingClientRect();
+    if (r.width && r.right < c.left + c.width / 2) pad.left = Math.max(pad.left, r.right - c.left + 24);
+  }
+  try { map.fitBounds(box, { padding: pad, maxZoom: 11, duration: 700 }); } catch { /* the map is not ready */ }
 }
 
 // ── the panel ───────────────────────────────────────────────────────────────
@@ -250,6 +277,7 @@ export function openWhatIf(t) {
     ? "GR4J calibrated on this gauge's record"
     : "GR4J calibrated on this reach's GEOGLOWS simulated flow";
   if (actions.closeMapCard) actions.closeMapCard({ restore: false });
+  p.classList.remove("done");
   syncOutputs();
   renderResult();
   $("wi-text").focus({ preventScroll: true });
@@ -312,6 +340,7 @@ async function run({ by = "sliders", command = "" } = {}) {
     if (res.model && res.model.params) calib = { key: targetKey(t), params: res.model.params };
     const before = slotValue("whatif");
     const value = { result: res, measure: (shown && shown.measure) || "mean", target: t };
+    panel().classList.add("done");   // a phone folds the sliders away so the map shows the answer
     paint(value);
     logAction({ action: { type: "what_if", river_id: t.river_id, scenario: res.scenario }, before, after: value,
       label: logLabel(res), by: by === "sliders" ? "rules" : by, detail: res.scenario.label, command });
@@ -364,6 +393,8 @@ async function readLine(text) {
     showSliders(v);
     const refused = (read.errors || []).length ? ` (${read.errors.join("; ")})` : "";
     $("wi-read").textContent = `Read by ${who}: ${scenarioWords(v)}${refused}`;
+    $("wi-text").blur();
+    $("wi-text").scrollLeft = 0;
     $("wi-read").hidden = false;
     await run({ by, command: words });
   } catch (err) {
@@ -395,7 +426,7 @@ function setSwipe(on) {
   const el = $("wi-swipe");
   if (el) el.hidden = !swipeOn;
   if ($("wi-swipe-on")) $("wi-swipe-on").checked = swipeOn;
-  if (swipeOn) drawSwipe();
+  if (swipeOn) { learnPlaces(); drawSwipe(); }
   else if (shown) draw();
   refreshLegend("whatif");
 }
@@ -448,11 +479,12 @@ function legendBody() {
   const rows = CLASSES.map((c, i) => (used.has(i)
     ? `<p class="rk-row"><i class="rk-sw" style="background:${c.color}"></i>${escapeHtml(c.label)}</p>` : "")).join("");
   const down = r.downstream || {};
-  return `<p class="ml-when">${escapeHtml(r.scenario.label)}: the change in ${escapeHtml(MEASURES[shown.measure].label)}, ` +
-    `the basin and ${down.n_reaches || 0} reaches down to ${down.major_confluences || 0} major confluence${down.major_confluences === 1 ? "" : "s"}.</p>` +
+  return `<p class="ml-when">Change in ${escapeHtml(MEASURES[shown.measure].label)}: the basin, then ` +
+    `${down.n_reaches || 0} reaches to ${down.major_confluences || 0} major confluence${down.major_confluences === 1 ? "" : "s"}.</p>` +
     rows +
     `<label class="ml-check"><input type="checkbox" data-act="swipe" ${swipeOn ? "checked" : ""}> Before/after swipe</label>` +
-    `<p class="ml-src">Downstream by area weighting: the other rivers assumed unchanged. ${escapeHtml(CREDIT)}</p>`;
+    "<p class=\"ml-src\">Modelled: GR4J with ERA5 and GEOGLOWS v2 (CC BY 4.0), rivers TDX-Hydro (CC BY-SA 4.0). " +
+    "Downstream by area weighting, the other rivers unchanged.</p>";
 }
 
 function registerRow() {
@@ -500,6 +532,7 @@ export function initWhatIf() {
     refreshLegend("whatif");
   });
   $("wi-swipe-on").addEventListener("change", (e) => setSwipe(e.target.checked));
+  $("wi-edit").addEventListener("click", () => { p.classList.remove("done"); $("wi-text").focus({ preventScroll: true }); });
   initSwipe();
   actions.openWhatIf = openWhatIf;
   globalThis.__aq = globalThis.__aq || {};

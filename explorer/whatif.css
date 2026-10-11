@@ -54,6 +54,8 @@
 .wi-m b { font-weight: 650; font-variant-numeric: tabular-nums; font-size: .76rem; }
 .wi-model { margin: .4rem 0 .2rem; color: var(--muted); font-size: .7rem; }
 .wi-check { display: flex; align-items: center; gap: .35rem; font-size: .74rem; color: var(--ink-2); cursor: pointer; }
+.wi-foot { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.wi-edit { display: none; font-size: .74rem; }
 
 /* the legend row's mark: a small diverging bar */
 .wi-mark { display: inline-flex; width: 22px; height: 8px; border-radius: 2px; overflow: hidden; }
@@ -83,6 +85,9 @@
 /* a phone: a short sheet over the bottom of the map */
 @media (max-width: 640px) {
   .whatif { left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 62vh; overflow: auto; z-index: 12; }
+  /* after a run the sliders fold away, so the map above shows the answer; "Change the scenario" brings them back */
+  .whatif.done .wi-line, .whatif.done .wi-read, .whatif.done .wi-form, .whatif.done .wi-sub { display: none; }
+  .whatif.done .wi-edit { display: inline; }
   .wi-sw-label { top: 64px; }
 }
 @media (prefers-reduced-motion: reduce) {

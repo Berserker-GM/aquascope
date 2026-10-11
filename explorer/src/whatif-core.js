@@ -3,8 +3,10 @@
 // downstream by area weighting); this module only decides how it is coloured, worded and split by the swipe.
 
 // The change, in classes of percent: drier is brown, wetter is teal (ColorBrewer BrBG, safe for the common
-// kinds of colour blindness), and within ±3 % a quiet grey, which is also how "before" is drawn.
+// kinds of colour blindness), and within ±3 % a quiet grey. "Before" is the rivers' own blue (BEFORE).
 export const NEUTRAL = "#9aa7b2";
+// Left of the before/after swipe the rivers are drawn as they are modelled today: the network's own blue.
+export const BEFORE = "#3478bd";
 export const CLASSES = [
   { max: -50, color: "#8c510a", label: "−50% or less" },
   { max: -25, color: "#bf812d", label: "−50 to −25%" },
@@ -68,7 +70,7 @@ export function lineColorExpr(reaches, measure = "mean", before = null) {
   const groups = new Map();
   for (const r of reaches || []) {
     const id = Number(r.river_id);
-    const color = before && before.has(id) ? NEUTRAL : colorOf(r[key]);
+    const color = before && before.has(id) ? BEFORE : colorOf(r[key]);
     if (!groups.has(color)) groups.set(color, []);
     groups.get(color).push(id);
   }

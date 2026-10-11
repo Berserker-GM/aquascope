@@ -292,6 +292,86 @@ The same engine answers outside the page: `aquascope layers explain W S E N [--d
 and the MCP tool `explain_view(bbox, date, layers)` returns the facts and the notes as
 JSON. Both read the published layers themselves.
 
+## What if, on the map
+
+"What if it rains 20% less?" changes the rivers on the map, not a table. On a river
+reach's map card (or a gauge's, once its river is found), **What if…** opens a small
+panel: a rain slider, a warming slider and a demand (m³/s taken from the river), and
+one line for words.
+
+![What if: 20% less rain and 2 °C warmer on the Thur, painted on its basin and down the Rhine](img/globe/whatif-thur-painted.png)
+
+**Run** calibrates GR4J for the basin that drains to the reach and runs it without and
+with the scenario (`aquascope.whatif_map.whatif`, in the worker):
+
+- **The basin** comes from the GEOGLOWS v2 routing tables, the ones the upstream area
+  and the trace to the sea read. The forcing is ERA5 (Open-Meteo) at the basin's
+  area-weighted centre; a basin over 100,000 km² is refused, since one cell cannot
+  stand for its weather.
+- **The model** is GR4J, with a degree-day snow store where enough of the rain falls
+  below freezing (`aquascope.advanced.catchment_model`). On a gauge it is calibrated on
+  the gauge's record; on a reach without one, on the reach's GEOGLOWS simulated flow,
+  and the panel says so. Half the years calibrate, the other half validate.
+- **The answer at the outlet**: the change in mean flow, low flow (Q95, the flow
+  exceeded 95% of days) and the 10-year flood (GEV on the simulated annual maxima),
+  each with a range: 24 parameter sets near the calibrated one, kept when they do as
+  well on the validation years (KGE within 0.05), each run with and without the
+  scenario.
+- **Downstream**, the change is carried by area weighting to the third major
+  confluence (a tributary at least a quarter of the main stem's area): at each reach,
+  the outlet's change times the share of the drainage area the basin makes up. This
+  assumes the rest of the drainage area unchanged and running off at the same rate
+  per km². It ignores wetter or drier tributaries, dams and lakes, and floods that do
+  not peak together; the flood is the roughest of the three.
+
+The map shows the answer directly. The basin's reaches take the outlet's change (the
+model is lumped: one change for the whole basin). The river below them fades as other
+rivers join, coloured from brown (drier) to teal (wetter), quiet grey within ±3%. A
+label gives the change at the outlet and after each major confluence. The panel lists
+the three changes and switches the colours between them.
+
+**Before/after swipe** (in the panel or the legend row) draws a divider across the map:
+left of it the rivers as they are modelled today, in their own blue; right of it, the
+scenario.
+
+![The before/after swipe](img/globe/whatif-thur-swipe.png)
+
+A click on a painted reach opens its map card: the three changes with their ranges,
+the share of the water that comes from the basin modelled, and the confluence when
+there is one, with **What if… here** for that reach's own basin.
+
+![A reach's card below the first confluence](img/globe/whatif-reach-card.png)
+
+Who reads the line, in the same order as Ask the map:
+
+1. **No model, no key**: fixed rules (`parse_scenario`) read "20% less rain and 2
+   degrees warmer", "a fifth less rain", "take 5 m3/s for irrigation", "rain -10%,
+   +1.5 °C". This always works.
+2. **The model on your device**, then **your own key** from Ask ✨. The model only
+   fills the four parameters (rain %, warming, evaporation %, demand). A number it
+   gives that is not in your words is refused (the claim lock), and the line under the
+   box says who read it. The values go into the sliders before the run, so you see
+   exactly what runs.
+
+Every run is in the action log with its undo; a new run replaces the painting and undo
+puts the one before back. A second scenario on the same basin reuses the calibration
+(the fit is seeded, so the numbers are a fresh run's), which makes it quick. The first
+run takes about a minute in the browser: measured 47 to 90 s in headless Chrome for the
+Thur (1,729 km²), engine start included; 10 s from the command line.
+
+On a phone the panel is a sheet, and after a run the sliders fold away so the map shows
+the answer; **Change the scenario** brings them back.
+
+![What if on a phone](img/globe/whatif-phone.png)
+
+The same engine answers outside the page: `aquascope whatif --lat 47.598 --lon 8.682
+"20% less rain and 2 degrees warmer"` (or `--river ID`, `--source` and `--station` for
+a gauge, `--rain`, `--warming`, `--demand`, `--rp`, `--llm` with your own key,
+`--json`) prints the outlet's numbers and the reaches downstream, and the MCP tool
+`whatif_map` returns them as JSON. The numbers on the map are the CLI's: the same
+seeded calibration gives −38.3% mean flow, −38.5% low flow and −46.0% 10-year flood
+for the Thur in both.
+
 ## Map layers
 
 The rail is a layer stack, and every layer in it is keyless and free to use.
