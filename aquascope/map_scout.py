@@ -1029,10 +1029,17 @@ _NUMBER_WORDS = re.compile(
 
 def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | None, str | None]:
     """A model's title or reason, held to the slots: the filled text, or None and why it was refused. Any digit,
-    percent sign, number word or superlative outside a ``{slot}`` refuses it (those claims are the code's)."""
+    percent sign, number word or superlative outside a ``{slot}`` refuses it (those claims are the code's), and so
+    does a sign set against a slot ("-{peak}", "minus {area}"), the check Explain and mesh review share
+    (:func:`aquascope.map_explain.placeholder_touches`)."""
+    from aquascope.map_explain import placeholder_touches
+
     raw = re.sub(r"\s+", " ", str(text or "")).strip()
     if not raw:
         return None, "empty"
+    touch = placeholder_touches(raw)
+    if touch:
+        return None, f"a sign or a digit against a slot ({', '.join(touch)})"
     names = re.findall(r"\{(\w+)\}", raw)
     unknown = [n for n in names if n not in slots]
     if unknown:

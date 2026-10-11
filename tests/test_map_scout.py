@@ -316,6 +316,12 @@ def test_check_wording_holds_numbers_to_the_slots():
                 "{place}: ٣ rivers"):
         text, why = ms.check_wording(bad, slots, 80)
         assert text is None and why
+    # A sign set against a slot changes the number code fills in (the check Explain and mesh review share).
+    for bad in ("{place}: the river may reach -{peak}", "{place}: minus {peak}", "{place}: +{peak}"):
+        text, why = ms.check_wording(bad, slots, 80)
+        assert text is None and "against a slot" in why, bad
+    assert ms.check_wording("Floods ahead - {place}", slots, 80)[0] == "Floods ahead - Paraná, Brazil"
+    assert ms.check_wording("A {rp} flood near {place}", slots, 80)[0]
     assert ms.check_wording("{place} " * 20, slots, 80) == (None, "too long")
     # Plain words that only look like numbers pass: "someone", "often", "tendency".
     assert ms.check_wording("{place}: someone often sees this tendency", slots, 80)[0]
