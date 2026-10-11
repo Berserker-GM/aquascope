@@ -70,6 +70,8 @@ export const LAYER_DEFAULTS = {
   floodsPast: true,
   // The world river status under the gauges, month by month (status-layer.js, #544).
   status: true,
+  // Groundwater (#558): the wells' head surface, off until asked for.
+  groundwater: false,
 };
 
 export const state = {

@@ -1256,6 +1256,95 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── Groundwater (#558): aquascope.groundwater.surface, the same functions as `aquascope groundwater surface`,
+// `aquascope modflow` and the MCP tools. op "surface" interpolates the wells' readings the page read from the
+// Archive with DuckDB. op "modflow" reads the head file (and its grid and sidecars) the reader dropped on the
+// map: the bytes stay in this worker, and the cells and heads go back to the page as typed arrays.
+let pyprojLoaded = false;
+async function groundwater(m) {
+  const { id, op } = m;
+  if (op === "surface") {
+    self.__aqGw = JSON.stringify({
+      wells: m.wells || [], readings: m.readings || {}, month: m.month || null, mode: m.mode || "level",
+      compare: m.compare || null, bbox: Array.isArray(m.bbox) ? m.bbox.map(Number) : null,
+    });
+    const code = `
+import json
+from js import __aqGw
+from aquascope.groundwater.surface import surface_from_readings as _surface
+_a = json.loads(__aqGw)
+try:
+    _out = _surface(_a["wells"], _a["readings"], month=_a["month"], mode=_a["mode"], compare=_a["compare"],
+                    bbox=_a["bbox"])
+except ValueError as exc:
+    _out = {"kind": "groundwater_surface", "error": str(exc)}
+json.dumps(_out)
+`;
+    try {
+      const out = await pyodide.runPythonAsync(code);
+      post("result", { id, result: JSON.parse(out) });
+    } finally {
+      self.__aqGw = null;
+    }
+    return;
+  }
+  if (op !== "modflow") throw new Error(`unknown groundwater op ${op}`);
+  if (!pyprojLoaded) {
+    // Placing a projected grid needs pyproj (3.8 MB, once, only when a model is dropped).
+    await pyodide.loadPackage(["pyproj"]);
+    pyprojLoaded = true;
+  }
+  pyodide.FS.mkdirTree("/tmp/gw");
+  const write = (name, buf) => { pyodide.FS.writeFile(`/tmp/gw/${name}`, new Uint8Array(buf)); return `/tmp/gw/${name}`; };
+  const hds = write("heads", m.hds);
+  const grid = m.grid ? write(`grid-${String(m.gridName || "grid").replace(/[^A-Za-z0-9._-]/g, "_")}`, m.grid) : null;
+  const sidecars = (m.sidecars || []).map((b, i) => write(`sidecar-${i}`, b));
+  self.__aqGw = JSON.stringify({ hds, grid, sidecars, place: m.place || {} });
+  const code = `
+import json
+import numpy as np
+from js import __aqGw
+from aquascope.groundwater.surface import read_modflow_heads as _read, modflow_summary as _summary
+_a = json.loads(__aqGw)
+_p = _a["place"]
+_GW_RINGS = _GW_HEADS = None
+try:
+    _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"), rotation=_p.get("rotation"),
+                 crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"))
+    if not _res.get("error"):
+        _GW_RINGS = np.ascontiguousarray(_res["rings"], dtype="<f8").tobytes()
+        _GW_OFFS = np.ascontiguousarray(_res["ring_offsets"], dtype="<i4").tobytes()
+        _h = np.ascontiguousarray(_res["heads"], dtype="<f4")
+        _GW_SHAPE = list(_h.shape)
+        _GW_HEADS = _h.tobytes()
+    _out = _summary(_res)
+    _out.pop("frame", None)
+    _out["times"], _out["dates"] = _res.get("times"), _res.get("dates")
+    _out["kstpkper"] = _res.get("kstpkper")
+except (ValueError, ImportError) as exc:
+    _out = {"kind": "modflow_heads", "error": str(exc)}
+json.dumps(_out, default=str)
+`;
+  try {
+    const meta = JSON.parse(await pyodide.runPythonAsync(code));
+    if (meta.error) { post("result", { id, result: meta }); return; }
+    const take = (name) => { const p = pyodide.globals.get(name); const u8 = p.toJs(); p.destroy(); return u8; };
+    const rings = take("_GW_RINGS"), offs = take("_GW_OFFS"), heads = take("_GW_HEADS");
+    const shape = pyodide.globals.get("_GW_SHAPE").toJs();
+    pyodide.runPython("_GW_RINGS = _GW_HEADS = _GW_OFFS = _res = None");
+    const result = {
+      ...meta, shape,
+      rings: new Float64Array(rings.buffer, rings.byteOffset, rings.byteLength / 8),
+      offsets: new Int32Array(offs.buffer, offs.byteOffset, offs.byteLength / 4),
+      heads: new Float32Array(heads.buffer, heads.byteOffset, heads.byteLength / 4),
+    };
+    self.postMessage({ type: "result", id, result }, [rings.buffer, offs.buffer, heads.buffer]);
+  } finally {
+    self.__aqGw = null;
+    for (const f of [hds, grid, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* already gone */ } }
+  }
+}
+
 self.onmessage = async (e) => {
   const m = e.data;
   try {
@@ -1289,6 +1378,7 @@ self.onmessage = async (e) => {
     if (m.type === "map_command") return await mapCommand(m);
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
+    if (m.type === "groundwater") return await groundwater(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
     // exception line (last non-empty) and log the whole thing for debugging.

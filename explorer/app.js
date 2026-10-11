@@ -17,6 +17,7 @@ import { defaultDate } from "./src/layers.js?v=__BUILD__";
 import { applyLayerState, initLayerUI, renderCredits, syncRailControls } from "./src/layer-ui.js?v=__BUILD__";
 import { initTimeBar } from "./src/time-ui.js?v=__BUILD__";
 import { initFloodsPast } from "./src/floods-past.js?v=__BUILD__";  // Floods past (#547)
+import { initGroundwater } from "./src/groundwater-view.js?v=__BUILD__";  // Groundwater and your MODFLOW heads (#558)
 import { initStatusLayer } from "./src/status-layer.js?v=__BUILD__";
 import { buildRail, syncRail, updateCount } from "./src/rail.js?v=__BUILD__";
 import { setBasinsVisible } from "./src/basins.js?v=__BUILD__";
@@ -189,6 +190,7 @@ function bringMapOnline(url) {
   initFloodsAhead();
   initFloodDepth();
   initFloodsPast();
+  initGroundwater();
   initMapActions();   // after every layer it can switch (#561)
   // A selection made while the map was still dark has nothing on the map yet.
   if (state.selected) {
