@@ -13,6 +13,9 @@ The same reader (`aquascope.io.mesh`) is behind every face:
 - **CLI**: `aquascope mesh FILE [--crs EPSG] [--json]`.
 - **MCP**: `mesh_summary(path, crs)`.
 - **Python**: `read_ras_plan`, `read_ugrid` or `read_mesh`, and `mesh_summary`.
+- **Review my model results** (#564): `aquascope mesh review FILE`, the MCP tool
+  `mesh_review(path, crs, offline)`, and **Review these results** in the Explorer
+  ([below](#review-my-model-results)).
 
 ```bash
 aquascope mesh BaldEagleDamBrk.p18.hdf
@@ -55,6 +58,70 @@ code or WKT). Times are given as the file gives them, with no time zone assumed.
 - **250,000 cells.** What costs memory is the mesh itself: its outlines and two arrays per
   time step. A synthetic mesh of 249,218 triangles opens in the Explorer in about five
   seconds from the drop, Python's start included.
+
+## Review my model results
+
+A modeller's first question about a run is "does it look right?". `aquascope.mesh_review`
+answers with checks made by code, each a finding with its place (lat/lon), severity
+(problem, worth a look, for information), value, unit, reason and source, and one line
+per check saying what it found or why it could not run.
+
+| Check | What it flags | Severity |
+|---|---|---|
+| Deepest water | the deepest place in up to five parts of the mesh, with the depth and the model time it was reached. Without bed levels, the largest rise of the water surface, said so | information |
+| Negative depths | a water surface under the bed at any step | problem |
+| Very shallow water | cells never deeper than 3 cm (about 0.1 ft): a film, from rain on the grid, the terrain or a tolerance | worth a look |
+| Isolated wet cells | a cell wet while every neighbour stays dry | worth a look |
+| Wet and dry flicker | a cell that changes between wet and dry 4 times or more (needs 5 steps or more) | worth a look |
+| Volume balance | the volume error HEC-RAS wrote itself (`Results/Unsteady/Summary/Volume Accounting`): over 1% worth a look, over 5% a problem | as said |
+| Floods seen by radar | 0.05° squares where Sentinel-1 saw flooding (Microsoft AI for Good, Oct 2014 to Sep 2024) and the model keeps every cell dry | worth a look in the run's months, information otherwise |
+| Floods in the news | Groundsource flood reports (2000 on) whose footprint covers cells the model keeps dry | worth a look in the run's days, information otherwise |
+| Gauges in the mesh | the observed peak at each Archive gauge standing in a cell against the model's peak at that cell, timing only (a gauge measures flow or stage, the model depth); more than a day apart is worth a look. When no gauge stands inside the mesh, the line says so | as said |
+
+When the run's months are outside the radar or news record, the comparison is made with
+every month on record and every finding says "Not this event": it tells where floods
+have been seen, not whether this event was modelled right. A check says it was skipped
+when the file cannot answer it (no bed levels, no time steps, no volume accounting).
+
+The checks are code. With the on-device model, or a key in Ask, a model only orders the
+findings and words them, writing each number as a placeholder (`{f3}`) that code fills
+in; Explain's claim lock (`aquascope.map_explain.claim_lock`) refuses wording with any
+other number, and a ranking word the rules wording does not use is refused too. Without a
+model, the package's templates say it.
+
+```bash
+aquascope mesh review my_run.p01.hdf             # with observed floods and gauges
+aquascope mesh review my_run.p01.hdf --offline   # only the checks on the file
+aquascope mesh review my_run.p01.hdf --json
+```
+
+```python
+from aquascope.io.mesh import read_mesh
+from aquascope import mesh_review
+
+m = read_mesh("my_run.p01.hdf")
+res = mesh_review.review(m, context=mesh_review.gather_context(m))
+res["summary"]                     # "1 problem, 4 things worth a look; 9 of 9 checks ran."
+[(f["severity"], f["title"]) for f in res["findings"]]
+m.close()
+```
+
+In the Explorer, **Review these results** on the model's legend row (or "review my model"
+in Ask the map) drops the findings as numbered pins coloured by severity, flags the cells
+each one is about, and lists the checks under the legend row. Every pin is in the action
+log: undo one and its flags go with it. The file stays in the browser; the radar and news
+floods come from the Archive's context mirror and the gauge records from the Archive (or
+the agency).
+
+![The review of a synthetic run with planted problems](img/globe/564-review-planted.png)
+
+On HEC's Bald Eagle Creek example (the rashdf copy, which has no bed levels and runs in
+January 1999) five checks run: the run is before the radar and news records, so the
+floods are compared with every month on record; five Archive gauges stand in the mesh,
+two of them with daily records for those days (both falling from the start of the run, so
+no peak to time) and three without; the largest rises of the water surface are pinned.
+
+![The review of the Bald Eagle Creek example](img/globe/564-review-baldeagle.png)
 
 ## Checked against real files (2026-10-11)
 
