@@ -606,7 +606,7 @@ month from January 1990, so play walks the months.
 - **Turning it on** turns the river status off while it is on (both colour the same
   level-4 basins) and back on after.
 
-![The card of a subbasin: the year as bars](img/globe/waterbalance-card.png)
+![The card of a subbasin at the Amazon mouth: the year as bars, and why its runoff is withheld](img/globe/waterbalance-card.png)
 
 Months after ERA5's final data are ERA5T, preliminary, and are recomputed when final; the
 key and the card say so.

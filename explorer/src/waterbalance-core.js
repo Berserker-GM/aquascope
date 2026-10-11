@@ -214,8 +214,8 @@ const BAR = { p: "#4a8fc7", et: "#7fb069", q: "#1f8a80", loss: "#a6611a", tick: 
  * The card's bars: the year's months, rain beside evaporation with runoff stacked on it (the gap between the
  * two is the closure error), the normal rain as a short dark tick, the month on the map shaded. An SVG string.
  */
-export function balanceBars(rows, { month = null, normalP = null, w = 264, h = 92 } = {}) {
-  const top = 6, base = h - 16;
+export function balanceBars(rows, { month = null, normalP = null, w = 264, h = 100 } = {}) {
+  const top = 14, base = h - 16;   // the scale's label sits above the tallest bar, not on it
   const vals = [];
   rows.forEach((r, i) => {
     if (Number.isFinite(r.p_mm)) vals.push(r.p_mm);
@@ -261,7 +261,7 @@ export function balanceBars(rows, { month = null, normalP = null, w = 264, h = 9
     parts.push(`<text x="${(m * slot + slot / 2).toFixed(1)}" y="${h - 3}" text-anchor="middle" font-size="9" ` +
       `fill="${ym === month ? "#1f2933" : "#7b8794"}"${ym === month ? ' font-weight="600"' : ""}>${LONG[m][0]}</text>`);
   }
-  parts.push(`<text x="2" y="${top + 7}" font-size="8.5" fill="#7b8794">${fmt0(hi)} mm</text>`);
+  parts.push(`<text x="2" y="${top - 5}" font-size="8.5" fill="#7b8794">${fmt0(hi)} mm</text>`);
   parts.push("</svg>");
   return parts.join("");
 }
