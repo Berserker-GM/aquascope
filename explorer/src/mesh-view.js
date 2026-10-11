@@ -9,7 +9,7 @@
 // geometry and the maxima once and one time step when asked. This module draws; mesh-core.js decides the
 // colours, the arrows, the click and the words.
 
-import { $, actions, claimClicks, clickLayers, escapeHtml, state } from "./core.js?v=__BUILD__";
+import { $, actions, claimClicks, clickLayers, dbg, escapeHtml, state } from "./core.js?v=__BUILD__";
 import { CONFIG } from "../config.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
 import { cardOpen, closeCard, openCard, updateCard } from "./map-card.js?v=__BUILD__";
@@ -17,9 +17,9 @@ import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js
 import { releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import {
-  ACCEPT, advect, arrowSize, bearing, binOf, bins, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt,
-  legendLine, metresPer, modelShort, modelTime, particleTimeScale, rampCss, rangeWords, scaleFor, shortName, thinArrows, ticks,
-  variableWords,
+  ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, legendLine,
+  metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rampCss, rangeWords, rasterizeIds, scaleFor,
+  shortName, thinArrows, ticks, variableWords,
 } from "./mesh-core.js?v=__BUILD__";
 
 const IMG = "mesh-img";
@@ -46,8 +46,6 @@ let frame = null;       // { step, value, u, v } of `step`
 let visible = true;
 let arrowsOn = true;
 let particlesOn = false;
-let pictureUrl = null;
-let drawToken = 0;
 let selected = -1;
 let bound = false;
 
@@ -141,6 +139,8 @@ export async function openModelFile(file, crs = null) {
   clearMesh({ keepStatus: true });
   const { meta, arrays } = res;
   mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable) };
+  dbg.mesh = { name: meta.name, size_bytes: meta.size_bytes, cells: meta.cells, steps: meta.times.length,
+    read_ms: meta.read_ms, heap_mb: meta.heap_mb };   // for the timing checks in the PR
   view = "max";
   step = Number.isInteger(meta.peak_step) ? meta.peak_step : 0;
   frame = null;
@@ -150,7 +150,7 @@ export async function openModelFile(file, crs = null) {
   openLegendRow("mesh", true);
   addLayers();
   map.fitBounds([[meta.bbox[0], meta.bbox[1]], [meta.bbox[2], meta.bbox[3]]], { padding: 70, maxZoom: 15, duration: 1400 });
-  await paint();
+  paint();
   if (meta.times.length) {
     useModelClock({
       times: meta.times, index: step, label: (i) => modelTime(meta.times[i]),
@@ -174,50 +174,46 @@ function values() {
   return view === "max" || !frame ? mesh.arrays.max_value : frame.value;
 }
 
-async function paint() {
-  if (!mesh) return;
-  const token = ++drawToken;
+// The picture: which cell covers each pixel is worked out once per mesh (rasterizeIds); a time step only looks
+// its colours up and hands the canvas to the map (a canvas source, so no image is encoded).
+function setupPicture() {
   const { arrays, meta } = mesh;
   const fr = canvasFrame(meta.bbox, meta.cells);
+  const n = arrays.ring_lon.length;
+  const px = new Float32Array(n), py = new Float32Array(n);
+  for (let k = 0; k < n; k++) { px[k] = fr.x(arrays.ring_lon[k]); py[k] = fr.y(arrays.ring_lat[k]); }
   const canvas = document.createElement("canvas");
   canvas.width = fr.width;
   canvas.height = fr.height;
   const ctx = canvas.getContext("2d");
-  const colours = bins(NBINS);
-  const paths = colours.map(() => new Path2D());
+  const image = ctx.createImageData(fr.width, fr.height);
+  mesh.picture = { fr, canvas, ctx, image, pixels: new Uint32Array(image.data.buffer),
+    ids: rasterizeIds(arrays.ring_offsets, px, py, fr.width, fr.height), colours: packedBins(NBINS),
+    cellColour: new Uint32Array(meta.cells) };
+}
+
+function paint() {
+  if (!mesh) return;
+  if (!mesh.picture) setupPicture();
+  const pic = mesh.picture;
   const vals = values();
-  const off = arrays.ring_offsets, xs = arrays.ring_lon, ys = arrays.ring_lat;
-  for (let i = 0; i < off.length - 1; i++) {
+  for (let i = 0; i < pic.cellColour.length; i++) {
     const b = binOf(vals[i], mesh.scale, NBINS);
-    if (b < 0) continue;
-    const p = paths[b];
-    for (let k = off[i]; k < off[i + 1]; k++) {
-      const x = fr.x(xs[k]), y = fr.y(ys[k]);
-      if (k === off[i]) p.moveTo(x, y); else p.lineTo(x, y);
-    }
-    p.closePath();
+    pic.cellColour[i] = b < 0 ? 0 : pic.colours[b];
   }
-  // A hairline in the cell's own colour closes the seams between neighbours.
-  ctx.lineWidth = 0.6;
-  ctx.lineJoin = "round";
-  for (let b = 0; b < NBINS; b++) {
-    ctx.fillStyle = colours[b];
-    ctx.strokeStyle = colours[b];
-    ctx.fill(paths[b]);
-    ctx.stroke(paths[b]);
-  }
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (token !== drawToken || !mesh || !blob) return;
-  const url = URL.createObjectURL(blob);
+  paintPixels(pic.pixels, pic.ids, pic.cellColour);
+  pic.ctx.putImageData(pic.image, 0, 0);
   const src = map.getSource(IMG);
-  if (src && src.updateImage) src.updateImage({ url, coordinates: fr.corners });
-  else {
-    map.addSource(IMG, { type: "image", url, coordinates: fr.corners });
+  if (!src) {
+    map.addSource(IMG, { type: "canvas", canvas: pic.canvas, coordinates: pic.fr.corners, animate: false });
     map.addLayer({ id: IMG, type: "raster", source: IMG, layout: { visibility: vis() },
       paint: { "raster-opacity": 0.92, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId());
+  } else {
+    // A still canvas source uploads its pixels when it plays: play for one frame.
+    src.play();
+    map.triggerRepaint();
+    map.once("render", () => { if (map.getSource(IMG) === src) src.pause(); });
   }
-  if (pictureUrl) setTimeout((old) => URL.revokeObjectURL(old), 2000, pictureUrl);
-  pictureUrl = url;
   refreshLegend("mesh");
 }
 
@@ -323,7 +319,7 @@ async function showStep(i) {
   const f = await loadFrame(i);
   if (!mesh || step !== i) return;
   frame = f;
-  await paint();
+  paint();
   drawArrows();
   syncSelection();
 }
@@ -331,7 +327,7 @@ async function showStep(i) {
 async function showLargest() {
   if (!mesh) return;
   view = "max";
-  await paint();
+  paint();
   drawArrows();
   syncSelection();
 }
@@ -604,15 +600,12 @@ export function clearMesh({ keepStatus = false } = {}) {
   if (mesh && selected >= 0) closeCard();
   selected = -1;
   if (map) removeLayers();
-  if (pictureUrl) URL.revokeObjectURL(pictureUrl);
-  pictureUrl = null;
   const had = Boolean(mesh);
   mesh = null;
   frame = null;
   frames.clear();
   seriesCache = new Map();
   view = "max";
-  drawToken++;
   releaseModelClock();
   if (!keepStatus) showStatus();
   if (had) { refreshLegend(); if (worker) ask("close").catch(() => {}); }
@@ -677,7 +670,9 @@ export function initMeshView() {
     if (!mesh) return;
     setTimeout(() => {
       addLayers();
-      paint().then(() => { drawArrows(); syncSelection(); });
+      paint();
+      drawArrows();
+      syncSelection();
     }, 0);
   });
   actions.openModelFile = openModelFile;

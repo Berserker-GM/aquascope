@@ -331,6 +331,57 @@ export function canvasFrame(bbox, nCells, max = 2048) {
   };
 }
 
+/**
+ * Which cell covers each pixel of the picture: an Int32Array of width x height, -1 where no cell is. Pixel
+ * centres are tested (scanline fill, even-odd), so neighbouring cells share no seam and leave no gap. Done
+ * once per mesh: each time step then only looks colours up (paintPixels), which is what keeps playing smooth
+ * on a mesh of a quarter of a million cells.
+ * px, py: the outline points in the picture's pixels (ring_offsets as for the mesh).
+ */
+export function rasterizeIds(off, px, py, width, height) {
+  const ids = new Int32Array(width * height).fill(-1);
+  const xs = [];
+  for (let i = 0; i < off.length - 1; i++) {
+    const a = off[i], b = off[i + 1];
+    if (b - a < 3) continue;
+    let y0 = Infinity, y1 = -Infinity;
+    for (let k = a; k < b; k++) { if (py[k] < y0) y0 = py[k]; if (py[k] > y1) y1 = py[k]; }
+    const r0 = Math.max(0, Math.ceil(y0 - 0.5)), r1 = Math.min(height - 1, Math.floor(y1 - 0.5));
+    for (let r = r0; r <= r1; r++) {
+      const yc = r + 0.5;
+      xs.length = 0;
+      for (let k = a, j = b - 1; k < b; j = k++) {
+        const ya = py[j], yb = py[k];
+        if ((ya > yc) !== (yb > yc)) xs.push(px[j] + ((yc - ya) * (px[k] - px[j])) / (yb - ya));
+      }
+      xs.sort((m, n) => m - n);
+      for (let q = 0; q + 1 < xs.length; q += 2) {
+        const c0 = Math.max(0, Math.ceil(xs[q] - 0.5)), c1 = Math.min(width - 1, Math.floor(xs[q + 1] - 0.5));
+        const row = r * width;
+        for (let c = c0; c <= c1; c++) ids[row + c] = i;
+      }
+    }
+  }
+  return ids;
+}
+
+/** The scale's bin colours as packed RGBA (little-endian Uint32, as an ImageData's buffer reads them). */
+export function packedBins(n = 32) {
+  return bins(n).map((css) => {
+    const [r, g, b, a] = css.slice(5, -1).split(",").map(Number);
+    return ((Math.round(a * 255) << 24) | (b << 16) | (g << 8) | r) >>> 0;
+  });
+}
+
+/** Fill a picture: each pixel takes the colour of its cell's bin (0, transparent, for none or dry). */
+export function paintPixels(out, ids, cellColour) {
+  for (let p = 0; p < ids.length; p++) {
+    const i = ids[p];
+    out[p] = i < 0 ? 0 : cellColour[i];
+  }
+  return out;
+}
+
 // ── the card ────────────────────────────────────────────────────────────────
 
 /**
