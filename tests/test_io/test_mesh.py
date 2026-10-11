@@ -113,6 +113,7 @@ def test_ras_plan_reads_cells_times_depth_and_place(tmp_path):
     # the grid sits on 15 E, about 45.1 N
     assert m.lon.min() > 14.99 and m.lon.max() < 15.01 and 45.0 < m.lat.mean() < 45.2
     assert list(m.ring_offsets) == [0, 4, 8, 12, 16, 20, 24]
+    np.testing.assert_allclose(m.cell_areas(), 10_000, rtol=2e-3)   # 100 m squares (UTM scale is 0.9996)
     m.close()
 
 
@@ -176,8 +177,13 @@ def test_ras_limits_and_wrong_files(tmp_path, monkeypatch):
     geom = tmp_path / "g.hdf"
     with h5py.File(geom, "w") as f:
         f.attrs["File Type"] = b"HEC-RAS Geometry"
-    with pytest.raises(M.MeshError, match="no 2D flow areas"):
+    with pytest.raises(M.MeshError, match="geometry file"):
         M.read_ras_plan(geom)
+    empty = tmp_path / "e.hdf"
+    with h5py.File(empty, "w") as f:
+        f.attrs["File Type"] = b"HEC-RAS Results"
+    with pytest.raises(M.MeshError, match="no 2D flow areas"):
+        M.read_ras_plan(empty)
 
 
 def test_ras_file_with_maxima_only(tmp_path):
@@ -395,7 +401,8 @@ def test_browser_payloads(tmp_path):
     m = M.read_ras_plan(make_ras(tmp_path / "run.hdf"))
     meta, arrays = M.browser_payload(m)
     json.dumps(meta)
-    assert meta["value_range"] == [0.5, 3.0] and meta["speed_max"] == pytest.approx(2 * math.hypot(*FLOW), abs=1e-3)
+    assert meta["value_range"] == [0.5, 3.0] and meta["peak_step"] == 1
+    assert meta["speed_max"] == pytest.approx(2 * math.hypot(*FLOW), abs=1e-3)
     assert arrays["ring_offsets"].dtype == np.int32 and arrays["max_value"].dtype == np.float32
     assert arrays["lon"].size == 6 and arrays["ring_lon"].size == 24
     fr = M.frame_payload(m, 2)

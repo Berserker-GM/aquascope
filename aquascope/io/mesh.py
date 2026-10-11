@@ -123,6 +123,36 @@ class Mesh:
         if self._source is not None:
             self._source.close()
 
+    def cell_areas(self) -> np.ndarray:
+        """The plan area of each cell in square metres, from its outline (shoelace on a local flat projection)."""
+        off = self.ring_offsets
+        lat0 = np.radians(np.repeat(self.lat, np.diff(off)))
+        x = np.radians(self.ring_lon) * np.cos(lat0) * 6371008.8
+        y = np.radians(self.ring_lat) * 6371008.8
+        nxt = np.arange(x.size) + 1
+        nxt[off[1:] - 1] = off[:-1]
+        cross = x * y[nxt] - x[nxt] * y
+        cell = np.repeat(np.arange(self.n_cells), np.diff(off))
+        return np.abs(np.bincount(cell, cross, self.n_cells)) / 2
+
+    def peak_step(self) -> int | None:
+        """The time step with the most water on the mesh: the largest depth times cell area summed over the cells
+        (for a file without bed levels, the highest water surface over the wet area). None without time steps."""
+        if not self.times:
+            return None
+        area = self.cell_areas()
+        best, best_i = -np.inf, 0
+        n = len(self.times)
+        for i in range(0, n, 32):
+            block = self._source.values_block(slice(i, min(i + 32, n)))
+            if self.variable == "water_surface":
+                block = block - np.nanmin(self.max_value)
+            total = np.nansum(np.where(np.isfinite(block), block, 0.0) * area, axis=1)
+            k = int(np.argmax(total))
+            if total[k] > best:
+                best, best_i = float(total[k]), i + k
+        return best_i
+
     def bbox(self) -> list[float]:
         """[west, south, east, north] of the cell outlines, in degrees."""
         return [float(np.nanmin(self.ring_lon)), float(np.nanmin(self.ring_lat)),
@@ -337,6 +367,18 @@ class _RasSource:
         v[dry] = np.nan
         return {"value": value, "u": u, "v": v}
 
+    def values_block(self, sl: slice) -> np.ndarray:
+        """Depth (or water surface) for a block of steps: (steps, cells)."""
+        parts = []
+        for a in self.areas:
+            n = a["cells"]
+            ws = self._ws(a, (sl, slice(0, n)))
+            if ws is None:
+                continue
+            bed = None if self.bed is None else self.bed[a["start"]:a["start"] + n]
+            parts.append(self._value(ws, bed))
+        return np.concatenate(parts, axis=1)
+
     def series(self, cell: int) -> dict[str, Any]:
         a = next(a for a in self.areas if a["start"] <= cell < a["start"] + a["cells"])
         i = cell - a["start"]
@@ -483,8 +525,11 @@ def read_ras_plan(path: str | Path, *, crs: str | int | None = None, max_cells: 
 
 
 def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -> Mesh:
+    kind = _text(fh.attrs.get("File Type"))
+    if "geometry" in kind.lower():
+        raise MeshError(f"{name} is a HEC-RAS geometry file, with no results in it. Open the plan's result file "
+                        "(*.p01.hdf) instead.")
     if f"{RAS_GEOM}/Attributes" not in fh:
-        kind = _text(fh.attrs.get("File Type"))
         raise MeshError(f"{name} has no 2D flow areas" + (f" (it is a {kind} file)." if kind else "."))
     attrs = fh[f"{RAS_GEOM}/Attributes"][:]
     names = [_text(x) for x in attrs["Name"]]
@@ -809,6 +854,9 @@ class _UgridSource:
             speed[~np.isfinite(value)] = np.nan
         return {"value": value, "speed": speed}
 
+    def values_block(self, sl: slice) -> np.ndarray:
+        return self._value(sl)
+
     def block_max(self, which: str, n_steps: int, block: int = 32) -> np.ndarray:
         best = np.full(self.n_faces, np.nan)
         for i in range(0, n_steps, block):
@@ -1071,6 +1119,7 @@ def browser_payload(m: Mesh) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
     meta = m.meta()
     finite = m.max_value[np.isfinite(m.max_value)]
     meta["value_range"] = [float(finite.min()), float(finite.max())] if finite.size else None
+    meta["peak_step"] = m.peak_step()
     if m.max_speed is not None and np.isfinite(m.max_speed).any():
         meta["speed_max"] = float(np.nanmax(m.max_speed))
     arrays = {
