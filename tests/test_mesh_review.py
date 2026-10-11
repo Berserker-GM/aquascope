@@ -457,6 +457,8 @@ def test_a_models_words_are_held_to_the_facts(mesh_of):
     ("Below the bed", "Depth falls to -{F1} m.", "sign or a digit"),
     ("Below the bed", "Depth falls to {F1}0 m.", "sign or a digit"),
     ("Below the bed", "Depth falls to minus {F1} m.", "sign or a digit"),
+    ("Below the bed", "Depth falls to {F1}.5 m.", "sign or a digit"),
+    ("Below the bed", "Depth falls to \u2212{F1} m.", "sign or a digit"),
 ])
 def test_the_claim_lock_refuses(mesh_of, title, reason, why):
     res = _review_with_problems(mesh_of)

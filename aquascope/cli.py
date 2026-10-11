@@ -1188,7 +1188,7 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     if args.file == "review" and args.review_file:
         _mesh_review(args)
         return
-    res = mesh_summary(args.file, crs=args.crs)
+    res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
         if not res.get("ok"):
@@ -1196,8 +1196,7 @@ def cmd_mesh(args: argparse.Namespace) -> None:
         return
     if not res.get("ok"):
         print(f"  {res['error']}")
-        if "EPSG" in res["error"]:
-            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        _mesh_hint(res["error"])
         sys.exit(1)
     fmt = {"hec-ras": "HEC-RAS 2D plan", "ugrid": "UGRID mesh"}.get(res["format"], res["format"])
     print(f"  {res['name']}: {fmt}, {res['model']}")
@@ -1224,11 +1223,19 @@ def cmd_mesh(args: argparse.Namespace) -> None:
         print(f"  note: {note}")
 
 
+def _mesh_hint(error: str) -> None:
+    """The flag that fixes a mesh file's error, when one does."""
+    if "EPSG" in error:
+        print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+    elif "not the mesh they sit on" in error:
+        print("  Pass the geometry file with --geometry, for example --geometry Model.g01.hdf.")
+
+
 def _mesh_review(args: argparse.Namespace) -> None:
     """`aquascope mesh review FILE` (#564): the checks the Explorer's "Review these results" runs."""
     from aquascope.mesh_review import review_file
 
-    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top)
+    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
         if not res.get("ok"):
@@ -1236,8 +1243,7 @@ def _mesh_review(args: argparse.Namespace) -> None:
         return
     if not res.get("ok"):
         print(f"  {res['error']}")
-        if "EPSG" in res["error"]:
-            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        _mesh_hint(res["error"])
         sys.exit(1)
     m = res["mesh"]
     print(f"  {m['name']}: {m['cells']:,} cells, {m['steps']} time steps")
@@ -4478,6 +4484,9 @@ def main() -> None:
     p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
                         help="With 'review': the model result to check")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
+    p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
+                        help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
+                             "results but not the mesh (a *.p01.timeseries.hdf)")
     p_mesh.add_argument("--offline", action="store_true",
                         help="With 'review': only the checks on the file (no observed floods, no gauges)")
     p_mesh.add_argument("--top", type=int, default=5, help="With 'review': how many of the deepest places to list")

@@ -10,16 +10,17 @@ The same reader (`aquascope.io.mesh`) is behind every face:
 - **Explorer**: drop the file on the map, or **Tools**, **Open model results**. The mesh is
   drawn on the globe, the time bar steps through the model's own times, and a click on a
   cell opens its card. The file stays in your browser ([explorer.md](explorer.md#your-model-results-on-the-globe-the-crayfish-view)).
-- **CLI**: `aquascope mesh FILE [--crs EPSG] [--json]`.
-- **MCP**: `mesh_summary(path, crs)`.
+- **CLI**: `aquascope mesh FILE [--crs EPSG] [--geometry G01_HDF] [--json]`.
+- **MCP**: `mesh_summary(path, crs, geometry)`.
 - **Python**: `read_ras_plan`, `read_ugrid` or `read_mesh`, and `mesh_summary`.
 - **Review my model results** (#564): `aquascope mesh review FILE`, the MCP tool
-  `mesh_review(path, crs, offline)`, and **Review these results** in the Explorer
+  `mesh_review(path, crs, offline, geometry)`, and **Review these results** in the Explorer
   ([below](#review-my-model-results)).
 
 ```bash
 aquascope mesh BaldEagleDamBrk.p18.hdf
 aquascope mesh ADH_SanDiego.nc --crs 26911     # a file that does not say its coordinate system
+aquascope mesh BaldEagleDamBrk.p18.timeseries.hdf --geometry BaldEagleDamBrk.g11.hdf   # a stripped plan
 ```
 
 ```python
@@ -49,6 +50,16 @@ Values on mesh nodes are averaged onto the faces. Layered (3D) variables are lef
 Without bed levels there is no depth, and the reader says so: the map shows the water
 surface instead. Without a coordinate system it stops and asks for one (`crs=`, an EPSG
 code or WKT). Times are given as the file gives them, with no time zone assumed.
+
+**A stripped plan file** (`*.p01.timeseries.hdf`, or a plan saved without its geometry)
+holds the results but not the mesh they sit on. The reader stops with one sentence that
+names the missing part (for example `Geometry/2D Flow Areas/BaldEagleCr is missing`) and
+says what to do: open the full plan file, or give the geometry file the plan was run with
+(`geometry=`, `--geometry`, or both files dropped together in the Explorer). The mesh then
+comes from the geometry file and everything else from the plan; a geometry file whose 2D
+areas the plan has no results for, or with more cells than the results hold, is refused.
+Such a file keeps no summary output, so the largest is over the saved time steps, and the
+reader says so.
 
 ## Limits
 
@@ -86,7 +97,9 @@ when the file cannot answer it (no bed levels, no time steps, no volume accounti
 The checks are code. With the on-device model, or a key in Ask, a model only orders the
 findings and words them, writing each number as a placeholder (`{f3}`) that code fills
 in; Explain's claim lock (`aquascope.map_explain.claim_lock`) refuses wording with any
-other number, and a ranking word the rules wording does not use is refused too. Without a
+other number or with a sign or a digit set against a placeholder ("-{f3}", "{f3}0",
+`placeholder_touches`, the check Explain and Scout make too), and a ranking word the rules
+wording does not use is refused too. Without a
 model, the package's templates say it.
 
 ```bash
@@ -131,7 +144,10 @@ In Pyodide 314.0.7, the Explorer's Python, in Chrome:
   [rashdf](https://github.com/fema-ffrd/rashdf) test data (MIT; a USACE HEC example
   project), joined with the plan's geometry `BaldEagleDamBrk.g11.hdf` from HEC's
   Example Projects 6.5. 4,425 cells in two 2D areas, 37 steps from 1 January 1999 12:00
-  to 4 January 12:00. Read with h5py in 0.08 s. rashdf 0.12.0 also installs and reads it
+  to 4 January 12:00. `read_mesh(timeseries, geometry=g11)` now does
+  the join itself (0.14 s): the same cells, steps and speeds as the joined copy, and a
+  largest water surface up to 0.15 ft lower, being over the 37 saved steps (the stripped
+  file keeps no summary output). Read with h5py in 0.08 s. rashdf 0.12.0 also installs and reads it
   in the browser (7 s with its install), but brings geopandas and pyarrow (the worker's
   memory goes from 90 to 224 MB), so the reader uses h5py directly. The rashdf copy has
   no bed levels, so it shows the water surface.
