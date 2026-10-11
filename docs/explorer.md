@@ -973,6 +973,10 @@ to drop instead: the full plan file, or the stripped file and the geometry file 
 was run with (`*.g01.hdf`) together. Dropped (or picked) together, the two are read as one
 run.
 
+![A stripped plan dropped alone: what is missing and what to drop](img/globe/555-stripped-alone.png)
+
+![The same plan dropped with its geometry file](img/globe/555-stripped-with-geometry.png)
+
 **How it works.** The file is handed to a worker with its own Python (Pyodide), mounted
 read-only (WORKERFS) so its bytes are read from the file as needed and never copied into
 memory. `aquascope.io.mesh` reads the cells, the maxima and the step with the most water
