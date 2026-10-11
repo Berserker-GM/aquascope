@@ -804,6 +804,31 @@ def mesh_summary(path: str, crs: str | None = None, geometry: str | None = None)
     return _summary(path, crs=crs, geometry=geometry)
 
 
+def whatif_map(river_id: int | None = None, lat: float | None = None, lon: float | None = None,
+               source: str | None = None, station_id: str | None = None, area_km2: float | None = None,
+               rain_pct: float | None = None, warming_c: float | None = None, evaporation_pct: float | None = None,
+               demand_cms: float | None = None, text: str | None = None, flood_rp: float = 10.0,
+               confluences: int = 3) -> dict[str, Any]:
+    """What if (#565): a scenario for the basin draining to a river reach (river_id, or lat/lon to snap) or a gauge
+    (source, station_id, lat/lon, area_km2), carried down the river. The scenario is rain_pct (rain change, %;
+    -20 is 20% less), warming_c (degrees C), evaporation_pct (default 3% per degree of warming) and demand_cms
+    (water taken from the river, m3/s), or text such as "20% less rain and 2 degrees warmer" (read by fixed
+    rules). GR4J (with a snow store where it snows) is calibrated on the gauge, or on the reach's GEOGLOWS v2
+    simulated flow, with ERA5 at the basin's centre and validated on years it never saw; returns the change in
+    mean flow, low flow (Q95) and the flood_rp-year flood at the outlet with a range from the parameter sets that
+    did as well on the validation years, and each reach downstream to the confluences-th major confluence with
+    the change scaled by its share of the drainage area (area weighting; the simplification is stated). Modelled,
+    numbers from code. Basins over 100,000 km2 are refused."""
+    from aquascope.whatif_map import whatif
+
+    res = whatif(river_id, lat=lat, lon=lon, source=source, station_id=station_id, area_km2=area_km2,
+                 dp_pct=rain_pct, dt_c=warming_c, dpet_pct=evaporation_pct, demand_cms=demand_cms, text=text,
+                 flood_rp=flood_rp, confluences=confluences, basin_ids=1)
+    if isinstance(res.get("basin"), dict):
+        res["basin"].pop("ids", None)   # the map lights them; a reader of the answer needs the count
+    return res
+
+
 def mesh_review(path: str, crs: str | None = None, offline: bool = False,
                 geometry: str | None = None) -> dict[str, Any]:
     """Review a model result on a mesh (#564): checks made by code on a HEC-RAS 2D plan HDF5 file or a UGRID
@@ -1578,6 +1603,7 @@ def build_server():
     server.tool()(explain_view)
     server.tool()(mesh_summary)
     server.tool()(mesh_review)
+    server.tool()(whatif_map)
     server.tool()(swmm_summary)
     server.tool()(list_analyses)
     server.tool()(analyse_table)

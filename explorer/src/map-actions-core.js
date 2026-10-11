@@ -50,6 +50,7 @@ export function slotOf(action, id) {
     case "highlight_river": return "river";
     case "draw_area": return `area:${id}`;
     case "add_pin": return `pin:${id}`;
+    case "what_if": return "whatif";   // one what-if painted at a time (#565); a new run replaces it
     default: return null;
   }
 }

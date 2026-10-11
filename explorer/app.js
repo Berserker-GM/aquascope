@@ -51,6 +51,7 @@ import { initMapCard } from "./src/map-card.js?v=__BUILD__";  // map first (#548
 import { initMapActions } from "./src/map-actions.js?v=__BUILD__";  // the AI's action log with undo (#561)
 import { initMapCommand } from "./src/map-command.js?v=__BUILD__";  // Ask the map (#561)
 import { initScout } from "./src/scout.js?v=__BUILD__";  // Scout (#563): pins on what stands out
+import { initWhatIf } from "./src/whatif-map.js?v=__BUILD__";  // What if, on the map (#565)
 
 import { initMetrics } from "./src/metrics-ui.js?v=__BUILD__";
 
@@ -200,6 +201,7 @@ function bringMapOnline(url) {
   initMeshView();
   initMeshReview();
   initMapActions();   // after every layer it can switch (#561)
+  initWhatIf();       // its slot in the action log (#565)
   // A selection made while the map was still dark has nothing on the map yet.
   if (state.selected) {
     highlightStation(`${state.selected.source}/${state.selected.station_id}`);

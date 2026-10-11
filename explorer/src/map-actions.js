@@ -86,6 +86,32 @@ const SLOT_WRITERS = {
   river: (v) => { if (v) lightRiver(v); else { river = null; clearRiverNetwork(); } },
 };
 
+/**
+ * A module that paints its own slot (What if, #565) hands the writer that puts a value back on the map, so the
+ * log's undo can restore what was there before: `fn(value)` with null clears it.
+ */
+export function registerSlotWriter(slot, fn) {
+  SLOT_WRITERS[slot] = fn;
+}
+
+/**
+ * Log an action a module has already applied itself (its slot needs a writer: registerSlotWriter), with what it
+ * replaced, so the log lists it and undo puts `before` back. Returns the entry.
+ */
+export function logAction({ action, before = null, after = null, label = "", by = "rules", detail = "", command = "" }) {
+  const slot = slotOf(action);
+  if (!slot || !SLOT_WRITERS[slot]) throw new Error(`no writer for ${action && action.type}`);
+  const entry = log.add({ action, slot, before, after, label: label || action.type, by, detail, command });
+  renderLog();
+  return entry;
+}
+
+/** The value in force on a slot now: the newest live entry's `after`, or null. */
+export function slotValue(slot) {
+  const live = log.live().filter((e) => e.slot === slot);
+  return live.length ? live[live.length - 1].after : null;
+}
+
 function writeSlot(slot, value) {
   if (SLOT_WRITERS[slot]) return SLOT_WRITERS[slot](value);
   if (slot.startsWith("layer:")) return setLayer(slot.slice(6), value);
@@ -477,6 +503,7 @@ const ICON = {
   highlight_river: '<path d="M4 18c3 0 3-4 6-4s3 4 6 4 2-3 4-3"/><path d="M4 11c3 0 3-4 6-4s3 4 6 4 2-3 4-3"/>',
   draw_area: '<rect x="4.5" y="5.5" width="15" height="13" rx="1" stroke-dasharray="3 2"/>',
   add_pin: '<path d="M12 21s7-7 7-12a7 7 0 0 0-14 0c0 5 7 12 7 12Z"/><circle cx="12" cy="9" r="2.2"/>',
+  what_if: '<path d="M4 17c3 0 3-3 6-3s3 3 6 3 2-2 4-2"/><path d="M9 4.5a3 3 0 1 1 3 3.5v1.6"/><path d="M12 11.6h.01"/>',
 };
 
 const icon = (type) => `<svg class="ma-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ` +

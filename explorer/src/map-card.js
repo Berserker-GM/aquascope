@@ -401,6 +401,15 @@ async function startTrace(t) {
   }
 }
 
+// What if (#565): a scenario for the basin draining to this reach, painted on the rivers below it.
+function whatIfButton(t) {
+  return {
+    id: "whatif", label: "What if…", hidden: !actions.openWhatIf || !t,
+    title: "Less rain, a warmer climate or a new demand: GR4J for the basin, the change painted downstream",
+    onClick: () => { if (t && actions.openWhatIf) actions.openWhatIf(t); },
+  };
+}
+
 const studyButton = () => ({
   id: "study", label: "Study", title: "A complete study at this place, planned with you, with a report",
   onClick: () => actions.openStudy({ fresh: true }),
@@ -590,7 +599,8 @@ function onSnap(m, snap) {
     details: () => openDetails("panel-point", "now"),
     // A reach taken from the offer above gets its Trace button back.
     buttons: [traceButton("pt", { ready: Boolean(m.reach) }),
-      ...(m.spec.buttons || []).filter((b) => b.id !== "trace" && b.id !== "reach")],
+      ...(m.spec.buttons || []).filter((b) => b.id !== "trace" && b.id !== "reach" && b.id !== "whatif"),
+      whatIfButton({ kind: "reach", river_id: snap.river_id, lat: snap.snap_lat, lon: snap.snap_lon })],
   });
   void loadForecast(m, snap);
 }
@@ -700,6 +710,13 @@ export function initMapCard() {
       if (!reach) return;
       setButton("trace", traceButton(t, { ready: true }));
       refreshWatch();
+      if (model.kind === "gauge" && state.selected) {
+        const g = state.selected;
+        const btn = whatIfButton({ kind: "gauge", river_id: reach.river_id, lat: g.lat, lon: g.lon, source: g.source,
+          station_id: g.station_id, name: g.name || g.station_id });
+        const others = (model.spec.buttons || []).filter((b) => b.id !== "whatif");
+        updateCard(model.id, { buttons: [...others, btn] });
+      }
     });
   }
   // Escape closes the card from inside it, and from the map (where the click that opened it left focus).

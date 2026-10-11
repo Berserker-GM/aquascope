@@ -11,7 +11,8 @@ let ready = null;
 // network without them: a place's context layers, a click's river snap and the quick forecast. Several run at
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
-const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review"]);
+const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review",
+  "whatif_words"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1204,6 +1205,49 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── What if, on the map (#565): aquascope.whatif_map, the same functions as `aquascope whatif` and the MCP tool
+// whatif_map. Type "whatif" (the main worker: GR4J needs scipy and pandas): op "run" calibrates the basin's model
+// and carries the scenario downstream; op "llm" reads the reader's line with their own key. Type "whatif_words"
+// (a light worker can): op "parse" is the keyless rules, "prompt" the system prompt and schema for the on-device
+// model, "reply" checks a model's reply against the reader's words (the claim lock).
+async function whatIf({ id, type, op, args, text, reply, context, provider, model, api_key, base_url }) {
+  self.__aqWhatIf = JSON.stringify({
+    op: String(op || (type === "whatif" ? "run" : "parse")), args: args || {}, text: String(text || ""),
+    reply: reply === undefined ? null : reply, context: String(context || ""),
+    llm: { provider: provider || null, model: model || null, api_key: api_key || null, base_url: base_url || null },
+  });
+  const code = `
+import json
+from js import __aqWhatIf
+from aquascope import whatif_map as _wi
+_a = json.loads(__aqWhatIf)
+try:
+    if _a["op"] == "run":
+        _x = dict(_a["args"])
+        _rid = _x.pop("river_id", None)
+        _out = _wi.whatif(_rid, **_x)
+    elif _a["op"] == "parse":
+        _out = _wi.parse_scenario(_a["text"])
+    elif _a["op"] == "prompt":
+        _out = _wi.scenario_prompt(_a["context"])
+    elif _a["op"] == "reply":
+        _out = _wi.parse_scenario_reply(_a["reply"], _a["text"])
+    elif _a["op"] == "llm":
+        _out = _wi.model_scenario(_a["text"], context=_a["context"], **_a["llm"])
+    else:
+        _out = {"error": "unknown op"}
+except (ValueError, RuntimeError, LookupError, TypeError) as exc:
+    _out = {"error": str(exc)}
+json.dumps(_out, default=str)
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqWhatIf = null;
+  }
+}
+
 // ── Review my model results (#564): what lies outside the dropped file, for aquascope.mesh_review (the checks
 // themselves run in mesh-worker.js beside the file). op "floods" reads the Sentinel-1 radar and news flood events
 // around the mesh from the Archive's context mirror (a light worker can); "gauges" reads each gauge's record over
@@ -1415,6 +1459,7 @@ self.onmessage = async (e) => {
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
     if (m.type === "mesh_review") return await meshReviewOp(m);
+    if (m.type === "whatif" || m.type === "whatif_words") return await whatIf(m);
     if (m.type === "groundwater") return await groundwater(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
