@@ -93,6 +93,13 @@ moisture, snow and water storage layers. Play a range, click a day on a hydrogra
 the map on that day, swipe-compare two dates, and save the range as a GIF. The date is in
 the link ([details](docs/explorer.md#time-on-the-map)).
 
+**Rivers, past floods and an AI that acts on the map:** every river is drawn and flows
+downstream, and it can be coloured by today's flow against its normal. Floods past shows where
+floods were reported in the news or seen by radar, month by month. **Ask the map** moves the
+view, switches layers and sets the date from plain words. **Explain this view** and **Scout**
+pin short notes and findings on the globe, every number taken from the data. Each action is
+logged and can be undone, and all of it works without a key.
+
 **Study** guides you from a question through a plan you approve to a report and export
 bundle: Word, Excel, figures, notebook, findings and study YAML. Core studies run without
 an API key. Optional model setup is available when you choose to use it. Beyond the design
@@ -586,8 +593,8 @@ If you use AquaScope in your research, please cite:
   author  = {Ouédraogo, Abdoul Rachid},
   year    = {2026},
   url     = {https://github.com/Rekin226/aquascope},
-  version = {0.26.0},
-  doi     = {10.5281/zenodo.23246553},
+  version = {0.27.0},
+  doi     = {10.5281/zenodo.21903143},
   license = {MIT}
 }
 ```
