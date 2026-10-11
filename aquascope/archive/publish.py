@@ -96,10 +96,15 @@ def publish_folder(
             if allow_patterns
             else ["*.parquet", "*.geojson", "*.json", "*.csv.gz", "*.fgb", "*.pmtiles", "README.md"]
         )
+        info = None
         if delete:
-            info = _commit_with_deletions(hub, api, folder, repo_id, patterns, list(delete),
-                                          commit_message or "aquascope harvest")
-        else:
+            try:
+                info = _commit_with_deletions(hub, api, folder, repo_id, patterns, list(delete),
+                                              commit_message or "aquascope harvest")
+            except Exception as exc:  # noqa: BLE001 - pruning is housekeeping; the day's files still go up
+                logger.warning("the commit that also deletes %d file(s) failed (%s: %s); uploading without "
+                               "deleting, the next publish prunes them", len(delete), type(exc).__name__, exc)
+        if info is None:
             info = api.upload_folder(
                 folder_path=str(folder),
                 repo_id=repo_id,

@@ -225,3 +225,32 @@ def test_publish_folder_deletes_in_one_commit(tmp_path, monkeypatch):
     dels = [o.path_in_repo for o in ops if type(o).__name__ == "CommitOperationDelete"]
     assert adds == ["flowstatus/2026-10-11.bin.gz", "flowstatus/latest.bin.gz"]
     assert dels == ["flowstatus/2026-06-02.bin.gz"]                           # never delete what is uploaded
+
+
+def test_a_failed_deleting_commit_still_uploads_the_day(tmp_path, monkeypatch):
+    from aquascope.archive import publish as pub
+
+    (tmp_path / "flowstatus").mkdir()
+    (tmp_path / "flowstatus" / "2026-10-11.bin.gz").write_bytes(b"x")
+    uploads = []
+
+    class Api:
+        def __init__(self, token=None):
+            pass
+
+        def create_repo(self, *a, **k):
+            pass
+
+        def create_commit(self, **kw):
+            raise RuntimeError("404 flowstatus/2026-06-02.bin.gz does not exist")
+
+        def upload_folder(self, **kw):
+            uploads.append(kw)
+            return type("Info", (), {"commit_url": "https://huggingface.co/commit/8"})()
+
+    import huggingface_hub
+
+    monkeypatch.setattr(huggingface_hub, "HfApi", Api)
+    url = pub.publish_folder(tmp_path, "x/y", token="t", allow_patterns=["flowstatus/*"],
+                             delete=["flowstatus/2026-06-02.bin.gz"])
+    assert url.endswith("/8") and uploads[0]["allow_patterns"] == ["flowstatus/*"]   # pruning never costs the day

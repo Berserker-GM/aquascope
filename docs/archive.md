@@ -327,7 +327,8 @@ Older dated files are deleted in the same Hugging Face commit that uploads the d
 manifest's `history` in that commit, so the manifest never lists a file that is gone; the manifest's `retention`
 field states the rule. Only names of the form `<folder>/<YYYY-MM-DD>.<ext>` that the folder's listing shows are
 deleted, never a `latest` file, a manifest or anything outside the folder; when the folder cannot be listed,
-nothing is deleted that day. `publish --out build --dry-run` (on `aquascope.flowstatus`,
+nothing is deleted that day. If the commit that deletes fails, the day's files are uploaded
+without the deletions and the next publish prunes them. `publish --out build --dry-run` (on `aquascope.flowstatus`,
 `aquascope.archive.warnings` and `aquascope.map_scout`) prints what would be kept and pruned and uploads nothing.
 
 Two daily folders are left whole: `forecasts/issued/` is the archive of record, read to measure forecast skill
