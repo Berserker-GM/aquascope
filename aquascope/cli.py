@@ -1184,6 +1184,9 @@ def cmd_whatif(args: argparse.Namespace) -> None:
     """`aquascope whatif`: a scenario for a reach's basin, carried down the river (#565)."""
     from aquascope import whatif_map as wm
 
+    # The answer speaks for the run: the fit notes (a GEV per parameter set, the requests) stay out of it.
+    for name in ("aquascope", "httpx"):
+        logging.getLogger(name).setLevel(logging.WARNING)
     text = " ".join(args.scenario or []).strip()
     numbers = {"dp_pct": args.rain, "dt_c": args.warming, "dpet_pct": args.evaporation, "demand_cms": args.demand}
     by = "the numbers given"

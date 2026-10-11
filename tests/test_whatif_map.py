@@ -45,6 +45,22 @@ def test_a_scenario_is_held_to_its_limits():
     assert wm.scenario_label(sc) == "80% less rain, 2 °C warmer"
 
 
+def test_the_claim_lock_refuses_a_flipped_sign_a_reused_number_and_a_clipped_one():
+    flipped = wm.parse_scenario_reply({"dp_pct": -20, "dt_c": None, "dpet_pct": None, "demand_cms": None},
+                                      "20% more rain")
+    assert flipped["scenario"] is None and "20% more rain" in flipped["errors"][0]
+    reused = wm.parse_scenario_reply({"dp_pct": 20, "dt_c": 20, "dpet_pct": None, "demand_cms": None},
+                                     "20% more rain")
+    assert reused["scenario"]["dp_pct"] == 20 and reused["scenario"]["dt_c"] == 0
+    assert any("dt_c" in e for e in reused["errors"])
+    twice = wm.parse_scenario_reply({"dp_pct": -2, "dt_c": 2, "dpet_pct": None, "demand_cms": None},
+                                    "rain falls by 2% and it is 2 degrees warmer")
+    assert twice["scenario"]["dp_pct"] == -2 and twice["scenario"]["dt_c"] == 2 and not twice["errors"]
+    clipped = wm.parse_scenario_reply({"dp_pct": None, "dt_c": 12, "dpet_pct": None, "demand_cms": None},
+                                      "12 degrees warmer")
+    assert clipped["scenario"] is None and "outside" in clipped["errors"][0]
+
+
 def test_the_claim_lock_refuses_a_number_the_reader_did_not_say():
     res = wm.parse_scenario_reply('```json\n{"dp_pct": -20, "dt_c": 2, "dpet_pct": null, "demand_cms": 7}\n```',
                                   "20% less rain and 2 degrees warmer")

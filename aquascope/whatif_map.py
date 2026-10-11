@@ -275,7 +275,10 @@ def parse_scenario_reply(reply: Any, text: str = "") -> dict[str, Any]:
     """A model's reply (text or parsed JSON) as a checked scenario: ``{"scenario", "errors", "said"}``.
 
     The claim lock: with the reader's ``text``, a non-zero number the model gives that is not in those words
-    is refused and listed in ``errors``; the model fills parameters, it does not choose them.
+    is refused and listed in ``errors``, and so is one the words say only once but the model uses twice, one
+    whose direction contradicts what the keyless rules read in the same words ("20% more rain" is never -20),
+    and one outside :data:`LIMITS` (held at a limit it would be a number nobody said). The model fills
+    parameters, it does not choose them.
     """
     data = reply
     if isinstance(reply, str):
@@ -292,11 +295,27 @@ def parse_scenario_reply(reply: Any, text: str = "") -> dict[str, Any]:
     errors: list[str] = []
     if text:
         said_numbers = _numbers_in(text)
-        for key in LIMITS:
+        rules = (parse_scenario(text).get("scenario") or {})
+        for key, (lo, hi) in LIMITS.items():
             v = _num(data.get(key))
-            if v and not any(math.isclose(abs(v), n, rel_tol=1e-3, abs_tol=1e-6) for n in said_numbers):
-                errors.append(f"refused {key} {v:g}: that number is not in the words")
+            if not v:
+                continue
+            hit = next((n for n in said_numbers if math.isclose(abs(v), n, rel_tol=1e-3, abs_tol=1e-6)), None)
+            ruled = _num(rules.get(key))
+            why = None
+            if hit is None:
+                why = "that number is not in the words" + (
+                    "" if not any(math.isclose(abs(v), n, rel_tol=1e-3, abs_tol=1e-6) for n in _numbers_in(text))
+                    else " as often as it is used")
+            elif ruled and (ruled > 0) != (v > 0):
+                why = f"the words say {scenario_label({key: ruled})}"
+            elif v < lo or v > hi:
+                why = f"outside {lo:g} to {hi:g}"
+            if why:
+                errors.append(f"refused {key} {v:g}: {why}")
                 data = {**data, key: None}
+            else:
+                said_numbers.remove(hit)
     sc, more = check_scenario(data)
     errors += more
     if not any(sc[k] for k in ("dp_pct", "dt_c", "demand_cms")) and not sc["dpet_pct"]:
