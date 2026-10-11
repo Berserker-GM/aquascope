@@ -31,7 +31,8 @@ Stable are the names the README, these docs and the Explorer use, read conservat
   `schemas.water_data`, `schemas.station`, `collectors.base`, `io.interop`, `models.rainfall_runoff`,
   `pipelines.model_builder`, `analysis.eda`, `analysis.quality`, `ai_engine.analyst`, `ai_engine.agent`,
   `ai_engine.recommender`, `ai_engine.team`, `ai_engine.verify`, `ai_engine.providers`,
-  `ai_engine.llm_transport`, `utils.http_client` (for collector authors) and `utils.storage`.
+  `ai_engine.llm_transport`, `utils.http_client` (for collector authors) and `utils.storage`;
+- `aquascope.experimental` itself: its lists and `is_experimental` (the lists' contents change, their names do not).
 
 The snapshot file lists every one of them. A name is public because it is
 in that file, not because it lacks an underscore: a module that is not listed (for example `aquascope.cli`,

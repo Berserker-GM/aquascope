@@ -77,6 +77,8 @@ STABLE_SPEC: dict[str, Any] = {
     "aquascope.collectors.base": ["BaseCollector"],
     "aquascope.compare": ["compare_series", "compare_stations"],
     "aquascope.evaluation": ["find_studies", "score_path", "stats"],
+    "aquascope.experimental": ["CLI", "CLI_FLAGS", "MCP_TOOLS", "MODULES", "NAMES", "is_experimental",
+                               "is_experimental_command"],
     "aquascope.explore": ["analyze_series", "analyze_station", "anywhere", "assess_site", "fetch_series", "flood_ci",
                           "to_csv", "water_quality_samples"],
     "aquascope.hydrology": ALL,

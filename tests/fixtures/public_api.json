@@ -304,6 +304,15 @@
    "score_path",
    "stats"
   ],
+  "aquascope.experimental": [
+   "CLI",
+   "CLI_FLAGS",
+   "MCP_TOOLS",
+   "MODULES",
+   "NAMES",
+   "is_experimental",
+   "is_experimental_command"
+  ],
   "aquascope.explore": [
    "analyze_series",
    "analyze_station",
