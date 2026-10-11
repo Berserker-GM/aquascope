@@ -7,6 +7,9 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **The JOSS paper describes 0.27.0** (part of #72 and the 1.0 milestone; submission stays with the maintainer). `paper.md` is rewritten in JOSS's current required sections (summary, statement of need, state of the field, software design, research impact, AI usage disclosure): the library and the Archive, the Explorer running the engine in the browser, the method registry, playbooks and gates, model results on the map, the AI layer and how it is checked (claim lock, gates, HydroGym), and its limitations. Every reference in `paper.bib` now carries a DOI resolved through OpenAlex or Crossref, including HyRiver, NeuralHydrology, Caravan, HydroShare, GEOGloWS, GloFAS and Flood Hub; entries the text no longer cites are gone. The Draft PDF workflow also runs when it is itself changed in a pull request.
+
 ## [0.27.0] - 2026-10-12
 
 ### Added
