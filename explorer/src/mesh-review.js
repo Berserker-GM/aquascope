@@ -113,7 +113,7 @@ function drawFlags() {
   const before = meshFlagsBefore();
   map.addSource(FLAGS, { type: "geojson", data });
   map.addLayer({ id: FLAGS, type: "fill", source: FLAGS,
-    paint: { "fill-color": ["get", "colour"], "fill-opacity": ["match", ["get", "sev"], "info", 0.18, 0.42] } }, before);
+    paint: { "fill-color": ["get", "colour"], "fill-opacity": ["match", ["get", "sev"], "info", 0.3, 0.45] } }, before);
   map.addLayer({ id: FLAGS_LINE, type: "line", source: FLAGS,
     paint: { "line-color": ["get", "colour"], "line-width": ["interpolate", ["linear"], ["zoom"], 10, 0.8, 15, 2],
       "line-opacity": 0.95 } }, before);
@@ -131,7 +131,7 @@ function section(name) {
   if (!last || last.name !== name) return "";
   const live = lastPins.filter((id) => { const e = log.get(id); return e && !e.undone; }).length;
   const rows = checkRows(last.res.checks).map((c) =>
-    `<li class="${escapeHtml(c.status)}"><span class="mr-mark" aria-hidden="true">${escapeHtml(c.mark)}</span>` +
+    `<li class="${escapeHtml(c.status)}"><i class="mr-mark" aria-hidden="true">${escapeHtml(c.mark)}</i>` +
     `<b>${escapeHtml(c.label)}</b><span>${escapeHtml(c.line)}</span></li>`).join("");
   const key = Object.entries(SEVERITY).map(([, v]) => `<span><i style="background:${v.colour}"></i>${escapeHtml(v.words)}</span>`).join("");
   return `<div class="mv-review"><p class="mr-head">Review: ${escapeHtml(last.res.summary)}</p>` +

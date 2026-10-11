@@ -22,7 +22,8 @@ export const CHECK_LABELS = {
 export const SEVERITY = {
   problem: { colour: "#c62828", words: "Problem" },
   warning: { colour: "#d97706", words: "Worth a look" },
-  info: { colour: "#2563a8", words: "For information" },
+  // Slate, not blue: the model's depth is painted in blues.
+  info: { colour: "#3b4a5c", words: "For information" },
 };
 const RANK = { problem: 0, warning: 1, info: 2 };
 

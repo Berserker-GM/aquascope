@@ -101,14 +101,15 @@ def _sig(x: float, digits: int = 3) -> float:
 
 
 def fmt(x: float | None, digits: int = 3) -> str:
-    """12.3456 -> '12.3', 0.01234 -> '0.0123', 41234 -> '41,200'."""
+    """12.3456 -> '12.3', 0.01234 -> '0.0123', 41234 -> '41,200', -0.5 -> '-0.5' (no trailing zeros)."""
     if x is None or not math.isfinite(float(x)):
         return "unknown"
     v = _sig(float(x), digits)
     if abs(v) >= 100:
         return f"{v:,.0f}"
     decimals = max(0, digits - 1 - int(math.floor(math.log10(abs(v))))) if v else 0
-    return f"{v:,.{decimals}f}"
+    out = f"{v:,.{decimals}f}"
+    return out.rstrip("0").rstrip(".") if "." in out else out
 
 
 def _count(n: int) -> str:
@@ -149,38 +150,36 @@ def _plural(n: int, word: str, many: str | None = None) -> str:
 # ── the mesh: neighbours and point lookup ───────────────────────────────────
 
 
-def _ring_counts(m: Mesh) -> np.ndarray:
-    return np.diff(np.asarray(m.ring_offsets, dtype=np.int64))
-
-
 def neighbours(m: Mesh) -> tuple[np.ndarray, np.ndarray]:
     """Pairs of cells that share an edge (two outline points in common), as two index arrays."""
-    off = np.asarray(m.ring_offsets, dtype=np.int64)
+    # Indices are np.intp (32 bits in the browser, where numpy will not cast int64 down for repeat or bincount);
+    # only the edge keys, a product of two point numbers, need 64 bits.
+    off = np.asarray(m.ring_offsets).astype(np.intp)
     counts = np.diff(off)
     n_pts = int(off[-1])
     if n_pts == 0:
-        return np.zeros(0, np.int64), np.zeros(0, np.int64)
+        return np.zeros(0, np.intp), np.zeros(0, np.intp)
     # Points shared by two cells come from the same file coordinates through the same projection: they match
     # to well under a millimetre once rounded.
     key = np.round(np.stack([np.asarray(m.ring_lon), np.asarray(m.ring_lat)], 1) * 1e7).astype(np.int64)
     _, vid = np.unique(key, axis=0, return_inverse=True)
     vid = vid.reshape(-1).astype(np.int64)
-    nxt = np.arange(n_pts, dtype=np.int64) + 1
+    nxt = np.arange(n_pts, dtype=np.intp) + 1
     ends = off[1:] - 1
     nxt[ends[counts > 0]] = off[:-1][counts > 0]
     a, b = np.minimum(vid, vid[nxt]), np.maximum(vid, vid[nxt])
     ekey = a * (int(vid.max()) + 1) + b
-    cell = np.repeat(np.arange(m.n_cells, dtype=np.int64), counts)
+    cell = np.repeat(np.arange(m.n_cells, dtype=np.intp), counts)
     order = np.argsort(ekey, kind="stable")
     ek, ce = ekey[order], cell[order]
     same = np.nonzero(ek[1:] == ek[:-1])[0]
     i, j = ce[same], ce[same + 1]
     keep = i != j
-    return i[keep], j[keep]
+    return i[keep].astype(np.intp), j[keep].astype(np.intp)
 
 
 def _cell_boxes(m: Mesh) -> np.ndarray:
-    off = np.asarray(m.ring_offsets, dtype=np.int64)
+    off = np.asarray(m.ring_offsets).astype(np.intp)
     counts = np.diff(off)
     boxes = np.full((m.n_cells, 4), np.nan)
     ok = counts > 0
@@ -198,9 +197,9 @@ def cells_at(m: Mesh, lon: Any, lat: Any) -> np.ndarray:
     lon = np.atleast_1d(np.asarray(lon, dtype="f8"))
     lat = np.atleast_1d(np.asarray(lat, dtype="f8"))
     boxes = _cell_boxes(m)
-    off = np.asarray(m.ring_offsets, dtype=np.int64)
+    off = np.asarray(m.ring_offsets).astype(np.intp)
     xs, ys = np.asarray(m.ring_lon), np.asarray(m.ring_lat)
-    out = np.full(lon.size, -1, dtype=np.int64)
+    out = np.full(lon.size, -1, dtype=np.intp)
     for k in range(lon.size):
         x, y = lon[k], lat[k]
         cand = np.nonzero((boxes[:, 0] <= x) & (x <= boxes[:, 2]) & (boxes[:, 1] <= y) & (y <= boxes[:, 3]))[0]
@@ -238,7 +237,7 @@ def scan(m: Mesh, block: int = 32) -> dict[str, Any]:
         return out
     lo = np.full(n, np.inf)
     hi = np.full(n, -np.inf)
-    peak = np.zeros(n, dtype=np.int64)
+    peak = np.zeros(n, dtype=np.intp)
     for i in range(0, steps, block):
         b = m.values_block(i, min(i + block, steps), raw=True)
         with np.errstate(invalid="ignore"):
@@ -253,7 +252,7 @@ def scan(m: Mesh, block: int = 32) -> dict[str, Any]:
     # Wet: a depth over the readers' dry depth; for a file without bed levels, a water surface over its own
     # lowest value in the run (a dry RAS cell holds the water surface at the bed).
     base = None if depth else lo
-    trans = np.zeros(n, dtype=np.int64)
+    trans = np.zeros(n, dtype=np.intp)
     prev = None
     wet_ever = np.zeros(n, bool)
     for i in range(0, steps, block):
@@ -302,7 +301,7 @@ def _finding(check: str, severity: str, lat: float, lon: float, title: str, reas
 
 
 def _centre(m: Mesh, cells: Any = None) -> tuple[float, float]:
-    idx = np.asarray(list(cells) if cells is not None else [], dtype=np.int64)
+    idx = np.asarray(list(cells) if cells is not None else [], dtype=np.intp)
     if idx.size:
         return float(np.mean(m.lat[idx])), float(np.mean(m.lon[idx]))
     w, s, e, n = m.bbox()
@@ -394,7 +393,8 @@ def _tiny(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, k: float) ->
     if not film.size:
         return [], "ok", f"No cell is wetted only by a film (under {limit}{u})."
     wet = int(np.count_nonzero(hi > TINY_FLOOR_M * k))
-    pick = film[np.argsort(-hi[film])][:PINS_PER_CHECK]
+    # One pin for them all: a film is spread over many cells, each flagged on the map.
+    pick = film[np.argsort(-hi[film])][:1]
     out = []
     f2 = None
     for i in pick:
@@ -479,7 +479,8 @@ def _flicker(m: Mesh, sc: dict[str, Any], ids: _Ids) -> tuple[list, str, str]:
             reason = f"Another cell that flickers: {f1['shown']} changes in {f2['shown']} steps."
         out.append(_finding("flicker", "warning", m.lat[c], m.lon[c], f"Wet and dry {f1['shown']} times", reason,
                             facts, SOURCES["model"], cells=bad if r == 0 else [c]))
-    return out, "flagged", f"{_plural(int(bad.size), 'cell')} flicker between wet and dry."
+    return out, "flagged", (f"{_plural(int(bad.size), 'cell')} {'flickers' if bad.size == 1 else 'flicker'} "
+                            "between wet and dry.")
 
 
 # ── mass balance: the model's own volume accounting ─────────────────────────
@@ -594,9 +595,9 @@ def _radar(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) -
         acc[2] += int(n)
         acc[3].add(month)
     covered = np.unique(key)
-    when = (f"the run's months ({_span(*run)})" if same else
-            f"every month on record ({_span(*period)}), since the run" +
-            (f" ({_span(*run)})" if run else "") + " is outside the radar's record")
+    when = (f"during the run's months ({_span(*run)})" if same else
+            f"in any month on record ({_span(*period)}; the run" + (f", {_span(*run)}," if run else "") +
+            " is outside the radar's record)")
     if not covered.size:
         return [], "skipped", "The mesh covers no radar cell."
     hit_wet = hit_dry = 0
@@ -612,9 +613,9 @@ def _radar(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) -
             dry_cells.append((int(k), np.nonzero(inside)[0]))
     n_seen = hit_wet + hit_dry
     line = (f"Radar saw flooding in {_count(n_seen)} of the {_count(covered.size)} radar squares (0.05°) the mesh "
-            f"covers, over {when}; the model wets cells in {_count(hit_wet)} of them.")
+            f"covers, {when}; the model wets cells in {_count(hit_wet)} of them.")
     if not n_seen:
-        return [], "ok", f"Radar saw no flooding over the mesh in {when}."
+        return [], "ok", f"Radar saw no flooding over the mesh {when}."
     out = []
     sev = "warning" if same else "info"
     dry_cells.sort(key=lambda x: -seen[x[0]][2])
@@ -662,13 +663,13 @@ def _news(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) ->
         if not under.size:
             continue
         hits.append((e, under))
-    when = (f"the run's days ({_span(*run)})" if same else
-            f"every event on record ({_span(*period)}), since the run" +
-            (f" ({_span(*run)})" if run else "") + " is outside the news record")
+    when = (f"during the run ({_span(*run)})" if same else
+            f"on record ({_span(*period)}; the run" + (f", {_span(*run)}," if run else "") +
+            " is outside the news record)")
     if not hits:
-        return [], "ok", f"No flood in the news over the mesh in {when}."
+        return [], "ok", f"No flood in the news over the mesh {when}."
     dry = [(e, u) for e, u in hits if not wet[u].any()]
-    line = (f"{_plural(len(hits), 'flood')} in the news over the mesh in {when}; the model wets cells under "
+    line = (f"{_plural(len(hits), 'flood')} in the news over the mesh {when}; the model wets cells under "
             f"{_count(len(hits) - len(dry))} of them.")
     out = []
     sev = "warning" if same else "info"
@@ -790,8 +791,9 @@ def _gauges(m: Mesh, gauges: list[dict[str, Any]] | None, ids: _Ids, unit: str |
                       f"measures {what}, the model {model_what}.")
             out.append(_finding("gauges", "info", g["lat"], g["lon"], f"Peak on time at {name}", reason,
                                 [fo, fm, fn, fl], src, cells=[c], when=t_model))
-    line = (f"{_plural(len(inside), 'gauge')} inside the mesh; "
-            f"{_count(flagged)} peak{'' if flagged == 1 else 's'} more than {_plural(GAUGE_DAYS, 'day')} off.")
+    off = (f"{_count(flagged)} observed peak{'' if flagged == 1 else 's'} more than {_plural(GAUGE_DAYS, 'day')} "
+           "off the model's" if flagged else f"no observed peak more than {_plural(GAUGE_DAYS, 'day')} off the model's")
+    line = f"{_plural(len(inside), 'gauge')} inside the mesh; {off}."
     return out, "flagged" if flagged else "ok", line
 
 

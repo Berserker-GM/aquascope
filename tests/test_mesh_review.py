@@ -418,7 +418,7 @@ def test_a_models_words_are_held_to_the_facts(mesh_of):
     first, second = out["findings"][:2]
     assert out["ordered"] and first["id"] == vol["id"] and second["id"] == neg["id"]
     assert second["title"] == "Water below the bed" and second["by"] == "device"
-    assert second["reason"] == "Depth falls to -0.500 m in 1 cell."
+    assert second["reason"] == "Depth falls to -0.5 m in 1 cell."
     # A number of the model's own ("12") is refused; the rules wording stays.
     assert first["title"] == vol["rules_title"] and first["by"] == "rules"
     assert any(r.startswith(vol["id"]) and "12" in r for r in out["refused"])
@@ -491,7 +491,7 @@ def test_cli_mesh_review(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr("sys.argv", ["aquascope", "mesh", "review", str(path), "--offline"])
     cli.main()
     out = capsys.readouterr().out
-    assert "Volume error 2.0%" in out and "Volume balance" in out and "skipped" in out
+    assert "Volume error 2%" in out and "Volume balance" in out and "skipped" in out
     monkeypatch.setattr("sys.argv", ["aquascope", "mesh", "review", str(path), "--offline", "--json"])
     cli.main()
     data = json.loads(capsys.readouterr().out)
