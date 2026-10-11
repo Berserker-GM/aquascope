@@ -7,7 +7,7 @@
 export const WB_BASE = "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/waterbalance/";
 export const WB_CREDIT = {
   label: "Water balance",
-  attribution: 'ERA5 (Copernicus Climate Change Service, ECMWF) and <a href="https://geoglows.org">GEOGLOWS v2</a>; ' +
+  attribution: 'ERA5 (Copernicus Climate Change Service, ECMWF) and <a href="https://www.geoglows.org">GEOGLOWS v2</a>; ' +
     "HydroBASINS level-4 subbasins (BasinATLAS, Linke et al. 2019)",
   licence: "CC BY 4.0",
 };

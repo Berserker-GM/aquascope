@@ -562,6 +562,77 @@ The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPS
 
 ![On a phone: the head surface over England](img/globe/groundwater-phone.png)
 
+## Water balance
+
+**Water balance** in the legend (off until you turn it on) colours every HydroBASINS
+level-4 subbasin (1,342 of them, about 100,000 km² on average) by its month, the way
+HEC-HMS and QSWAT basin maps show where the water goes. It follows the time bar month by
+month from January 1990, so play walks the months.
+
+![Rain in September 2026 over the level-4 subbasins](img/globe/waterbalance-rain.png)
+
+- **Rain**: ERA5 total precipitation, summed over the month's hours and averaged over the
+  0.25° cells whose centres fall in the subbasin, weighted by area.
+- **Evaporation**: ERA5 total evaporation, which over land is the actual
+  evapotranspiration, averaged the same way. ERA5's rather than WaPOR's: WaPOR covers
+  Africa and the Near East since 2018, this map the world since 1990.
+- **Runoff**: the runoff the subbasin makes itself, the GEOGLOWS v2 monthly flow at its
+  outlet reach minus the flow coming in from the level-4 subbasins upstream, spread over
+  its area (BasinATLAS). Brown where the river leaves smaller than it came in. Grey where
+  GEOGLOWS has no outlet reach for the subbasin or for one upstream of it (457 of 1,342,
+  mostly deserts, coasts and islands).
+- **Closure**: P − ET − Q, **shown as it comes out, never hidden**. It holds the change in
+  storage (soil, snow, groundwater, lakes and reservoirs), which swings with the seasons,
+  and the errors of three products made separately. Over whole years it should be small;
+  where it is not, one of the three is off. GEOGLOWS is itself driven by ERA5 runoff, so
+  the three are not independent.
+- **vs normal**: each of the four against the subbasin's 1991-2020 mean for the calendar
+  month (it needs at least 20 of those years; until the table holds them the key says so).
+- **A click** on a subbasin opens the map card: the month in one sentence (every number
+  from the file), and the year as bars, rain beside evaporation with runoff stacked on it,
+  so the gap between the two is the closure error, with the normal rain as a tick. With a
+  whole year it adds the year's closure. **This place** opens the river and gauges there.
+
+![The card of a subbasin: the year as bars](img/globe/waterbalance-card.png)
+
+Months after ERA5's final data are ERA5T, preliminary, and are recomputed when final; the
+key and the card say so.
+
+How it is made: `.github/workflows/water-balance.yml` runs `python -m aquascope.waterbalance
+run` on the 9th of every month and publishes `waterbalance/` in the Archive dataset (and
+nothing else): `monthly.parquet` (one row per subbasin and month, every variable and its
+anomaly, the outlet flows), `normals.parquet`, `basins.parquet` (areas, outlet reaches,
+upstream and downstream neighbours), `basins.geojson` (simplified outlines, about 2 MB),
+`normals.json` and one `years/<YYYY>.json` per year for the Explorer, and a manifest with
+what the run cost. The level-4 routing comes from the Archive's BasinATLAS level-12 table:
+each level-12 sub-basin is placed in its level-4 subbasin, which gives the area and which
+subbasin drains into which.
+
+**What it costs**, measured on 2026-10-11. ERA5 on Google Cloud (ARCO-ERA5, read
+anonymously) is stored one whole-globe hour per chunk: about 1.9 MB of precipitation and
+3.0 MB of evaporation, so a month is about 1,460 chunks and 3.6 GB, and January 1990 to
+September 2026 (441 months) about 1.6 TB. Reading is the whole cost: decoding a chunk and
+summing it over the subbasins takes about 2 ms. A whole month took 55 to 67 s on a home
+line (about 55 MB/s with 48 threads). GEOGLOWS's whole monthly record for the 943 outlet
+reaches is 568 chunks, about 0.5 GB (6 s on a GitHub runner). Each run reads the published
+table first and computes only the missing months, newest first, until its time budget
+(300 minutes by default), then publishes what it has, so the backfill takes as many
+dispatches as the runner's bandwidth needs; the pull request smoke and every run's summary
+report the rate. After the backfill, a monthly run recomputes the newest three months
+(ERA5T becoming final): about 11 GB. Level 5 (about 4,700 subbasins) would read the same
+ERA5 chunks; what it lacks is GEOGLOWS's outlet pairing, which exists for level 4 only.
+
+The same in Python: `aquascope waterbalance --at LAT LON` (or `--basin HYBAS_ID`, or a
+month's overview with `--month YYYY-MM [--bbox W S E N] [--variable p|et|q|closure]`), and
+the MCP tool `water_balance`.
+
+Data: ERA5 hourly single levels, CC BY 4.0, Copernicus Climate Change Service / ECMWF
+(Hersbach et al. 2020; contains modified Copernicus Climate Change Service information).
+GEOGLOWS v2 retrospective simulation and HydroSOS tables, CC BY 4.0. HydroBASINS level-4
+subbasins as published in BasinATLAS v1.0 (Linke et al. 2019), CC BY 4.0.
+
+![On a phone: the closure error](img/globe/waterbalance-phone.png)
+
 ## Context of a place
 
 Click a point, or open a gauge, and open the **Context** tab: one line per
