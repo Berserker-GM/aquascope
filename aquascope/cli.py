@@ -1597,6 +1597,42 @@ def cmd_warnings(args: argparse.Namespace) -> None:
     print(f"  {res.get('not') or ''}")
 
 
+def cmd_flowstatus(args: argparse.Namespace) -> None:
+    """`aquascope flowstatus [--bbox W S E N] [--river-id ID]`: every big reach's flow against normal (#559)."""
+    from aquascope import flowstatus
+
+    try:
+        res = flowstatus.flow_vs_normal(args.bbox, river_id=args.river_id, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+    total = sum(res["counts"].values())
+    print()
+    for c in flowstatus.CLASSES:
+        k = res["counts"].get(c["id"], 0)
+        share = f"{k / total:.0%}" if total else "-"
+        print(f"  {c['label']:<18} {k:>9,}  {share:>4}   {c['range']}")
+    reach = res.get("reach")
+    if reach:
+        print()
+        label = next((c["label"] for c in flowstatus.CLASSES if c["id"] == reach.get("class")), None)
+        flow = f", {reach['flow_cms']:,.4g} m3/s today" if reach.get("flow_cms") is not None else ""
+        print(f"  Reach {reach['river_id']}: {label or 'not classed'}{flow}")
+        if reach.get("p25") is not None:
+            print(f"  Normal for month {res.get('month')}: {reach['p25']:,.4g} to {reach['p75']:,.4g} m3/s "
+                  f"(10th {reach['p10']:,.4g}, 90th {reach['p90']:,.4g})")
+        if reach.get("why"):
+            print(f"  {reach['why']}")
+    print()
+    print(f"  {res.get('not') or ''}")
+
+
 def cmd_now(args: argparse.Namespace) -> None:
     """`aquascope now LAT LON | --station SOURCE/ID | --river-id ID`: today against normal and the next 15 days."""
     from aquascope import nownext
@@ -4502,6 +4538,12 @@ def main() -> None:
     p_warn.add_argument("--limit", type=int, default=20, help="Reaches listed (highest class first)")
     p_warn.add_argument("--local", default=None, help="Read an issue written by python -m aquascope.archive.warnings")
     p_warn.add_argument("--json", action="store_true")
+    p_fs = sub.add_parser("flowstatus", help="Flow against normal: every big river reach's forecast flow today "
+                          "against its normal for the month (GEOGLOWS, modelled)")
+    p_fs.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_fs.add_argument("--river-id", type=int, default=None, help="One GEOGLOWS reach: its flow, class and normal")
+    p_fs.add_argument("--local", default=None, help="Read folders written by python -m aquascope.flowstatus")
+    p_fs.add_argument("--json", action="store_true")
     p_now = sub.add_parser("now", help="Today against normal and the next 15 days (GEOGLOWS, GloFAS), corrected to a gauge")
     p_now.add_argument("coords", nargs="*", type=float, metavar="LAT LON", help="A point, snapped to its river reach")
     p_now.add_argument("--station", default=None, metavar="SOURCE/ID", help="A gauge: its status, and the forecast "
@@ -5310,6 +5352,7 @@ def main() -> None:
         "now": cmd_now,
         "bulletin": cmd_bulletin,
         "warnings": cmd_warnings,
+        "flowstatus": cmd_flowstatus,
         "watch": cmd_watch,
         "assess": cmd_assess,
         "context": cmd_context,
