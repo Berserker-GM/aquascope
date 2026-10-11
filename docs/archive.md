@@ -19,6 +19,7 @@ Parquet bundle per variable and source** for whole-source reads. See
 | `stations.parquet` | GeoParquet 1.0 (WKB point geometry, WGS84). One row per station: `source`, `station_id`, `name`, `latitude`, `longitude`, `variables`, `period_start`, `period_end`, `url`, `river`, `country`, `agency`, `license`, `redistributable`, `extra`. |
 | `stations.geojson` | the same rows as GeoJSON, for tools and browsers that don't read parquet |
 | `health.json` | per-source status of the last run: station count, seconds, error message if the endpoint failed |
+| `health/jobs/<job>.json`, `health/jobs/index.json` | every scheduled job's last run, last success, last failure, counts, data date and expected cadence (see [Job health](#job-health)) |
 | `README.md` | the dataset card, regenerated on every run, with the per-source licence table |
 | `obs/<variable>/<source>/<station_id>.csv.gz` | daily values for one station (`date,value`; discharge m3/s, water and groundwater level m, precipitation mm/day), only for redistributable sources |
 | `obs/<variable>/<source>.parquet` | the folder above as one Parquet bundle: `station_id, date, value`, sorted, snappy; `station_id` joins to `stations.parquet` |
@@ -400,6 +401,29 @@ aquascope harvest stations --out archive --publish you/your-dataset   # needs HF
 The scheduled run lives in `.github/workflows/harvest.yml` (Mondays 03:17 UTC,
 or on demand from the Actions tab). It never fails because one agency is down;
 `health.json` and the job summary say which one did.
+
+## Job health
+
+Every scheduled workflow ends with a step that runs whether the job passed or
+not and writes a small record under `health/jobs/` (and nowhere else): the last
+run, the last success and the last failure, how long the run took, the rows or
+files it wrote (read from the job's own manifest), the date of its data, and the
+recent runs, from which the number of scheduled runs green in a row is counted.
+`health/jobs/index.json` lists every job with its expected cadence, from the one
+table in `aquascope/archive/health_jobs.py` (`JOBS`). A smoke run's record is
+never published.
+
+A failed scheduled run opens one issue per job labelled `job-health`, comments on
+it while the job keeps failing, and the next good run closes it. A scheduled run
+that did not publish counts as failed, so a harvest that ran but published
+nothing (#449) is red and filed, not quiet.
+
+The Explorer reads the index: a layer whose job is late says so in its legend
+row, and **Tools > Data status** lists every job. From a terminal:
+
+```bash
+python -m aquascope.archive.health_jobs status
+```
 
 ## Versioned snapshots and citation
 
