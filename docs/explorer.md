@@ -950,6 +950,16 @@ installed and nothing is uploaded: the file is read in your browser.
 
 ![A UGRID mesh of San Diego Bay (ADH), the largest depth](img/globe/555-ugrid-sandiego.png)
 
+**Review these results** (#564) on the legend row, or "review my model" in Ask the map, runs
+checks by code on the run: the deepest water, negative and film depths, isolated wet cells,
+wet and dry flicker, the model's own volume error, the modelled extent against floods seen
+by radar and in the news, and the modelled peak against the Archive's gauges inside the
+mesh. The findings drop as numbered pins (red a problem, amber worth a look, slate for
+information), flag the cells they are about, and go in the action log with an undo each;
+the legend row lists the nine checks and what each found. A model, on the device or with
+your key, may only order and word them, held to the numbers by the claim lock
+([mesh.md](mesh.md#review-my-model-results)).
+
 A file that does not say its coordinate system gets one question: its EPSG code (the
 UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read gets one
 plain sentence why: not a model result, a HEC-RAS geometry file with no results in it,

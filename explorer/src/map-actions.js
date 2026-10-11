@@ -14,6 +14,7 @@ import {
   ActionLog, BY_LABEL, LAYER_CONTROLS, agoWords, checkPin, inkOn, noteBody, placeNotes, slotOf,
 } from "./map-actions-core.js?v=__BUILD__";
 import { getStatusFocus, setStatusFocus } from "./status-layer.js?v=__BUILD__";
+import { SEVERITY as REVIEW_SEVERITY } from "./mesh-review-core.js?v=__BUILD__";
 import { clearRiverNetwork, lightRiverNetwork } from "./river-map.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
@@ -158,19 +159,23 @@ function openPinCard(id) {
   const [first, ...rest] = p.facts || [];
   const v = first && (typeof first.value === "number" ? first.value.toLocaleString(undefined, { maximumFractionDigits: 3 }) : String(first.value));
   const isNote = p.kind === "note";
+  const isReview = p.kind === "review";
   // A note's card leads with its words; the facts they do not already give follow (#562). A scout pin's reason
   // already says its numbers (all formatted by the package); its facts stay in pins() (#563).
   const note = isNote ? noteBody(p) : p.rank ? p.text : [p.text, ...rest.map(factLine)].filter(Boolean).join(" · ");
+  const sev = isReview ? REVIEW_SEVERITY[p.severity] || REVIEW_SEVERITY.info : null;
   // The pin's card is what was asked for now: the log folds so the two do not stack (its count reopens it).
   if (logOpen) setLogOpen(false);
   actions.openMapCard({
     id: `pin:${id}`, lngLat: [p.lon, p.lat], lift: isNote ? 14 : 30,
-    what: !isNote && p.rank ? `Scout ${p.rank}${p.kind ? `, ${p.kind}` : ""} · ${BY_LABEL[e.by] || e.by}` : `Note, ${BY_LABEL[e.by] || e.by}`,
+    what: isReview ? `Review ${p.rank}, ${p.check} · ${BY_LABEL[e.by] || e.by}`
+      : !isNote && p.rank ? `Scout ${p.rank}${p.kind ? `, ${p.kind}` : ""} · ${BY_LABEL[e.by] || e.by}` : `Note, ${BY_LABEL[e.by] || e.by}`,
+    ...(sev ? { status: { text: sev.words, color: sev.colour } } : {}),
     whatIcon: `<span class="ma-pin-mini" aria-hidden="true">${PIN_SVG}</span>`,
     title: p.title, sub: [p.place || `${p.lat.toFixed(3)}, ${p.lon.toFixed(3)}`, p.when].filter(Boolean).join(" · "),
     figure: !isNote && first ? { value: v, unit: first.unit || "", label: first.label } : null,
     note, credit: p.credit || p.source || "",
-    buttons: [{ id: "unpin", label: isNote ? "Remove note" : "Remove pin", title: "Undo this pin",
+    buttons: [{ id: "unpin", label: isNote ? "Remove note" : isReview ? "Remove this finding" : "Remove pin", title: "Undo this pin",
       onClick: () => { undoEntry(id); actions.closeMapCard(); } }],
   });
   // Its callout steps back while the card says the same thing in full.
@@ -248,7 +253,12 @@ function drawPin(id, pin) {
   el.type = "button";
   el.className = pin.rank ? "ma-pin ranked" : "ma-pin";
   el.innerHTML = pin.rank ? rankedPin(pin.rank) : PIN_SVG;
-  el.setAttribute("aria-label", pin.rank ? `Scout ${pin.rank}: ${pin.title}` : `Note: ${pin.title}`);
+  el.setAttribute("aria-label", pin.rank ? `${pin.kind === "review" ? "Review" : "Scout"} ${pin.rank}: ${pin.title}` : `Note: ${pin.title}`);
+  if (pin.kind === "review") {
+    // A review pin (#564) wears its severity: red a problem, amber worth a look, blue for information.
+    el.classList.add("review", `sev-${pin.severity}`);
+    el.style.setProperty("--pin", (REVIEW_SEVERITY[pin.severity] || REVIEW_SEVERITY.info).colour);
+  }
   el.title = pin.title;
   el.addEventListener("click", (ev) => { ev.stopPropagation(); openPinCard(id); });
   const marker = new maplibregl.Marker({ element: el, anchor: "bottom" }).setLngLat([pin.lon, pin.lat]).addTo(map);

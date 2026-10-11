@@ -29,6 +29,7 @@ import { initBulletin } from "./src/bulletin.js?v=__BUILD__";
 import { initFloodsAhead } from "./src/floods-ahead.js?v=__BUILD__";  // Floods ahead (#546), on by default
 import { initFloodDepth } from "./src/flood-depth.js?v=__BUILD__";  // flood depth where floods are forecast (#554)
 import { initMeshView } from "./src/mesh-view.js?v=__BUILD__";  // your model results on the globe (#555)
+import { initMeshReview } from "./src/mesh-review.js?v=__BUILD__";  // review my model results (#564)
 import { initSearch } from "./src/search.js?v=__BUILD__";
 import { initShell, initTabs, selectTab, setStatusEl, showSurface } from "./src/shell.js?v=__BUILD__";
 import { initStationPanel, reanalyze, selectStation, setPeriod } from "./src/panel-station.js?v=__BUILD__";
@@ -193,6 +194,7 @@ function bringMapOnline(url) {
   initFloodsPast();
   initGroundwater();
   initMeshView();
+  initMeshReview();
   initMapActions();   // after every layer it can switch (#561)
   // A selection made while the map was still dark has nothing on the map yet.
   if (state.selected) {

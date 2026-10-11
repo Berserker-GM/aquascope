@@ -7,7 +7,10 @@
 // the browser.
 //
 // Messages in: { type: "init", pyodideIndexURL, wheelsJson }, { type: "open", id, file, crs },
-// { type: "frame", id, step }, { type: "series", id, cell }, { type: "close", id }.
+// { type: "frame", id, step }, { type: "series", id, cell }, { type: "close", id }, and for the review (#564,
+// aquascope.mesh_review): { type: "inside", id, rows } (the gauges standing in a cell), { type: "review", id,
+// context }, { type: "prompt", id, findings, context } and { type: "words", id, findings, reply, by } (a model's
+// reply held to the claim lock).
 // Messages out: { type: "progress", text }, { type: "ready" }, { id, result } or { id, error }.
 
 let pyodide = null;
@@ -35,6 +38,7 @@ async function boot({ pyodideIndexURL, wheelsJson }) {
   await pyodide.runPythonAsync(`
 import json
 from aquascope.io import mesh as _mesh
+from aquascope import mesh_review as _review
 _M = None
 `);
   post({ type: "ready" });
@@ -115,6 +119,27 @@ function series({ id, cell }) {
   post({ id, result: JSON.parse(out) });
 }
 
+// The review's calls: their arguments travel as one JSON string and come back as one.
+function reviewCall({ id, type, rows, context, findings, reply, by }) {
+  pyodide.globals.set("_rq", JSON.stringify({ type, rows: rows || [], context: context || null, findings: findings || [],
+    reply: reply === undefined ? null : reply, by: by || "model", text: typeof context === "string" ? context : "" }));
+  const out = pyodide.runPython(`
+_q = json.loads(_rq)
+if _M is None:
+    raise _mesh.MeshError("No model result is open.")
+if _q["type"] == "inside":
+    _o = _review.gauges_inside(_M, _q["rows"])
+elif _q["type"] == "review":
+    _o = _review.review(_M, context=_q["context"])
+elif _q["type"] == "prompt":
+    _o = _review.review_prompt(_q["findings"], _q["text"])
+else:
+    _o = _review.apply_words(_q["findings"], _q["reply"], by=_q["by"])
+json.dumps(_o, default=str)
+`);
+  post({ id, result: JSON.parse(out) });
+}
+
 self.onmessage = async (e) => {
   const m = e.data || {};
   try {
@@ -127,6 +152,7 @@ self.onmessage = async (e) => {
     if (m.type === "open") await openFile(m);
     else if (m.type === "frame") frame(m);
     else if (m.type === "series") series(m);
+    else if (["inside", "review", "prompt", "words"].includes(m.type)) reviewCall(m);
     else if (m.type === "close") {
       pyodide.runPython("_M.close() if _M is not None else None\n_M = None");
       post({ id: m.id, result: true });

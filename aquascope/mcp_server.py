@@ -768,6 +768,21 @@ def mesh_summary(path: str, crs: str | None = None) -> dict[str, Any]:
     return _summary(path, crs=crs)
 
 
+def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dict[str, Any]:
+    """Review a model result on a mesh (#564): checks made by code on a HEC-RAS 2D plan HDF5 file or a UGRID
+    NetCDF file on this machine. The deepest places (with depth and the model time), negative depths, cells
+    wetted only by a film, isolated wet cells, wet and dry flicker, the model's own volume error (HEC-RAS
+    volume accounting), the modelled largest extent against floods seen by Sentinel-1 radar (Microsoft AI for
+    Good, 2014-10 to 2024-09) and floods in the news (Groundsource) from the Archive's context mirror (saying so
+    when the run's months are outside those records), and the modelled peak against each Archive gauge inside
+    the mesh (or a line saying there is none). Each finding has its lat/lon, severity (problem, warning,
+    info), value, unit, reason and source; each check has a line saying what it found or why it was skipped.
+    offline=true runs only the checks on the file. Numbers come from code."""
+    from aquascope.mesh_review import review_file
+
+    return review_file(path, crs=crs, context=not offline)
+
+
 def archive_health() -> dict[str, Any]:
     """Status of the last catalog harvest per source (health.json from the Archive)."""
     import httpx
@@ -1508,6 +1523,7 @@ def build_server():
     server.tool()(map_scout)
     server.tool()(explain_view)
     server.tool()(mesh_summary)
+    server.tool()(mesh_review)
     server.tool()(list_analyses)
     server.tool()(analyse_table)
     server.tool()(station_view)

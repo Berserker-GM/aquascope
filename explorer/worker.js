@@ -11,7 +11,7 @@ let ready = null;
 // network without them: a place's context layers, a click's river snap and the quick forecast. Several run at
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
-const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain"]);
+const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1204,6 +1204,42 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── Review my model results (#564): what lies outside the dropped file, for aquascope.mesh_review (the checks
+// themselves run in mesh-worker.js beside the file). op "floods" reads the Sentinel-1 radar and news flood events
+// around the mesh from the Archive's context mirror (a light worker can); "gauges" reads each gauge's record over
+// the run and "llm" asks the reader's own model with their key (the main worker only).
+async function meshReviewOp({ id, op, bbox, gauges, start, end, findings, context, provider, model, api_key, base_url }) {
+  self.__aqReview = JSON.stringify({
+    op: String(op || ""), bbox: bbox || null, gauges: gauges || [], start: start || null, end: end || null,
+    findings: findings || [], context: String(context || ""),
+    llm: { provider: provider || null, model: model || null, api_key: api_key || null, base_url: base_url || null },
+  });
+  const code = `
+import json
+from js import __aqReview
+from aquascope import mesh_review as _mr
+_a = json.loads(__aqReview)
+try:
+    if _a["op"] == "floods":
+        _out = _mr.gather_floods(_a["bbox"])
+    elif _a["op"] == "gauges":
+        _out = {"gauges": _mr.gauge_series(_a["gauges"], _a["start"], _a["end"])}
+    elif _a["op"] == "llm":
+        _out = _mr.model_words(_a["findings"], context=_a["context"], **_a["llm"])
+    else:
+        _out = {"error": "unknown op"}
+except (ValueError, RuntimeError) as exc:
+    _out = {"error": str(exc)}
+json.dumps(_out, default=str)
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqReview = null;
+  }
+}
+
 // ── Explain what is on screen (#562): aquascope.map_explain, the same functions as `aquascope layers explain`
 // and the MCP tool explain_view. op "facts" reads the view into facts and template notes (the month's status
 // file is fetched here and handed over as bytes); "check" holds a model's notes to the facts (the claim lock);
@@ -1378,6 +1414,7 @@ self.onmessage = async (e) => {
     if (m.type === "map_command") return await mapCommand(m);
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
+    if (m.type === "mesh_review") return await meshReviewOp(m);
     if (m.type === "groundwater") return await groundwater(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the

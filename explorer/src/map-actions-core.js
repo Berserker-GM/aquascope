@@ -90,6 +90,14 @@ export function checkPin(p) {
     out.credit = p.credit ? String(p.credit).slice(0, 400) : "";
     out.group = p.group ? String(p.group).slice(0, 40) : "";
   }
+  // A review finding (#564) flags cells of the user's model: which mesh, which cells, how severe.
+  if (p.kind === "review") {
+    out.kind = "review";
+    out.severity = ["problem", "warning", "info"].includes(p.severity) ? p.severity : "info";
+    out.check = p.check ? String(p.check).slice(0, 40) : "";
+    out.mesh = p.mesh ? String(p.mesh).slice(0, 200) : "";
+    out.cells = Array.isArray(p.cells) ? p.cells.slice(0, 5000).map(Number).filter((c) => Number.isInteger(c) && c >= 0) : [];
+  }
   return out;
 }
 

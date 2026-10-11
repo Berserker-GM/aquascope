@@ -91,6 +91,28 @@ async function ask(type, payload = {}) {
   });
 }
 
+// ── for the review (#564, mesh-review.js): the open mesh, its worker, and a word when it goes ────
+
+/** The model on the map: { meta, arrays } (the arrays are the reader's typed arrays), or null. */
+export const currentMesh = () => (mesh ? { meta: mesh.meta, arrays: mesh.arrays } : null);
+
+/** A call to the mesh worker, where the file is open. */
+export const meshAsk = (type, payload = {}) => ask(type, payload);
+
+const clearedHooks = new Set();
+/** Run fn(name) when the model on the map is removed or replaced. */
+export function onMeshCleared(fn) { clearedHooks.add(fn); return () => clearedHooks.delete(fn); }
+
+let reviewSection = () => "";
+/** The review's part of the legend row (mesh-review.js sets it). */
+export function setReviewSection(fn) { reviewSection = fn; }
+
+/** Redraw the legend row (the review calls it when its result changes). */
+export function refreshMeshLegend() { if (mesh) refreshLegend("mesh"); }
+
+/** The layer the review's cell flags go under: the arrows, so they stay readable on top. */
+export const meshFlagsBefore = () => (map && map.getLayer(ARROWS) ? ARROWS : beforeId());
+
 // ── the status card: reading, errors, the coordinate system question ──────
 
 function showStatus({ text = "", busy = false, error = false, askCrs = false, keep = false } = {}) {
@@ -557,6 +579,9 @@ function keyHtml() {
         ? `<p class="mv-line muted">Arrows at ${escapeHtml(modelTime(meta.times[step]))}` +
           `${step === meta.peak_step ? ", when the most water is on the mesh" : ""}.</p>` : "")
     : "";
+  const reviewBtn = actions.reviewModel
+    ? '<button type="button" class="fd-go" data-act="review" title="Checks by code on this run: the deepest water, ' +
+      'odd depths, wet and dry cells, the volume balance, observed floods and gauges">Review these results</button>' : "";
   const stepBtn = meta.times.length
     ? (view === "max"
       ? '<button type="button" class="fd-go" data-act="steps">Step through the run</button>'
@@ -565,10 +590,10 @@ function keyHtml() {
     `<div class="fd-ramp" role="img" aria-label="${escapeHtml(words)} from ${escapeHtml(String(scale.lo))} to ${escapeHtml(String(scale.hi))}${unit ? ` ${escapeHtml(unit)}` : ""}, light to deep blue" style="background:${rampCss()}"></div>` +
     `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>` +
     velocity + notes +
-    `<p class="mv-actions">${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
+    `<p class="mv-actions">${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
     `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
-    `stays in your browser</p>`;
+    `stays in your browser</p>` + reviewSection(meta.name);
 }
 
 // "NAD83 / Pennsylvania North (ftUS) (EPSG:2271)" -> "EPSG:2271"
@@ -597,6 +622,7 @@ function registerRow() {
       else if (name === "largest") { showLargest(); }
       else if (name === "zoom") zoomTo(900);
       else if (name === "open") { pickFile(); }
+      else if (name === "review") { if (actions.reviewModel) void actions.reviewModel(); }
       else if (name === "clear") { clearMesh(); }
     },
   });
@@ -616,7 +642,9 @@ export function clearMesh({ keepStatus = false, keepWorker = false } = {}) {
   selected = -1;
   if (map) removeLayers();
   const had = Boolean(mesh);
+  const name = mesh ? mesh.meta.name : null;
   mesh = null;
+  if (had) for (const fn of clearedHooks) { try { fn(name); } catch (err) { console.warn("mesh cleared", err && err.message); } }
   frame = null;
   frames.clear();
   seriesCache = new Map();
@@ -692,4 +720,5 @@ export function initMeshView() {
     }, 0);
   });
   actions.openModelFile = openModelFile;
+  actions.hasModel = () => Boolean(mesh);
 }
