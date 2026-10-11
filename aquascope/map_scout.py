@@ -44,6 +44,7 @@ import re
 import shutil
 import tempfile
 import time
+import unicodedata
 from collections import deque
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -1019,9 +1020,11 @@ def _mark_places(findings: list[dict[str, Any]]) -> None:
 
 _NUMBER_WORDS = re.compile(
     r"\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|"
-    r"sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|"
-    r"thousand|million|billion|half|twice|double|triple|thrice|quarter|dozen|percent|first|third|"
-    r"record|highest|lowest|largest|smallest|most|unprecedented)\b", re.I)
+    r"sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundreds?|"
+    r"thousands?|millions?|billions?|half|halved|halves|twice|double[ds]?|triple[ds]?|thrice|quarters?|dozens?|"
+    r"percent|first|third|\w+fold|decades?|century|centuries|"
+    r"records?|highest|lowest|largest|smallest|biggest|greatest|worst|strongest|weakest|wettest|driest|"
+    r"deepest|most|least|unprecedented)\b", re.I)
 
 
 def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | None, str | None]:
@@ -1035,7 +1038,9 @@ def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | N
     if unknown:
         return None, f"unknown slot {{{unknown[0]}}}"
     bare = re.sub(r"\{\w+\}", " ", raw)
-    if re.search(r"[0-9%‰½¼¾]", bare) or _NUMBER_WORDS.search(bare) or "{" in bare or "}" in bare:
+    # Any character that stands for a number counts too: other scripts' digits, fractions, Roman numerals.
+    numeric = any(c in "%‰" or unicodedata.numeric(c, None) is not None for c in bare)
+    if numeric or _NUMBER_WORDS.search(bare) or "{" in bare or "}" in bare:
         return None, "a number or a ranking word outside the slots"
     filled = re.sub(r"\{(\w+)\}", lambda m: slots[m.group(1)], raw)
     filled = re.sub(r"\s+", " ", filled).strip()

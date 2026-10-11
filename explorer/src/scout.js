@@ -243,6 +243,10 @@ function clearLast() {
     if (e && !e.undone) undoEntry(id);
   }
   lastPins = [];
+  // Explain's numbered notes (#562) step aside too: two sets of numbers on one map read as one list.
+  for (const e of log.live().filter((x) => x.action && x.action.type === "add_pin" && x.after && x.after.kind === "note").reverse()) {
+    undoEntry(e.id);
+  }
 }
 
 // The line steps aside after a while (the caption it covers comes back); the pins and their undo stay.

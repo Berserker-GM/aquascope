@@ -174,8 +174,9 @@ The **Scout** pill beside **Ask the map** looks at the view on screen and drops 
 ten numbered pins on what stands out, most worth a look first. Each pin opens a card
 with its title, its reason in a sentence or two, the main number and where it came
 from. The pins go in the action log, so **Undo all** or a pin's **Remove pin** takes
-them away, and a second Scout replaces the first one's pins. A pin's row in the log
-opens its card.
+them away, and a second Scout replaces the first one's pins. Scout and **Explain this
+view** take turns: each clears the other's numbered marks, so one set of numbers is on
+the map at a time. A pin's row in the log opens its card.
 
 ![Scout: ten pins on what stands out today](img/globe/563-scout-globe.png)
 

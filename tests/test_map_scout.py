@@ -309,10 +309,16 @@ def test_check_wording_holds_numbers_to_the_slots():
     ok, why = ms.check_wording("{place}: the river may reach {peak}", slots, 80)
     assert ok == "Paraná, Brazil: the river may reach 2,840 m³/s" and why is None
     for bad in ("{place}: about 3,000 m³/s", "{place}: twice its usual flow", "{place}: a record flood",
-                "{place}: 50% of members", "{place}: the {nowhere}", ""):
+                "{place}: 50% of members", "{place}: the {nowhere}", "",
+                # plurals, multiples, spans of time, other superlatives and other scripts' digits (review of #575)
+                "{place}: thousands of people", "{place}: flow doubled", "{place}: a tenfold rise",
+                "{place}: the worst in decades", "{place}: the driest September", "{place}: ½ the usual flow",
+                "{place}: ٣ rivers"):
         text, why = ms.check_wording(bad, slots, 80)
         assert text is None and why
     assert ms.check_wording("{place} " * 20, slots, 80) == (None, "too long")
+    # Plain words that only look like numbers pass: "someone", "often", "tendency".
+    assert ms.check_wording("{place}: someone often sees this tendency", slots, 80)[0]
 
 
 def _three():
@@ -496,7 +502,9 @@ def test_explorer_kind_labels_match():
 
 def test_worker_runs_the_scout_in_a_light_worker():
     worker = (ROOT / "explorer" / "worker.js").read_text()
-    assert '"scout"]);' in worker and "_sc.scout_view(" in worker and "_sc.apply_wording(" in worker
+    lite = re.search(r"const LITE_TYPES = new Set\(\[([^\]]*)\]\)", worker)
+    assert lite and '"scout"' in lite.group(1)
+    assert "_sc.scout_view(" in worker and "_sc.apply_wording(" in worker
 
 
 def test_daily_workflow_writes_and_publishes_scout_only():
