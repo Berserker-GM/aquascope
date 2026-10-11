@@ -144,6 +144,17 @@ export const datedExtras = new Map();
 // Map layers whose features take a click before the map's own "select this
 // point" does (#543). The module that owns the layer handles the click.
 export const clickLayers = new Set();
+// A layer the reader brought to the map (their own model results, #555) answers a click on itself before the
+// background layers do: it registers a claim (lngLat -> bool), and Floods ahead and Floods past step aside for
+// a click it claims. Gauges still come first.
+const clickClaims = new Set();
+export function claimClicks(fn) { clickClaims.add(fn); return () => clickClaims.delete(fn); }
+export function clickClaimed(e) {
+  for (const fn of clickClaims) {
+    try { if (fn(e.lngLat)) return true; } catch (err) { console.warn("click claim:", err && err.message); }
+  }
+  return false;
+}
 
 // Filled in by the modules that own each behaviour (breaks import cycles).
 export const actions = {

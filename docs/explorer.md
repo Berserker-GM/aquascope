@@ -858,6 +858,52 @@ The numbers come from `aquascope.nownext`: `plume()` for a reach (the members by
 `forecast_plume`. Model output, under CC BY 4.0 (the forecast) and CC BY-NC-SA 4.0
 (GEOGLOWS's return periods), and not an official warning.
 
+## Your model results on the globe (the Crayfish view)
+
+Drop a HEC-RAS 2D plan file (`*.p01.hdf`) or a UGRID NetCDF mesh result (`*.nc`: D-Flow
+FM, ADH, ADCIRC and others) on the map, or use **Tools**, **Open model results**, and the
+mesh is drawn on the globe, as RAS Mapper or QGIS with Crayfish would show it. Nothing is
+installed and nothing is uploaded: the file is read in your browser.
+
+![A HEC-RAS 2D run on the globe, a cell's card open](img/globe/555-hecras-card.png)
+
+- **The picture.** The largest depth in each cell over the run, in blues (light and
+  see-through when shallow, deep blue when deep), on a square-root scale up to the
+  file's own 99th percentile. A file without bed levels shows the water surface instead,
+  and says so. From zoom 13 the cell edges are drawn faintly.
+- **The arrows.** One arrow for about every 34 pixels on screen, pointing where the water
+  goes, longer when faster. In the largest view they show the step with the most water
+  on the mesh.
+- **Particles.** Tick **Particles** in the legend and white traces drift with the current
+  (sped up so the fastest water crosses the screen in a few seconds).
+- **Time.** The time bar switches to the model's own clock and says so ("Model time: 37
+  steps, 1 Jan 1999 12:00 to 4 Jan 12:00"). Step and play through the run; **Back to
+  dates** returns it to the map date. **Show the largest** in the legend or the card goes
+  back to the largest view.
+- **A click on a cell** opens the map card: the depth (or water surface) and the velocity
+  at the step on show, the largest over the run, and the time series at that cell.
+- **One legend row** with the file's name: the ramp and its units, the arrows and
+  particles, **Zoom to** and **Remove**.
+
+![A UGRID mesh of San Diego Bay (ADH), the largest depth](img/globe/555-ugrid-sandiego.png)
+
+A file that does not say its coordinate system gets one question: its EPSG code (the
+UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read gets one
+plain sentence why: not a model result, a HEC-RAS geometry file with no results in it,
+over 2 GB, or over 250,000 cells.
+
+**How it works.** The file is handed to a worker with its own Python (Pyodide), mounted
+read-only (WORKERFS) so its bytes are read from the file as needed and never copied into
+memory. `aquascope.io.mesh` reads the cells, the maxima and the step with the most water
+once, then one time step or one cell when asked (h5py for HEC-RAS and NetCDF-4, scipy for
+NetCDF-3). The page works out once which cell covers each pixel of the picture, so a time
+step only looks colours up: a mesh of a quarter of a million cells plays smoothly. The same
+reader is `aquascope mesh FILE` and the MCP tool `mesh_summary` ([mesh.md](mesh.md)).
+
+![Particles drifting with the current](img/globe/555-particles.png)
+
+![The same run on a phone](img/globe/555-phone.png)
+
 ## The monthly bulletin
 
 **Bulletin** in the Tools menu opens last month's state of the rivers in a reader:
