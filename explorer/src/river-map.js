@@ -10,8 +10,9 @@ import { currentBasemap, ensureShapeImages, fitBoundsTo, map, waitingForIdle } f
 import {
   FLOW_FPS, FLOW_STEPS, RIVERS_ATTRIBUTION, STREAMS_PMTILES, cumulativeKm, damsGeoJSON, flowDash, flowOpacity,
   highlightColor, highlightOpacity, highlightWidth, lineBounds, lineUpTo, networkStates, networkSummary, riverOpacity,
-  riverTheme, riverWidth,
+  riverOpacityFlow, riverTheme, riverThemeKind, riverWidth,
 } from "./river-core.js?v=__BUILD__";
+import { FS_UNCLASSED_OPACITY, flowColorExpr } from "./flowstatus-core.js?v=__BUILD__";
 
 let added = false;
 let animation = 0;
@@ -41,6 +42,38 @@ function beforeGauges() {
 
 function theme() { return riverTheme(currentBasemap() || state.basemap); }
 
+// How the plain network is coloured: null, one calm blue; "flow", each reach by its flow against normal (#559,
+// flowstatus-layer.js sets the classes as feature-state "fs" and asks for this).
+let colouring = null;
+let extras = null;       // the Rivers row's extra words and controls, from flowstatus-layer.js
+
+function netPaint() {
+  const dim = lit.size > 1 ? 0.5 : 1;
+  if (colouring === "flow") {
+    return { color: flowColorExpr(riverThemeKind(currentBasemap() || state.basemap)),
+      opacity: riverOpacityFlow(FS_UNCLASSED_OPACITY, dim) };
+  }
+  return { color: theme().line, opacity: riverOpacity(dim) };
+}
+
+/** Colour the network by flow against normal ("flow") or plainly (null). */
+export function setRiverColouring(mode) {
+  colouring = mode === "flow" ? "flow" : null;
+  if (!state.mapOk || !map || !map.getLayer("river-net-line")) return;
+  const p = netPaint();
+  map.setPaintProperty("river-net-line", "line-color", p.color);
+  map.setPaintProperty("river-net-line", "line-opacity", p.opacity);
+}
+
+/**
+ * Words and controls another module adds to the Rivers row: { summary() -> text|null, mark() -> html|null,
+ * body() -> html, act(name, el) -> bool (true when it handled the action) }.
+ */
+export function setRiverRowExtras(def) {
+  extras = def || null;
+  refreshLegend("rivers");
+}
+
 export function ensureRiverLayers() {
   if (!state.mapOk || !map) return false;
   if (added && map.getSource("river-trace") && map.getSource("river-dams")) return true;
@@ -61,7 +94,8 @@ export function ensureRiverLayers() {
         id, type: "line", source: "river-net", "source-layer": "streams",
         layout: { ...LAYOUT, visibility: "none" }, paint,
       }, before);
-      line("river-net-line", { "line-color": th.line, "line-opacity": riverOpacity(), "line-width": riverWidth() });
+      const p = netPaint();
+      line("river-net-line", { "line-color": p.color, "line-opacity": p.opacity, "line-width": riverWidth() });
       line("river-flow", { "line-color": th.flow, "line-opacity": flowOpacity(), "line-width": riverWidth(),
         "line-dasharray": flowDash(0), ...FLOW_STILL });
       line("river-hl-casing", { "line-color": th.casing, "line-opacity": highlightOpacity(0.85),
@@ -111,6 +145,7 @@ function hookMap() {
   if (hooked) return;
   hooked = true;
   map.on("style.load", () => {
+    litShown = new Map();   // a new style starts with no feature-state at all
     if (!map.getLayer("river-net-line")) return;
     restyle();
     applyStates();
@@ -124,7 +159,9 @@ function hookMap() {
 function restyle() {
   const th = theme();
   const paint = (id, prop, v) => { if (map.getLayer(id)) map.setPaintProperty(id, prop, v); };
-  paint("river-net-line", "line-color", th.line);
+  const p = netPaint();
+  paint("river-net-line", "line-color", p.color);
+  paint("river-net-line", "line-opacity", p.opacity);
   paint("river-flow", "line-color", th.flow);
   for (const [prop, v] of Object.entries(FLOW_STILL)) paint("river-flow", prop, v);
   paint("river-hl-casing", "line-color", th.casing);
@@ -194,14 +231,19 @@ function syncFlow() {
 // ── the lit network: what drains here and the way to the sea ────────────────
 
 let lit = new Map();     // riverId -> HL role, as set on the map
+let litShown = new Map();  // what is set on the map now, so only those "hl" states are taken off
 let litFor = null;       // the reach it belongs to
 let hereFeature = null;  // the ring
 
 function applyStates() {
   if (!map || !map.getSource("river-net")) return;
-  if (map.getLayer("river-net-line")) map.setPaintProperty("river-net-line", "line-opacity", riverOpacity(lit.size > 1 ? 0.5 : 1));
-  try { map.removeFeatureState(NET); } catch { /* nothing set yet */ }
+  if (map.getLayer("river-net-line")) map.setPaintProperty("river-net-line", "line-opacity", netPaint().opacity);
+  // Only the lit network's own key comes off: the reaches also carry their flow class ("fs", #559).
+  for (const id of litShown.keys()) {
+    if (!lit.has(id)) { try { map.removeFeatureState({ ...NET, id }, "hl"); } catch { /* style swapping */ } }
+  }
   for (const [id, hl] of lit) map.setFeatureState({ ...NET, id }, { hl });
+  litShown = new Map(lit);
   if (map.getSource("river-here")) {
     map.getSource("river-here").setData(hereFeature ? { type: "FeatureCollection", features: [hereFeature] } : EMPTY_FC);
   }
@@ -296,15 +338,19 @@ export function registerRiverRows() {
   });
   registerLegendRow({
     id: "rivers", title: "Rivers",
-    mark: () => `<i class="ml-line-mark" style="--c:${th().line}"></i>`,
-    summary: () => (state.flowOn ? "by size, flowing" : "by size"),
+    mark: () => (extras && extras.mark && extras.mark()) || `<i class="ml-line-mark" style="--c:${th().line}"></i>`,
+    summary: () => (extras && extras.summary && extras.summary()) || (state.flowOn ? "by size, flowing" : "by size"),
     on: () => Boolean(state.riversOn),
     toggle: (on) => railToggle("toggle-rivers", on),
     body: () => '<p class="ml-when">The GEOGLOWS v2 network: wider for bigger rivers, small streams as you zoom in. ' +
       "Click one to light what drains to it and its way to the sea.</p>" +
+      (extras && extras.body ? extras.body() : "") +
       `<label class="ml-check"><input type="checkbox" data-act="flow" ${state.flowOn ? "checked" : ""}> The water's direction, moving</label>` +
       '<p class="ml-src">TDX-Hydro (NGA), CC BY-SA 4.0, shown and not republished.</p>',
-    act: (name, el) => { if (name === "flow") railToggle("toggle-flow", el.checked); },
+    act: (name, el) => {
+      if (extras && extras.act && extras.act(name, el)) return;
+      if (name === "flow") railToggle("toggle-flow", el.checked);
+    },
   });
 }
 

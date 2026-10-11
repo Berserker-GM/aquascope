@@ -72,6 +72,8 @@ export const LAYER_DEFAULTS = {
   status: true,
   // Groundwater (#558): the wells' head surface, off until asked for.
   groundwater: false,
+  // Flow vs normal on the rivers (#559): off until asked for, from the Rivers row of the legend.
+  flowNormal: false,
 };
 
 export const state = {

@@ -57,6 +57,13 @@ export function riverWidth() { return byZoom(WIDTH, (stops) => byOrder(stops)); 
 // `scale` dims the plain network while a click's network is lit, so the answer stands out.
 export function riverOpacity(scale = 1) { return byZoom(OPACITY, (stops) => byOrder(stops, (v) => Number((v * scale).toFixed(3)))); }
 export function flowOpacity() { return byZoom(FLOW_OPACITY, (stops) => byOrder(stops)); }
+// Flow vs normal (#559): a reach with a class keeps the network's opacity, one without fades to `dim` of it, so
+// the classes carry the picture. `scale` dims both while a click's network is lit.
+export function riverOpacityFlow(dim = 0.35, scale = 1) {
+  const fs = [">", ["coalesce", ["feature-state", "fs"], 0], 0];
+  const r = (v) => Number(v.toFixed(3));
+  return byZoom(OPACITY, (stops) => ["case", fs, byOrder(stops, (v) => r(v * scale)), byOrder(stops, (v) => r(v * scale * dim))]);
+}
 
 // The network around a clicked reach is drawn by feature-state on riverId:
 // hl 1 = drains here (upstream), 2 = on the way to the sea, 3 = the reach itself.
@@ -86,6 +93,11 @@ export const RIVER_THEMES = {
   dark: { line: "#4f9de0", flow: "#e2f1ff", up: "#8fd0ff", down: "#ff9d42", casing: "#0b141d" },
   imagery: { line: "#6bb9f2", flow: "#ffffff", up: "#a8dcff", down: "#ff9d42", casing: "#0b141d" },
 };
+export function riverThemeKind(basemap) {
+  if (basemap === "dark") return "dark";
+  if (basemap === "satellite" || basemap === "satellite-recent") return "imagery";
+  return "light";
+}
 export function riverTheme(basemap) {
   if (basemap === "dark") return RIVER_THEMES.dark;
   if (basemap === "satellite" || basemap === "satellite-recent") return RIVER_THEMES.imagery;
