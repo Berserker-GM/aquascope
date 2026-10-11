@@ -7,6 +7,9 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **The daily jobs prune their dated files** (#597, part of the 1.0 milestone): the publish step of `flowstatus/`, `forecasts/warnings/` and `scout/` keeps the latest files, every dated file of the last 60 days (counted back from the newest) and the first of each month before that, and deletes the older dated files and their manifest history entries in the same Hugging Face commit, inside its own folder only. Unpruned, `flowstatus/` and `forecasts/warnings/` would each grow by a few hundred MB a year. `publish --dry-run` lists what would be pruned and uploads nothing. `forecasts/issued/` (the archive of record) and `forecasts/status/` (about 22 kB a day) are kept whole. The rule is `aquascope.archive.retention`, documented in [docs/archive.md](docs/archive.md#retention-of-the-daily-files); `publish_folder` gains `delete=`.
+
 ### Fixed
 - Record the verified v0.27.0 Zenodo DOI (`10.5281/zenodo.23301359`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
 
