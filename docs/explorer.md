@@ -351,8 +351,9 @@ Who reads the line, in the same order as Ask the map:
    +1.5 °C". This always works.
 2. **The model on your device**, then **your own key** from Ask ✨. The model only
    fills the four parameters (rain %, warming, evaporation %, demand). A number it
-   gives that is not in your words is refused (the claim lock), and the line under the
-   box says who read it. The values go into the sliders before the run, so you see
+   gives that is not in your words, one your words say once but it uses twice, one
+   going the other way from your words ("20% more rain" is never -20), or one outside
+   the limits is refused (the claim lock), and the line under the box says who read it. The values go into the sliders before the run, so you see
    exactly what runs.
 
 Every run is in the action log with its undo; a new run replaces the painting and undo

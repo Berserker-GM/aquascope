@@ -63,7 +63,7 @@ export const colorOf = (v) => CLASSES[classOf(v)].color;
 
 /**
  * The line colour for the stream tiles: each painted reach in its class colour, the ones left of the swipe
- * (`before`, a Set of river ids) in the neutral grey, everything else transparent (the filter hides it anyway).
+ * (`before`, a Set of river ids) in the rivers' own blue (BEFORE), everything else transparent (the filter hides it anyway).
  */
 export function lineColorExpr(reaches, measure = "mean", before = null) {
   const key = (MEASURES[measure] || MEASURES.mean).key;

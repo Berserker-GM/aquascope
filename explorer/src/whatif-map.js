@@ -18,6 +18,7 @@ import { askModelConfig, currentContext } from "./ask.js?v=__BUILD__";
 import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-model.js?v=__BUILD__";
 import { STREAMS_PMTILES } from "./river-core.js?v=__BUILD__";
 import { clearRiverNetwork } from "./river-map.js?v=__BUILD__";
+import { clearCatchment } from "./basins.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import {
   CLASSES, MEASURES, NEUTRAL, basinRows, beforeSet, classOf, lineColorExpr, lineFilterExpr, logLabel, outletLines,
@@ -80,7 +81,9 @@ function ensureLayers() {
         "circle-stroke-width": ["case", outlet, 2.5, 1.5], "circle-stroke-color": ["case", outlet, "#0f1c26", "#ffffff"] } });
     map.addLayer({ id: L.label, type: "symbol", source: L.pts,
       layout: { "text-field": ["get", "text"], "text-font": ["Noto Sans Bold"], "text-size": 12.5,
-        "text-anchor": "left", "text-offset": [0.9, 0], "text-allow-overlap": true, "symbol-sort-key": ["get", "rank"] },
+        // The outlet's label clears the click's pin, which stands on the same point.
+        "text-anchor": "left", "text-offset": ["case", outlet, ["literal", [1.4, 0.6]], ["literal", [0.9, 0]]],
+        "text-allow-overlap": true, "symbol-sort-key": ["get", "rank"] },
       paint: { "text-color": "#0f1c26", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.8 } });
     hook();
     return true;
@@ -203,8 +206,9 @@ function paint(value, { frame = true } = {}) {
     refreshLegend("whatif");
     return;
   }
-  // The click's own lit network (what drains here, the way to the sea) would compete with the painting.
-  if (frame) clearRiverNetwork();
+  // The click's own lit network (what drains here, the way to the sea) and its HydroBASINS wash would compete
+  // with the painting: the basin here is the one the model ran on, drawn in its change.
+  if (frame) { clearRiverNetwork(); clearCatchment(); }
   draw();
   scheduleLearn();
   if (frame) frameResult(value.result);
