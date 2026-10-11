@@ -649,6 +649,45 @@ def flood_depth_overlay(river_id: int | None = None, bbox: list[float] | None = 
     return _depth(river_id, bbox=bbox, return_period=return_period, day=day)
 
 
+def groundwater_surface(west: float | None = None, south: float | None = None, east: float | None = None,
+                        north: float | None = None, month: str | None = None, mode: str = "level",
+                        compare: str | None = None, grid: bool = False) -> dict[str, Any]:
+    """A groundwater-level surface from the Archive's wells (the ModelMuse view of the measurements), for a box
+    [west, south, east, north] (default every well) and a month (YYYY-MM; default the newest month most wells report
+    in). The Archive mirrors the Environment Agency's wells in England, heads in m above Ordnance Datum. mode "level"
+    is the head surface, "change" the change since compare (default 12 months earlier). Inverse distance weighting,
+    drawn only where at least 3 wells lie within 20 km (the density mask, in `rule`). Returns the summary, the wells
+    with their values, the colour range and the shares rising and falling; grid=True adds the grid values. A picture
+    of the measurements, not a groundwater model (`not`). OGL v3.0."""
+    from aquascope.groundwater.surface import groundwater_surface as _surface
+    from aquascope.groundwater.surface import surface_summary
+
+    box = [west, south, east, north] if None not in (west, south, east, north) else None
+    res = _surface(box, month=month, mode=mode, compare=compare)
+    return res if grid else surface_summary(res)
+
+
+def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: list[str] | None = None,
+                  origin_x: float | None = None, origin_y: float | None = None, rotation: float | None = None,
+                  crs: str | None = None, cell_size: float | None = None, start_date: str | None = None,
+                  time_index: int = -1, layer: int | None = None, geojson: bool = False) -> dict[str, Any]:
+    """Read a local MODFLOW binary head file (MODFLOW-2005 or 6, .hds) onto the map: its grid from grid_path
+    (.dis, .disv or .dis.grb), sidecar_paths (a .nam with FloPy's georeference comment, a MODFLOW 6 .tdis), or
+    cell_size; placed by origin_x/origin_y (lower-left corner), rotation (degrees) and crs (e.g. EPSG:27700) where the
+    files do not say. Returns the grid, layers, times (dates with start_date), the head range, per-layer statistics
+    at the last time and one frame (time_index, 1-based layer); geojson=True adds that frame's cells as GeoJSON in
+    lon/lat. When the model's place is unknown the answer says what is needed (`needs`). Files are read locally."""
+    from aquascope.groundwater.surface import modflow_geojson, modflow_summary, read_modflow_heads
+
+    origin = [origin_x, origin_y] if origin_x is not None and origin_y is not None else None
+    res = read_modflow_heads(hds_path, grid_path, origin=origin, rotation=rotation, crs=crs, cell_size=cell_size,
+                             start_date=start_date, sidecars=sidecar_paths)
+    out = modflow_summary(res, time_index, layer)
+    if geojson and not res.get("error"):
+        out["geojson"] = modflow_geojson(res, time_index, layer)
+    return out
+
+
 def river_status_summary(month: str | None = None) -> dict[str, Any]:
     """Where the rivers are low or high in one month of the world river status map (YYYY-MM; default the
     newest), in one line: reads the month's GeoTIFF and gives, for a few named regions (rough boxes such as
@@ -1450,6 +1489,8 @@ def build_server():
     server.tool()(layer_frames)
     server.tool()(river_status_month)
     server.tool()(flood_depth_overlay)
+    server.tool()(groundwater_surface)
+    server.tool()(modflow_heads)
     server.tool()(river_status_summary)
     server.tool()(map_command)
     server.tool()(map_scout)

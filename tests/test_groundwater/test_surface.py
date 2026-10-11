@@ -370,3 +370,84 @@ def test_groundwater_surface_reads_the_archive(monkeypatch):
     assert res["n_wells_reporting"] == 9 and res["mode"] == "change" and res["grid"]
     with pytest.raises(ValueError, match="uk_ea"):
         gs.groundwater_surface(source="usgs")
+
+
+# ── the faces: CLI and MCP ──────────────────────────────────────────────────
+
+
+def test_cli_modflow_prints_and_writes_geojson(tmp_path, monkeypatch, capsys):
+    import json
+    import sys
+
+    from aquascope import cli
+
+    hds = tmp_path / "m.hds"
+    hds.write_bytes(hds_bytes(heads_2x3x4()))
+    out = tmp_path / "frame.geojson"
+    monkeypatch.setattr(sys, "argv", ["aquascope", "modflow", str(hds), "--cell-size", "0.01", "--origin", "10", "45",
+                                      "--crs", "EPSG:4326", "--layer", "2", "--start-date", "2024-01-01",
+                                      "--geojson", str(out)])
+    cli.main()
+    text = capsys.readouterr().out
+    assert "layer 2, 2024-02-01: heads 101 to 112 on 12 cells" in text
+    assert len(json.loads(out.read_text())["features"]) == 12
+
+
+def test_cli_modflow_says_what_it_needs(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from aquascope import cli
+
+    hds = tmp_path / "m.hds"
+    hds.write_bytes(hds_bytes(heads_2x3x4()))
+    monkeypatch.setattr(sys, "argv", ["aquascope", "modflow", str(hds)])
+    with pytest.raises(SystemExit):
+        cli.main()
+    assert "Where is this model?" in capsys.readouterr().out
+
+
+def test_cli_groundwater_surface(monkeypatch, capsys):
+    import sys
+
+    from aquascope import cli
+
+    wells, readings = plane_wells(n=3)
+    res = gs.surface_from_readings(wells, readings, month="2025-03", mode="change")
+    seen = {}
+
+    def fake(bbox, **kw):
+        seen.update(kw, bbox=bbox)
+        return res
+
+    monkeypatch.setattr("aquascope.groundwater.surface.groundwater_surface", fake)
+    monkeypatch.setattr(sys, "argv", ["aquascope", "groundwater", "surface", "--mode", "change", "--month", "2025-03",
+                                      "--bbox", "-2", "51", "0", "53"])
+    cli.main()
+    text = capsys.readouterr().out
+    assert seen == {"bbox": [-2.0, 51.0, 0.0, 53.0], "month": "2025-03", "mode": "change", "compare": None}
+    assert "March 2024 to March 2025" in text and "within 20 km" in text and "Open Government Licence" in text
+
+
+def test_cli_groundwater_still_needs_analysis_without_surface(monkeypatch):
+    import sys
+
+    from aquascope import cli
+
+    monkeypatch.setattr(sys, "argv", ["aquascope", "groundwater", "--analysis", "trend"])
+    with pytest.raises(SystemExit):
+        cli.main()
+
+
+def test_mcp_tools(tmp_path, monkeypatch):
+    from aquascope import mcp_server as m
+
+    hds = tmp_path / "m.hds"
+    hds.write_bytes(hds_bytes(heads_2x3x4()))
+    out = m.modflow_heads(str(hds), cell_size=0.01, origin_x=10, origin_y=45, crs="4326", geojson=True)
+    assert out["frame"]["cells_with_head"] == 12 and out["geojson"]["type"] == "FeatureCollection"
+    assert m.modflow_heads(str(hds))["needs"] == ["grid", "origin", "crs"]
+    wells, readings = plane_wells(n=3)
+    res = gs.surface_from_readings(wells, readings, month="2025-03")
+    monkeypatch.setattr("aquascope.groundwater.surface.groundwater_surface", lambda *a, **k: res)
+    assert "values" not in m.groundwater_surface()["grid"]
+    assert "values" in m.groundwater_surface(grid=True)["grid"]
