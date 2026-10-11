@@ -195,7 +195,7 @@ function rowBody() {
     `<p class="wb-note">${escapeHtml(variableNote(v, m, { normals: !noNormal }))}</p>` +
     (v === "q" || v === "closure" || m === "anom"
       ? `<p class="wb-note muted"><i class="wb-none" style="background:${NO_VALUE}"></i>${m === "anom" && v !== "q" && v !== "closure"
-        ? "no normal yet" : "no outlet reach here or upstream"}${era5t ? "; ERA5T, preliminary" : ""}</p>`
+        ? "no normal yet" : "no runoff worked out here (the card says why)"}${era5t ? "; ERA5T, preliminary" : ""}</p>`
       : era5t ? '<p class="wb-note muted">ERA5T, preliminary</p>' : "") +
     `<p class="ml-src">${escapeHtml(WB_SHORT_CREDIT)} <button type="button" class="ml-link" data-act="info">About</button></p>`;
 }
@@ -240,6 +240,10 @@ function about() {
     centres fall in the subbasin, weighted by area. <strong>Runoff</strong>: the runoff the subbasin makes itself, the
     GEOGLOWS v2 monthly flow at its outlet reach minus the flow coming in from the subbasins upstream, spread over its
     area. <strong>Closure</strong>: P − ET − Q.</p>
+    <p>Runoff is withheld, and the card says why, where that difference cannot be trusted: the reach paired with the
+    outlet carries less than half the inflow (a delta, a coast with several outlets), the river brings in more than a
+    metre of water a month over the subbasin, the outlet carries more than the rain over the record, or the inflow
+    comes from a subbasin that fails one of these. The flows stay in the published table.</p>
     <p><strong>The closure error is shown, not hidden.</strong> It holds the change in storage (soil, snow, groundwater,
     lakes and reservoirs), which swings with the seasons, and the errors of three products made separately. Over whole
     years it should be small; where it is not, one of the three is off. GEOGLOWS is itself driven by ERA5 runoff, so the

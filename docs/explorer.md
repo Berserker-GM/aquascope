@@ -582,7 +582,14 @@ month from January 1990, so play walks the months.
   outlet reach minus the flow coming in from the level-4 subbasins upstream, spread over
   its area (BasinATLAS). Brown where the river leaves smaller than it came in. Grey where
   GEOGLOWS has no outlet reach for the subbasin or for one upstream of it (457 of 1,342,
-  mostly deserts, coasts and islands).
+  mostly deserts, coasts and islands), and where the difference cannot be trusted, so it
+  is withheld (the card says which check, the flows stay in the table): the reach paired
+  with the outlet carries less than half the inflow (a delta, a coast with several
+  outlets), the river brings in more than a metre of water a month over the subbasin (a
+  small subbasin on a big river, where 5 % of the inflow is already 50 mm), the outlet
+  carries more than the rain over the record, or the inflow comes from a subbasin that
+  fails one of these. On the nine months of 2026 that withholds 37 subbasins and leaves
+  848 with runoff; without it the Amazon mouth showed a loss of over 100,000 mm in a month.
 ![Runoff in September 2026: brown where the Nile loses water](img/globe/waterbalance-runoff.png)
 
 - **Closure**: P − ET − Q, **shown as it comes out, never hidden**. It holds the change in
@@ -633,8 +640,10 @@ at the default 300-minute budget, since each run reads the published table first
 the missing months newest first until its budget, and publishes what it has. After that, a
 monthly run recomputes the newest three months (ERA5T becoming final), about 8 to 11 GB, a
 few minutes. Every run's summary reports its rate and extrapolates the backfill. The
-published files come to about 35 MB for the whole record (the table about 14 MB, the
-year files about 0.5 MB each, the outlines 1.9 MB). Level 5 (about 4,700 subbasins) would
+published files come to about 35 to 50 MB for the whole record (the table 14 to 25 MB,
+the year files about 0.5 to 0.7 MB each, the outlines 1.9 MB; the upper ends measured on a
+full-size table of random numbers, which compress worse than real ones). Writing that
+full-size table took 3 minutes and 3.3 GB of memory at most, inside a runner's 7 GB. Level 5 (about 4,700 subbasins) would
 read the same ERA5 chunks, so it costs the same; what it lacks is GEOGLOWS's outlet
 pairing, which exists for level 4 only, so this layer stays at level 4.
 

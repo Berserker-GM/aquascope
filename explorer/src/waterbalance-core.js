@@ -38,6 +38,22 @@ const RAMPS = {
 const ANOM_COLORS = ["#8c510a", "#d8b365", "#f6e8c3", "#f5f5f5", "#c7eae5", "#5ab4ac", "#01665e"];
 const ANOM_SPAN = { p: [10, 40, 100], et: [5, 15, 40], q: [5, 20, 50], closure: [10, 40, 100] };
 
+// Why a subbasin's runoff is withheld though its reaches exist (the outline's "c", aquascope.waterbalance
+// RUNOFF_CHECKS): fixed words only.
+export const RUNOFF_WITHHELD = {
+  outlet: "the reach paired with its outlet carries less than half of what flows in, so it is not the river leaving it.",
+  through: "the river brings in more than a metre of water a month over it, so its own runoff is lost in the difference of two large flows.",
+  ratio: "over the record its outlet carries more water than falls on it as rain, so the paired reach drains more than this subbasin.",
+  upstream: "its inflow comes from a subbasin whose outlet reach fails these checks.",
+};
+
+/** The card's line on a subbasin without runoff, from the outline's properties, or null where it has runoff. */
+export function runoffNote(props = {}) {
+  if (String(props.r) !== "0") return null;
+  const why = RUNOFF_WITHHELD[props.c];
+  return why ? `Runoff withheld: ${why}` : "No runoff here: GEOGLOWS has no outlet reach for this subbasin or for one upstream of it.";
+}
+
 export const variableOf = (id) => VARIABLES.find((v) => v.id === id) || VARIABLES[0];
 
 /** The colour stops, [[mm, colour], ...] ascending, for a variable shown as an amount or against its normal. */
@@ -205,7 +221,8 @@ export function balanceBars(rows, { month = null, normalP = null, w = 264, h = 9
     if (Number.isFinite(r.p_mm)) vals.push(r.p_mm);
     const out = (Number.isFinite(r.et_mm) ? r.et_mm : 0) + (Number.isFinite(r.q_mm) ? Math.max(0, r.q_mm) : 0);
     vals.push(out);
-    if (normalP && Number.isFinite(normalP[i])) vals.push(normalP[i]);
+    const np = normalP && normalP[+String(r.month).slice(5, 7) - 1];   // the calendar month's normal
+    if (Number.isFinite(np)) vals.push(np);
   });
   const lows = rows.map((r) => (Number.isFinite(r.q_mm) ? Math.min(0, r.q_mm) : 0));
   const hi = Math.max(1, ...vals);
@@ -273,7 +290,8 @@ export function basinCard(doc, k, month, props = {}, { normals = null, variable 
   const normalP = normals && Array.isArray(normals.p) ? normals.p.map((mrow) => (mrow ? mrow[k] : null)) : null;
   const hasNormal = Boolean(normalP && normalP.some(Number.isFinite));
   const notes = [];
-  if (String(props.r) === "0") notes.push("No runoff here: GEOGLOWS has no outlet reach for this subbasin or for one upstream of it.");
+  const rn = runoffNote(props);
+  if (rn) notes.push(rn);
   if (row.era5t) notes.push("ERA5T, preliminary: recomputed once ERA5 is final (about three months on).");
   const full = rows.length === 12 && rows.every((r) => Number.isFinite(r.closure_mm));
   if (full) {

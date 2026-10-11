@@ -1681,7 +1681,9 @@ def cmd_waterbalance(args: argparse.Namespace) -> None:
         for r in res["series"]:
             print(f"  {r['month']:<8} {mm(r['p_mm']):>6} {mm(r['et_mm']):>6} {mm(r['q_mm']):>7} "
                   f"{mm(r['closure_mm']):>7}   {mm(r['p_anom']):>14}")
-        if res.get("runoff_ok") is False:
+        if res.get("runoff_withheld_because"):
+            print(f"  No runoff here: {res['runoff_withheld_because']}.")
+        elif res.get("runoff_ok") is False:
             print("  No runoff here: GEOGLOWS has no outlet reach for this subbasin or one upstream of it.")
     elif res.get("furthest_from_normal"):
         v = res["variable"]

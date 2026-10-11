@@ -6,7 +6,8 @@ January 1990:
 ``p_mm``        precipitation, ERA5 total precipitation, area-weighted over the subbasin
 ``et_mm``       actual evapotranspiration, ERA5 total evaporation (sign flipped), area-weighted the same way
 ``q_mm``        the runoff the subbasin itself makes: the GEOGLOWS v2 monthly flow at its outlet reach(es) minus
-                the flow coming in from the level-4 subbasins upstream, spread over its own area
+                the flow coming in from the level-4 subbasins upstream, spread over its own area; withheld (with
+                why) where that difference cannot be trusted (:func:`runoff_checks`)
 ``closure_mm``  P minus ET minus Q. Shown, never hidden: it holds the change in storage (soil, snow, groundwater,
                 lakes and reservoirs) and the errors of three products that were not made to agree. Month by month
                 it swings with the seasons; over whole years a steady basin's should be small.
@@ -93,6 +94,19 @@ LABELS = {"p": "rain", "et": "evaporation", "q": "runoff", "closure": "closure e
 UNITS = "mm per month"
 GEOJSON_TOLERANCE = 0.05     # degrees: a level-4 subbasin drawn on the globe, not a survey
 GEOJSON_MIN_PART = 0.02      # square degrees: islands and holes smaller than this are left out of the outline
+# Runoff that cannot be trusted is withheld per subbasin (see :func:`runoff_checks`), never painted as a number:
+OUTLET_SHARE = 0.5           # the outlet carries less than half the inflow, over the record: not the main river
+THROUGH_MM = 1000.0          # the inflow is more than a metre of water a month over the subbasin, on average
+RATIO_MONTHS = 12            # months needed before "more runoff than rain over the record" is judged
+RUNOFF_CHECKS = {
+    "outlet": "the GEOGLOWS reach paired with its outlet carries less than half of what flows in, so it is not "
+              "the river leaving it (a delta or a coast with several outlets, or another river)",
+    "through": "the river brings in more than a metre of water a month over it, so its own runoff is lost in the "
+               "difference of two large flows (5 % of the inflow is already 50 mm)",
+    "ratio": "over the record its outlet carries more water than falls on it as rain, so the paired reach drains "
+             "more than this subbasin",
+    "upstream": "its inflow comes from a subbasin whose outlet reach fails one of these checks",
+}
 
 METHOD = (
     "For every HydroBASINS level-4 subbasin and month: P and ET are ERA5's hourly total precipitation and total "
@@ -111,7 +125,10 @@ NOT = (
     "Modelled, not measured: a reanalysis and a routed model, not gauges. Q is missing where GEOGLOWS has no outlet "
     "reach for the subbasin, or where an upstream subbasin has none (its inflow cannot be taken off). A negative Q "
     "means the river leaves the subbasin smaller than it came in (evaporation from the channel, irrigation, "
-    "losses to the ground), or that the model's routing moves water across the month boundary."
+    "losses to the ground), or that the model's routing moves water across the month boundary. Q is also withheld "
+    "(the flows are kept in the table) where it cannot be trusted: where the paired outlet reach carries less than "
+    "half the inflow, where the inflow is more than a metre of water a month over the subbasin, where the outlet "
+    "carries more than the rain over the record, or downstream of a subbasin whose outlet fails those checks."
 )
 LICENCE = {
     "era5": "ERA5 hourly single levels (ARCO-ERA5 copy on Google Cloud): CC BY 4.0, Copernicus Climate Change "
@@ -466,6 +483,56 @@ def outlet_flow(outlets: list[list[int]], flows: dict[int, float]) -> list[float
     return out
 
 
+def runoff_checks(rows: list[dict[str, Any]], basins: Basins) -> dict[int, str]:
+    """The subbasins whose runoff is withheld, with why (a key of :data:`RUNOFF_CHECKS`).
+
+    Q is a difference of two routed flows spread over the subbasin, and the HydroSOS pairing gives one outlet
+    reach per subbasin. Judged on the whole table's means (months with a runoff value), a subbasin fails when its
+    outlet carries less than ``OUTLET_SHARE`` of its inflow (``outlet``), when the inflow is more than
+    ``THROUGH_MM`` a month over it (``through``), or when, over at least ``RATIO_MONTHS`` months, it runs off more
+    than it receives as rain (``ratio``). A subbasin downstream of an ``outlet`` or ``ratio`` failure takes that
+    outlet's flow as its inflow, so it fails too (``upstream``).
+    """
+    pos = {h: i for i, h in enumerate(basins.ids)}
+    sums: dict[int, list[float]] = {}   # months, outlet and inflow m3/s, inflow mm; runoff, rain (mm), their months
+    for r in rows:
+        i = pos.get(int(r["hybas_id"]))
+        if i is None or r.get("q_mm") is None or r.get("q_out_cms") is None or r.get("q_in_cms") is None:
+            continue
+        s = sums.setdefault(int(r["hybas_id"]), [0.0] * 7)
+        s[0] += 1
+        s[1] += float(r["q_out_cms"])
+        s[2] += float(r["q_in_cms"])
+        area = basins.area_km2[i]
+        s[3] += float(r["q_in_cms"]) * month_seconds(r["month"]) / (area * 1e6) * 1000.0 if area > 0 else 0.0
+        if r.get("p_mm") is not None:     # runoff against rain over the same months
+            s[4] += float(r["q_mm"])
+            s[5] += float(r["p_mm"])
+            s[6] += 1
+    out: dict[int, str] = {}
+    for h, (n, qout, qin, in_mm, q, p, n_p) in sums.items():
+        if qin > 0 and qout < OUTLET_SHARE * qin:
+            out[h] = "outlet"
+        elif in_mm / n > THROUGH_MM:
+            out[h] = "through"
+        elif n_p >= RATIO_MONTHS and q > p:
+            out[h] = "ratio"
+    bad = {h for h, why in out.items() if why in ("outlet", "ratio")}
+    for i, ups in enumerate(basins.up):
+        h = basins.ids[i]
+        if h in sums and h not in out and any(basins.ids[u] in bad for u in ups):
+            out[h] = "upstream"
+    return out
+
+
+def withhold_runoff(rows: list[dict[str, Any]], checks: dict[int, str]) -> None:
+    """Blank ``q_mm`` and ``closure_mm`` of the subbasins in ``checks``; the flows stay, so anyone can redo it."""
+    for r in rows:
+        if int(r["hybas_id"]) in checks:
+            r["q_mm"] = None
+            r["closure_mm"] = None
+
+
 def balance_month(month: str, p: list[float | None], et: list[float | None], q_out: list[float | None],
                   basins: Basins) -> list[dict[str, Any]]:
     """One month's rows: P, ET, the subbasin's own runoff (outlet minus inflow, in mm) and the closure error."""
@@ -548,7 +615,7 @@ def basin_sentence(row: dict[str, Any], *, area_km2: float | None = None) -> str
     if c is not None:
         text += f"; P - ET - Q leaves {c:+.0f} mm"
     elif row.get("q_mm") is None:
-        text += "; no runoff, so no closure (no GEOGLOWS outlet reach here or upstream)"
+        text += "; no runoff worked out here, so no closure"
     pa = row.get("p_anom")
     if pa is not None:
         text += f". Rain was {abs(pa):.0f} mm {'above' if pa >= 0 else 'below'} the 1991-2020 normal for the month"
@@ -603,15 +670,19 @@ MONTHLY_SCHEMA = [("hybas_id", "int64"), ("month", "string"), ("p_mm", "float32"
                   ("closure_anom", "float32")]
 
 
-def basins_rows(basins: Basins) -> list[dict[str, Any]]:
-    up, ok = basins.up, basins.runoff_ok
+def basins_rows(basins: Basins, checks: dict[int, str] | None = None) -> list[dict[str, Any]]:
+    """The subbasins table. ``runoff_ok``: a runoff value is published (an outlet reach here and upstream, and the
+    checks passed); ``runoff_check``: why it is withheld when the reaches exist (a key of :data:`RUNOFF_CHECKS`)."""
     import numpy as np
+
+    up, ok, checks = basins.up, basins.runoff_ok, checks or {}
 
     ncell = np.bincount(basins.cell_basin, minlength=basins.n)
     return [{"hybas_id": h, "k": i, "area_km2": round(basins.area_km2[i], 1), "lat": round(basins.lat[i], 4),
              "lon": round(basins.lon[i], 4), "outlets": basins.outlets[i],
              "down_id": basins.ids[basins.down[i]] if basins.down[i] >= 0 else None,
-             "up_ids": [basins.ids[u] for u in up[i]], "linked": bool(basins.outlets[i]), "runoff_ok": ok[i],
+             "up_ids": [basins.ids[u] for u in up[i]], "linked": bool(basins.outlets[i]),
+             "runoff_ok": ok[i] and h not in checks, "runoff_check": checks.get(h) if ok[i] else None,
              "era5_cells": int(ncell[i])} for i, h in enumerate(basins.ids)]
 
 
@@ -637,18 +708,22 @@ def outline(geom: Any) -> Any:
     return out[0] if len(out) == 1 else shapely.MultiPolygon(out)
 
 
-def basins_geojson(basins: Basins) -> dict[str, Any]:
+def basins_geojson(basins: Basins, checks: dict[int, str] | None = None) -> dict[str, Any]:
+    """The outlines: ``k`` the row in the year files, ``a`` km2, ``r`` 1 where runoff is published, and ``c`` why
+    it is withheld where the reaches exist but a check failed."""
     import shapely
 
     feats = []
-    ok = basins.runoff_ok
+    ok, checks = basins.runoff_ok, checks or {}
     for i, g in enumerate(basins.geometry):
         o = outline(g) if g is not None else None
         if o is None:
             continue
-        feats.append({"type": "Feature", "properties": {"k": i, "id": str(basins.ids[i]),
-                                                        "a": round(basins.area_km2[i]), "r": int(ok[i])},
-                      "geometry": json.loads(shapely.to_geojson(o))})
+        props = {"k": i, "id": str(basins.ids[i]), "a": round(basins.area_km2[i]),
+                 "r": int(ok[i] and basins.ids[i] not in checks)}
+        if ok[i] and basins.ids[i] in checks:
+            props["c"] = checks[basins.ids[i]]
+        feats.append({"type": "Feature", "properties": props, "geometry": json.loads(shapely.to_geojson(o))})
     return {"type": "FeatureCollection", "features": feats}
 
 
@@ -785,6 +860,8 @@ def run(out: str | Path, *, repo_id: str = DEFAULT_REPO, start: str = START, end
         for r in balance_month(month, p, et, q_out, basins):
             r["era5t"] = era5t
             rows.append(r)
+    checks = runoff_checks(rows, basins)
+    withhold_runoff(rows, checks)
     norms = normals(rows)
     add_anomalies(rows, norms)
     root = Path(out) / FOLDER
@@ -796,12 +873,12 @@ def run(out: str | Path, *, repo_id: str = DEFAULT_REPO, start: str = START, end
              for h in basins.ids for m in range(1, 13)]
     _write_table(nrows, root / "normals.parquet", [("hybas_id", "int64"), ("month_of_year", "int64")] +
                  [(f"{v}_mm", "float32") for v in VARIABLES])
-    _write_table(basins_rows(basins), root / "basins.parquet", [
+    _write_table(basins_rows(basins, checks), root / "basins.parquet", [
         ("hybas_id", "int64"), ("k", "int64"), ("area_km2", "float64"), ("lat", "float64"), ("lon", "float64"),
         ("outlets", "list<int64>"), ("down_id", "int64"), ("up_ids", "list<int64>"), ("linked", "bool"),
-        ("runoff_ok", "bool"), ("era5_cells", "int64")])
+        ("runoff_ok", "bool"), ("runoff_check", "string"), ("era5_cells", "int64")])
     if basins.geometry:
-        (root / "basins.geojson").write_text(json.dumps(basins_geojson(basins), separators=(",", ":")))
+        (root / "basins.geojson").write_text(json.dumps(basins_geojson(basins, checks), separators=(",", ":")))
     (root / "normals.json").write_text(json.dumps(normals_doc(norms, basins), separators=(",", ":"), allow_nan=False))
     years = year_files(rows, basins)
     (root / "years").mkdir()
@@ -813,7 +890,9 @@ def run(out: str | Path, *, repo_id: str = DEFAULT_REPO, start: str = START, end
         "made": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "first_month": months[0] if months else None, "last_month": months[-1] if months else None,
         "months": len(months), "years": sorted(years), "basins": basins.n,
-        "linked": sum(basins.linked), "runoff_ok": sum(basins.runoff_ok), "rows": len(rows), "values": counts,
+        "linked": sum(basins.linked), "runoff_ok": sum(basins.runoff_ok) - len(checks),
+        "runoff_withheld": {why: sum(1 for x in checks.values() if x == why) for why in RUNOFF_CHECKS},
+        "runoff_checks": RUNOFF_CHECKS, "rows": len(rows), "values": counts,
         "computed": sorted(era5), "skipped_for_time": sorted(skipped), "missing_hours": missing_hours,
         "era5_final_until": layout.get("final_until"), "era5t_until": layout.get("era5t_until"),
         "geoglows_last_month": q["last_month"], "normal_period": f"{NORMAL_YEARS[0]}-{NORMAL_YEARS[1]}",
@@ -826,7 +905,8 @@ def run(out: str | Path, *, repo_id: str = DEFAULT_REPO, start: str = START, end
     }
     (root / "manifest.json").write_text(json.dumps(manifest, indent=1, allow_nan=False))
     return {k: manifest[k] for k in ("first_month", "last_month", "months", "basins", "linked", "runoff_ok",
-                                     "computed", "skipped_for_time", "missing_hours", "smoke", "cost")}
+                                     "runoff_withheld", "computed", "skipped_for_time", "missing_hours", "smoke",
+                                     "cost")}
 
 
 def publish(out: str | Path, *, repo_id: str = DEFAULT_REPO, token: str | None = None) -> str:
@@ -954,7 +1034,9 @@ def water_balance(hybas_id: int | None = None, lat: float | None = None, lon: fl
         info = binfo.get(int(hybas_id), {})
         series = [{k: (_r1(v) if isinstance(v, float) else v) for k, v in r.items()} for r in rows]
         return {**base, "found": True, "hybas_id": int(hybas_id), "area_km2": info.get("area_km2"),
-                "runoff_ok": info.get("runoff_ok"), "outlets": info.get("outlets"), "down_id": info.get("down_id"),
+                "runoff_ok": info.get("runoff_ok"), "runoff_check": info.get("runoff_check"),
+                "runoff_withheld_because": RUNOFF_CHECKS.get(info.get("runoff_check") or ""),
+                "outlets": info.get("outlets"), "down_id": info.get("down_id"),
                 "up_ids": info.get("up_ids"), "month": last["month"], "this_month": last,
                 "sentence": basin_sentence(last, area_km2=info.get("area_km2")), "series": series,
                 "normals": [{k: (_r1(v) if isinstance(v, float) else v) for k, v in r.items()} for r in norm]}

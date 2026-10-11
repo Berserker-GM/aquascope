@@ -3,8 +3,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   NO_VALUE, VARIABLES, balanceBars, basinCard, basinSentence, colorFor, fieldOf, fillColorExpression, frameValues,
-  hasNormals, monthIndex, rampCss, rampEnds, rampStops, readWbParam, rowOf, rowSummary, variableNote, wbDatedLayer,
-  wbMonthFor,
+  hasNormals, monthIndex, rampCss, rampEnds, rampStops, readWbParam, rowOf, rowSummary, runoffNote, variableNote,
+  wbDatedLayer, wbMonthFor,
 } from "../src/waterbalance-core.js";
 
 // A year file as aquascope.waterbalance.year_files writes it: two months, three subbasins.
@@ -127,4 +127,21 @@ test("normals count only when some subbasin has one", () => {
   assert.equal(hasNormals(null), false);
   assert.equal(hasNormals({ p: [[null, null], [null, null]] }), false);
   assert.equal(hasNormals({ p: [[null, 3.2]] }), true);
+});
+
+test("a subbasin without runoff says why: no reach, or which check withheld it", () => {
+  assert.equal(runoffNote({ r: 1 }), null);
+  assert.match(runoffNote({ r: 0 }), /no outlet reach/);
+  assert.match(runoffNote({ r: 0, c: "through" }), /^Runoff withheld: the river brings in more than a metre/);
+  assert.match(runoffNote({ r: 0, c: "outlet" }), /less than half/);
+  assert.match(basinCard(doc, 0, "2026-09", { id: "1", a: 10, r: 0, c: "upstream" }).note, /fails these checks/);
+});
+
+test("the normal rain tick is the calendar month's, also in a year that starts late", () => {
+  const late = { ...doc, months: ["2026-08", "2026-09"] };
+  const rows = late.months.map((_, i) => rowOf(late, i, 2));     // 5 mm of rain at most
+  const normalP = Array(12).fill(null);
+  normalP[8] = 400;                                               // September's normal, far above the bars
+  const svg = balanceBars(rows, { month: "2026-09", normalP });
+  assert.match(svg, />400 mm</);                                  // the scale makes room for September's tick
 });

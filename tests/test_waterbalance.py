@@ -78,6 +78,41 @@ def test_no_runoff_without_an_outlet_here_or_upstream_and_a_loss_is_kept():
     assert "lost" in wb.basin_sentence(neg[2])
 
 
+def _month_rows(b, flows, months, p=(100.0, 100.0, 100.0)):
+    rows = []
+    for m in months:
+        rows += wb.balance_month(m, list(p), [10.0] * 3, wb.outlet_flow(b.outlets, flows), b)
+    return rows
+
+
+def test_runoff_that_cannot_be_trusted_is_withheld_with_why_and_the_flows_are_kept():
+    b = _basins(area=(1000.0, 2000.0, 500.0))
+    months = wb.month_range("2021-01", "2021-12")
+    # a sane chain: 0 makes 10 m3/s, 2 adds 4 of its own
+    ok = _month_rows(b, {11: 10.0, 12: 5.0, 13: 10.0, 14: 4.0}, months[:1])
+    assert wb.runoff_checks(ok, b) == {}
+    # 2's paired outlet carries a fifth of what flows in: not the river leaving it (a delta, another river)
+    delta = _month_rows(b, {11: 10.0, 12: 5.0, 13: 1.0, 14: 1.0}, months[:1])
+    assert wb.runoff_checks(delta, b) == {103: "outlet"}
+    # a big river through a small subbasin: the inflow is metres of water a month over it
+    big = _basins(area=(100000.0, 2000.0, 50.0))
+    through = _month_rows(big, {11: 1000.0, 12: 5.0, 13: 1000.0, 14: 30.0}, months[:1])
+    assert wb.runoff_checks(through, big) == {103: "through"}
+    # over a year, 0 runs off more than its rain: its reach drains more, and 2 takes that as its inflow
+    wet = _month_rows(b, {11: 100.0, 12: 5.0, 13: 100.0, 14: 4.0}, months)
+    assert wb.runoff_checks(wet[:3], b) == {}                   # one month is not a record
+    checks = wb.runoff_checks(wet, b)
+    assert checks == {101: "ratio", 103: "upstream"}
+    wb.withhold_runoff(wet, checks)
+    r0 = next(r for r in wet if r["hybas_id"] == 101)
+    assert r0["q_mm"] is None and r0["closure_mm"] is None and r0["q_out_cms"] == 100.0 and r0["p_mm"] == 100.0
+    assert "no runoff worked out here" in wb.basin_sentence(r0)
+    rows = {r["hybas_id"]: r for r in wb.basins_rows(b, checks)}
+    assert rows[101]["runoff_ok"] is False and rows[101]["runoff_check"] == "ratio"
+    assert rows[102]["runoff_ok"] is True and rows[102]["runoff_check"] is None
+    assert set(wb.RUNOFF_CHECKS) == {"outlet", "through", "ratio", "upstream"}
+
+
 def test_a_missing_reach_flow_leaves_the_subbasin_without_an_outlet_flow():
     assert wb.outlet_flow([[1, 2], [], [3]], {1: 1.0, 3: 2.0}) == [None, None, 2.0]
 
