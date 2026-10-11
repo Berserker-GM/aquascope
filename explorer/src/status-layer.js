@@ -36,6 +36,7 @@ let listing = null;
 let shown = null;           // the month on the map
 let wanted = null;          // the month the date asks for
 let failed = null;          // { month } when the last one could not be read
+let pending = null;         // the month being read, so Explain (#562) can wait for it
 let side = 2048;            // the picture's width and height
 let worker = null;          // a Worker, or false once it has failed
 let reqId = 0;
@@ -236,6 +237,7 @@ function update() {
     console.warn(`status ${month}:`, err && err.message);
     if (wanted === month) { failed = { month }; renderLegend(); }
   });
+  pending = job.catch(() => {});
   holdSettle(job);   // a play waits for the frame (map.js whenSettled)
 }
 
@@ -421,6 +423,15 @@ export function setStatusFocus(classes = []) {
 }
 
 export const getStatusFocus = () => focus.slice();
+
+/** Resolves once the month the date asks for is drawn (or failed), for Explain (#562). */
+export const statusReady = () => (state.status && pending ? pending : Promise.resolve());
+
+/** The month on the map and its file, for Explain (#562): { month, url }, or null when none is drawn. */
+export function statusShown() {
+  if (!state.status || !shown) return null;
+  return { month: shown, url: statusUrl(shown) };
+}
 
 export function initStatusLayer(url = {}) {
   side = pictureSize();

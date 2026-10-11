@@ -955,14 +955,26 @@ def _merge_time(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+# "What am I seeing?": explain the view (#562, aquascope.map_explain), a control like undo rather than an action.
+_EXPLAIN = re.compile(
+    r"(?:please\s+|can you\s+)?(?:"
+    r"what am i (?:seeing|looking at)(?: here| now)?"
+    r"|what(?: is|s) (?:this|that|on (?:the )?(?:screen|map)|going on(?: here)?|happening(?: here)?)"
+    r"|what does (?:this|the map) show"
+    r"|what do (?:the|these) colou?rs mean(?: here)?"
+    r"|explain(?: (?:this|the|my|what is on the|whats on the))?(?: (?:view|map|screen))?(?: to me)?(?: please)?"
+    r"|tell me what i(?: a)?m? (?:see|seeing|looking at)"
+    r")")
+
+
 def parse_command(text: str, today: str | date | None = None) -> dict[str, Any]:
     """Read one plain-English request into checked map actions, with no model and no network.
 
     Returns ``{"text", "matched", "actions", "said", "rules", "errors", "control"}``: ``matched`` is True only
     when every word of the request was understood (so "show me the Rhine and something clever" is left to a
     model rather than half done); ``said`` is one line per action for the log; ``control`` is "undo" or
-    "undo_all" when the request was about the log itself. Place names stay names (``place``) until
-    :func:`resolve_actions` looks them up.
+    "undo_all" when the request was about the log itself, and "explain" for "what am I seeing?" (#562). Place
+    names stay names (``place``) until :func:`resolve_actions` looks them up.
     """
     t = _today(today)
     folded = _fold(text).strip(" .!?")
@@ -976,6 +988,8 @@ def parse_command(text: str, today: str | date | None = None) -> dict[str, Any]:
     if re.fullmatch(r"(?:please\s+)?(?:undo (?:all|everything|it all)|clear (?:the map|everything|all)|start over"
                     r"|reset(?: the map)?)", folded):
         return {**out, "matched": True, "control": "undo_all", "rules": ["undo_all"]}
+    if _EXPLAIN.fullmatch(folded.replace("'", "")):
+        return {**out, "matched": True, "control": "explain", "rules": ["explain"]}
 
     # The whole request first, then clause by clause: "Bosnia and Herzegovina" is one place.
     clauses = [_parse_clause(text, t)]
