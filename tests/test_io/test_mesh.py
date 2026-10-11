@@ -525,6 +525,10 @@ def test_a_stripped_plan_reads_with_its_geometry_file(tmp_path):
     c.close()
     s = M.mesh_summary(stripped, geometry=geom)
     assert s["ok"] and s["cells"] == 6 and s["max"]["value"] == 3.0
+    assert not any("summary output" in n for n in s["notes"])   # this one kept RAS's summary maxima
+    bare = strip_geometry(full, tmp_path / "bare.p01.hdf", keep_attrs=True, drop=M.RAS_SUMMARY)
+    s = M.mesh_summary(bare)
+    assert s["max"]["value"] == 3.0 and any("over the saved time steps" in n for n in s["notes"])
 
 
 def test_a_geometry_file_that_does_not_fit_is_refused(tmp_path):

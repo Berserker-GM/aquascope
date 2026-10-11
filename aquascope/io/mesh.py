@@ -737,6 +737,9 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
         for a in areas:
             a["lsq"] = None
 
+    if times and not any(f"{RAS_SUMMARY}/2D Flow Areas/{a['name']}/Maximum Water Surface" in fh for a in areas):
+        notes.append("No summary output in this file (a stripped plan keeps none), so the largest is over the saved "
+                     "time steps, not every computation step.")
     angle = _east_north_angle(cx, cy, crs_in, lat) if has_v else None
     src = _RasSource(fh, areas, bed, angle)
     src.n_steps = len(times)
