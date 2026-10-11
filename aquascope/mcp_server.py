@@ -667,6 +667,25 @@ def groundwater_surface(west: float | None = None, south: float | None = None, e
     return res if grid else surface_summary(res)
 
 
+def water_balance(hybas_id: int | None = None, lat: float | None = None, lon: float | None = None,
+                  month: str | None = None, months: int = 24, bbox: list[float] | None = None, variable: str = "p",
+                  limit: int = 20) -> dict[str, Any]:
+    """The monthly water balance of the HydroBASINS level-4 subbasins (the HEC-HMS and QSWAT basin map, #557):
+    precipitation and actual evapotranspiration from ERA5, the subbasin's own runoff from GEOGLOWS v2 (outlet flow
+    minus inflow from upstream subbasins, in mm over its area) and the closure error P - ET - Q, each with its anomaly
+    against the 1991-2020 normal for the calendar month, monthly since 1990, in mm. With hybas_id (or lat and lon):
+    that subbasin's last `months` months up to `month` (YYYY-MM, default the newest), its normals and the month in
+    words. Without: the month's overview, in bbox [west, south, east, north] if given, with the `limit` subbasins
+    furthest from normal in `variable` (p, et, q or closure). MODELLED (a reanalysis and a routed model); the closure
+    error includes the change in storage and is shown, not hidden: say so when you quote it."""
+    from aquascope.waterbalance import water_balance as _wb
+
+    try:
+        return _wb(hybas_id, lat, lon, month, months=months, bbox=bbox, variable=variable, limit=limit)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
 def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: list[str] | None = None,
                   origin_x: float | None = None, origin_y: float | None = None, rotation: float | None = None,
                   crs: str | None = None, cell_size: float | None = None, start_date: str | None = None,
@@ -1518,6 +1537,7 @@ def build_server():
     server.tool()(flood_depth_overlay)
     server.tool()(groundwater_surface)
     server.tool()(modflow_heads)
+    server.tool()(water_balance)
     server.tool()(river_status_summary)
     server.tool()(map_command)
     server.tool()(map_scout)

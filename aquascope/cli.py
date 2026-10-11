@@ -1597,6 +1597,47 @@ def cmd_warnings(args: argparse.Namespace) -> None:
     print(f"  {res.get('not') or ''}")
 
 
+def cmd_waterbalance(args: argparse.Namespace) -> None:
+    """`aquascope waterbalance [--basin ID | --at LAT LON] [--month YYYY-MM]`: subbasins by monthly water balance
+    (#557): rain, evaporation, runoff and the closure error P - ET - Q, against the 1991-2020 normal."""
+    from aquascope.waterbalance import LABELS, water_balance
+
+    lat, lon = (args.at if args.at else (None, None))
+    try:
+        res = water_balance(args.basin, lat, lon, args.month, months=args.months, bbox=args.bbox,
+                            variable=args.variable, limit=args.limit, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+
+    def mm(x: object) -> str:
+        return "" if x is None else f"{x:,.0f}"
+
+    if res.get("series"):
+        print(f"  Subbasin {res['hybas_id']}, {res['area_km2'] or 0:,.0f} km2. mm per month:")
+        print()
+        print(f"  {'Month':<8} {'Rain':>6} {'Evap':>6} {'Runoff':>7} {'P-ET-Q':>7}   {'Rain vs normal':>14}")
+        for r in res["series"]:
+            print(f"  {r['month']:<8} {mm(r['p_mm']):>6} {mm(r['et_mm']):>6} {mm(r['q_mm']):>7} "
+                  f"{mm(r['closure_mm']):>7}   {mm(r['p_anom']):>14}")
+        if res.get("runoff_ok") is False:
+            print("  No runoff here: GEOGLOWS has no outlet reach for this subbasin or one upstream of it.")
+    elif res.get("furthest_from_normal"):
+        v = res["variable"]
+        print()
+        print(f"  Furthest from normal in {LABELS[v]} (mm):")
+        for r in res["furthest_from_normal"]:
+            print(f"  {r['hybas_id']:>12}  {mm(r[f'{v}_mm']):>6}  {r[f'{v}_anom']:+,.0f}")
+    print()
+    print(f"  {res.get('closure') or ''}")
+
+
 def cmd_now(args: argparse.Namespace) -> None:
     """`aquascope now LAT LON | --station SOURCE/ID | --river-id ID`: today against normal and the next 15 days."""
     from aquascope import nownext
@@ -4502,6 +4543,19 @@ def main() -> None:
     p_warn.add_argument("--limit", type=int, default=20, help="Reaches listed (highest class first)")
     p_warn.add_argument("--local", default=None, help="Read an issue written by python -m aquascope.archive.warnings")
     p_warn.add_argument("--json", action="store_true")
+    p_wb = sub.add_parser("waterbalance", help="Subbasins by monthly water balance: rain, evaporation, runoff and "
+                          "the closure error P - ET - Q (ERA5, GEOGLOWS v2; modelled)")
+    p_wb.add_argument("--basin", type=int, default=None, metavar="HYBAS_ID", help="A HydroBASINS level-4 subbasin")
+    p_wb.add_argument("--at", nargs=2, type=float, default=None, metavar=("LAT", "LON"),
+                      help="The subbasin holding this point")
+    p_wb.add_argument("--month", default=None, help="YYYY-MM (default the newest)")
+    p_wb.add_argument("--months", type=int, default=24, help="Months listed for a subbasin (24)")
+    p_wb.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_wb.add_argument("--variable", default="p", choices=["p", "et", "q", "closure"],
+                      help="Without a subbasin: rank the month's subbasins by their anomaly in this")
+    p_wb.add_argument("--limit", type=int, default=20)
+    p_wb.add_argument("--local", default=None, help="Read a folder written by python -m aquascope.waterbalance")
+    p_wb.add_argument("--json", action="store_true")
     p_now = sub.add_parser("now", help="Today against normal and the next 15 days (GEOGLOWS, GloFAS), corrected to a gauge")
     p_now.add_argument("coords", nargs="*", type=float, metavar="LAT LON", help="A point, snapped to its river reach")
     p_now.add_argument("--station", default=None, metavar="SOURCE/ID", help="A gauge: its status, and the forecast "
@@ -5310,6 +5364,7 @@ def main() -> None:
         "now": cmd_now,
         "bulletin": cmd_bulletin,
         "warnings": cmd_warnings,
+        "waterbalance": cmd_waterbalance,
         "watch": cmd_watch,
         "assess": cmd_assess,
         "context": cmd_context,
