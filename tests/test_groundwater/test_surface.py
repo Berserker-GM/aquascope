@@ -340,6 +340,12 @@ def test_bbox_limits_wells_listed_and_grid():
     res = gs.surface_from_readings(wells, readings, month="2025-03", bbox=[-1.01, 51.99, -0.85, 52.15])
     assert 0 < res["n_wells_in_view"] < len(wells)
     assert res["grid"]["west"] >= -1.01 and res["grid"]["east"] <= -0.85
+    # The wells just outside the view that the mask counted come back too, flagged, so the map card's
+    # "N wells within 20 km" agrees with the mask at the view's edge.
+    inside = [w for w in res["wells"] if w.get("in_view", True)]
+    outside = [w for w in res["wells"] if w.get("in_view") is False]
+    assert len(inside) == res["n_wells_in_view"] and outside
+    assert all(not (-1.01 <= w["lon"] <= -0.85 and 51.99 <= w["lat"] <= 52.15) for w in outside)
 
 
 def test_rows_format_and_geojson_and_summary():

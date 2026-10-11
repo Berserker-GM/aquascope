@@ -25,7 +25,7 @@ import { writeUrl } from "./url.js?v=__BUILD__";
 import { renderCredits } from "./layer-ui.js?v=__BUILD__";
 import {
   GW_EXTENT, GW_SHORT_CREDIT, GW_SINCE, GW_SOURCE, cellsGeoJSON, fmtM, frameOf, gridCellAt, gridCorners,
-  keyLines, maskScale, modelOutline, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
+  headWord, isModflowDrop, keyLines, lengthUnit, maskScale, modelOutline, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
 
@@ -331,12 +331,13 @@ function onModelClick(e) {
   const where = g.type === "dis" && !(g.block > 1)
     ? `row ${Math.floor(c / g.drawn_ncol) + 1}, column ${(c % g.drawn_ncol) + 1}` : `cell ${c + 1}`;
   const { lng, lat } = e.lngLat;
+  const unit = lengthUnit(model.meta), word = headWord(model.meta);
   openCard({
     id: `gw-model:${c}:${model.t}:${model.l}`, lngLat: [lng, lat], lift: 4,
-    what: "Your MODFLOW heads", title: Number.isFinite(h) ? `Head ${fmtM(h)} m` : "No head (inactive or dry)",
+    what: "Your MODFLOW heads", title: Number.isFinite(h) ? `${word} ${fmtM(h)}${unit ? ` ${unit}` : ""}` : `No ${word.toLowerCase()} (inactive or dry)`,
     sub: `${where}, layer ${lay} · ${timeLabel(model.meta, model.t)}`,
     status: { text: `${model.name}: ${model.meta.text.toLowerCase()} from your file, in the model's length unit.`, color: null },
-    figure: Number.isFinite(h) ? { value: fmtM(h), unit: "m", label: "head" } : null,
+    figure: Number.isFinite(h) ? { value: fmtM(h), unit, label: word.toLowerCase() } : null,
     note: g.block > 1 ? `Drawn in blocks of ${g.block} x ${g.block} cells: this is their mean.` : "",
     credit: "Your file, read in your browser with aquascope (it did not leave this page).",
   });
@@ -493,39 +494,26 @@ function syncModelDated() {
   syncTimeBar({ layersChanged: true });
 }
 
-// Dropping files on the map: a head file (with its grid) loads as your model.
+// Dropping files on the map: MODFLOW files load as your model. The map has one drop zone (#mesh-drop, drawn by
+// mesh-view.js, which names MODFLOW too): a HEC-RAS or UGRID result goes to the mesh viewer, these come here.
 function initDrop() {
-  const wrap = $("map");
+  const wrap = document.querySelector(".map-wrap") || $("map");
   if (!wrap) return;
-  let hint = null;
-  const hasFiles = (e) => e.dataTransfer && [...(e.dataTransfer.types || [])].includes("Files");
-  const show = (on) => {
-    if (on && !hint) {
-      hint = document.createElement("div");
-      hint.className = "gw-drop";
-      hint.innerHTML = "<strong>Drop your MODFLOW heads</strong><span>a <code>.hds</code> with its <code>.dis</code>, " +
-        "<code>.disv</code> or <code>.dis.grb</code>. They stay in your browser.</span>";
-      wrap.appendChild(hint);
-    }
-    if (!on && hint) { hint.remove(); hint = null; }
-  };
-  wrap.addEventListener("dragover", (e) => { if (!hasFiles(e)) return; e.preventDefault(); show(true); });
-  wrap.addEventListener("dragleave", (e) => { if (e.target === wrap || !wrap.contains(e.relatedTarget)) show(false); });
   wrap.addEventListener("drop", (e) => {
-    if (!hasFiles(e)) return;
+    const files = [...((e.dataTransfer && e.dataTransfer.files) || [])];
+    if (!isModflowDrop(files)) return;
     e.preventDefault();
-    show(false);
-    const files = [...(e.dataTransfer.files || [])];
-    if (files.length) void loadModel(files);
+    void loadModel(files);
   });
 }
 
 // ── the legend ──────────────────────────────────────────────────────────────
 
-function rampKey(m, range) {
+function rampKey(m, range, unit = "m") {
+  const u = unit ? ` ${escapeHtml(unit)}` : "";
   return `<div class="gw-ramp" style="background:${rampCss(m)}" role="img" aria-label="${m === "change" ? "Brown fell, blue-green rose" : "Pale is low, deep blue is high"}"></div>` +
-    (range ? `<div class="gw-ends"><span>${m === "change" ? "&le; " : ""}${escapeHtml(range.lo)} m</span>` +
-      `${m === "change" ? "<span>0</span>" : ""}<span>${m === "change" ? "&ge; " : ""}${escapeHtml(range.hi)} m</span></div>` : "");
+    (range ? `<div class="gw-ends"><span>${m === "change" ? "&le; " : ""}${escapeHtml(range.lo)}${u}</span>` +
+      `${m === "change" ? "<span>0</span>" : ""}<span>${m === "change" ? "&ge; " : ""}${escapeHtml(range.hi)}${u}</span></div>` : "");
 }
 
 function bodyHtml() {
@@ -583,7 +571,7 @@ function modelBody() {
   const r = modelRange();
   const dated = Boolean(m.dates && n > 1);
   return `<p class="gw-head">${escapeHtml(model.name)}: ${escapeHtml(m.text.toLowerCase())}, ${escapeHtml(timeLabel(m, model.t))}</p>` +
-    rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }) +
+    rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m)) +
     `<div class="gw-model-ctl">` +
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +

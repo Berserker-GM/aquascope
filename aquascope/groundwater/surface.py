@@ -456,11 +456,16 @@ def surface_from_readings(
     in_view = have.copy()
     if box:
         in_view &= (wlon >= box[0]) & (wlon <= box[2]) & (wlat >= box[1]) & (wlat <= box[3])
+    n_in_view = int(in_view.sum())
+    # Every well the surface used, the ones just outside the view too: a cell at the view's edge is drawn or
+    # masked by the wells within RADIUS_KM of it, and the map card counts them from this list.
     out_wells = []
-    for i in np.nonzero(in_view)[0]:
+    for i in np.nonzero(have)[0]:
         rec = now[i]
         item = {"id": ids[i], "name": wells[i].get("name"), "lon": round(float(wlon[i]), 5),
                 "lat": round(float(wlat[i]), 5), "value": round(float(vals[i]), 3), "how": rec["how"]}
+        if not in_view[i]:
+            item["in_view"] = False
         if rec.get("date"):
             item["date"] = rec["date"]
         if mode == "change":
@@ -476,12 +481,12 @@ def surface_from_readings(
         "compare": _month_str(cmp_ym) if cmp_ym else None, "label": label,
         "quantity": ("groundwater head" if mode == "level" else "change in groundwater level"),
         "wells": out_wells, "n_wells_reporting": reported, "n_wells_used": int(have.sum()),
-        "n_wells_in_view": len(out_wells),
+        "n_wells_in_view": n_in_view,
     }
     if grid is None:
         res["grid"] = None
         res["summary"] = (f"Not enough wells with a value for {label} here to draw a surface "
-                          f"({len(out_wells)} in view).")
+                          f"({n_in_view} in view).")
         return res
     v, st = grid["values"], grid["status"]
     drawn = int((st == 2).sum())
@@ -499,11 +504,11 @@ def surface_from_readings(
         res["contours"] = contour_lines(grid)
     shown = f"{res['drawn_share']:.0%} of the area near a well" if reached else "nothing"
     if mode == "level":
-        res["summary"] = (f"Groundwater head, {label}, from {len(out_wells)} wells in view ({datum}); "
+        res["summary"] = (f"Groundwater head, {label}, from {n_in_view} wells in view ({datum}); "
                           f"drawn over {shown}.")
     else:
         rise, fall = res.get("rising_share", 0), res.get("falling_share", 0)
-        res["summary"] = (f"Change in groundwater level from {label}, {len(out_wells)} wells in view: rising "
+        res["summary"] = (f"Change in groundwater level from {label}, {n_in_view} wells in view: rising "
                           f"(over 5 cm) on {rise:.0%} of the drawn area, falling on {fall:.0%}; drawn over {shown}.")
     return res
 
@@ -1208,6 +1213,8 @@ def read_modflow_heads(
         if hi - lo < 1e-6:
             lo, hi = lo - 0.5, hi + 0.5
         rng = [round(lo, 4), round(hi, 4)]
+    if not (time_units or g.get("time_units")):
+        notes.append("The files do not name the time unit; model times read as days.")
     time_units = (time_units or g.get("time_units") or "days").lower()
     days_per = TIME_UNITS_DAYS.get(time_units)
     if days_per is None:

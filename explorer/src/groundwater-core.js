@@ -84,10 +84,23 @@ export function paintSurface(grid, range, mode) {
   for (let k = 0; k < n; k++) {
     const v = grid.values[k];
     if (grid.status[k] !== 2 || v === null || v === undefined) continue;
-    const c = rampColor(ramp, rangeT(v, range));
-    px[k * 4] = c[0]; px[k * 4 + 1] = c[1]; px[k * 4 + 2] = c[2]; px[k * 4 + 3] = SURFACE_ALPHA;
+    const t = rangeT(v, range);
+    const c = rampColor(ramp, t);
+    px[k * 4] = c[0]; px[k * 4 + 1] = c[1]; px[k * 4 + 2] = c[2]; px[k * 4 + 3] = surfaceAlpha(t, mode);
   }
   return px;
+}
+
+/**
+ * A cell's opacity. The head is one even wash. The change fades toward "about the same": the diverging ramp's
+ * middle is near white, and drawn at full strength it hid the map like fog, so rises and falls stand out and
+ * the drawn area still shows faintly where nothing changed.
+ */
+export const CHANGE_ALPHA_MIN = 70;
+export function surfaceAlpha(t, mode) {
+  if (mode !== "change") return SURFACE_ALPHA;
+  const k = Math.min(1, Math.abs((Number.isFinite(t) ? t : 0.5) - 0.5) * 2);
+  return Math.round(CHANGE_ALPHA_MIN + (SURFACE_ALPHA - CHANGE_ALPHA_MIN) * Math.sqrt(k));
 }
 
 /**
@@ -257,6 +270,11 @@ export function sortModelFiles(files) {
   return out;
 }
 
+/** Whether a drop holds MODFLOW files (a head file, a grid, a name file). The map has one drop zone for model
+ * results: these go to the MODFLOW reader here, everything else to the mesh viewer (mesh-view.js, #555). */
+export const MODFLOW_FILE = /\.(hds|hed|bhd|head|ddn|disv?\.grb|grb|disv?|nam|tdis)$/i;
+export const isModflowDrop = (files) => [...(files || [])].some((f) => MODFLOW_FILE.test(String((f && f.name) || "")));
+
 /** The georeference form's fields, read and checked: { origin, rotation, crs, cell_size, start_date } or an error. */
 export function readPlaceForm(v, { needCell = false } = {}) {
   const num = (x) => (x === "" || x === null || x === undefined ? null : Number(x));
@@ -327,6 +345,19 @@ export function stepForDate(dates, date) {
   for (let i = 0; i < dates.length; i++) if (String(dates[i]).slice(0, 10) <= date) best = i;
   return best;
 }
+
+/** The model's length unit as the card and the key write it: "m", "ft", "cm", or "" when the grid does not say
+ * (heads are shown in the model's own unit, never converted; the key's note says when it is not named). */
+export function lengthUnit(meta) {
+  const u = String((meta && meta.grid && meta.grid.length_units) || "").toLowerCase();
+  if (["meters", "metres", "m"].includes(u)) return "m";
+  if (["feet", "ft"].includes(u)) return "ft";
+  if (["centimeters", "cm"].includes(u)) return "cm";
+  return "";
+}
+
+/** "Drawdown" for a drawdown file, else "Head", from the record text MODFLOW writes. */
+export const headWord = (meta) => (/DRAWDOWN/i.test(String((meta && meta.text) || "")) ? "Drawdown" : "Head");
 
 /** How a model time reads: its date when the model has a start date, else "t = 31 days". */
 export function timeLabel(model, t) {

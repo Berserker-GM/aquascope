@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  CHANGE_RAMP, HEAD_RAMP, SURFACE_ALPHA, cellsGeoJSON, changeWord, fmtM, frameOf, gridCellAt, gridCorners, keyLines,
+  CHANGE_ALPHA_MIN, CHANGE_RAMP, HEAD_RAMP, SURFACE_ALPHA, cellsGeoJSON, headWord, isModflowDrop, lengthUnit, surfaceAlpha, changeWord, fmtM, frameOf, gridCellAt, gridCorners, keyLines,
   maskScale, modelOutline, monthOf, paintMask, paintSurface, rampColor, rangeT, readGwParam, readPlaceForm, readingsWindow,
   rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, viewTouches, wellCard, wellsNear,
 } from "../src/groundwater-core.js";
@@ -117,4 +117,32 @@ test("model cells and frames", () => {
   // Two cells side by side: the outline runs round both.
   assert.deepEqual(modelOutline({ type: "dis", drawn_nrow: 1, drawn_ncol: 2 }, rings), [[0, 1], [2, 1], [2, 0], [0, 0], [0, 1]]);
   assert.equal(modelOutline({ type: "disv" }, rings), null);
+});
+
+test("the change fades toward no change; the head is one even wash", () => {
+  assert.equal(surfaceAlpha(0.5, "level"), SURFACE_ALPHA);
+  assert.equal(surfaceAlpha(0, "level"), SURFACE_ALPHA);
+  assert.equal(surfaceAlpha(0.5, "change"), CHANGE_ALPHA_MIN);
+  assert.equal(surfaceAlpha(0, "change"), SURFACE_ALPHA);
+  assert.equal(surfaceAlpha(1, "change"), SURFACE_ALPHA);
+  assert.ok(surfaceAlpha(0.4, "change") > CHANGE_ALPHA_MIN && surfaceAlpha(0.4, "change") < SURFACE_ALPHA);
+  const px = paintSurface({ nx: 2, ny: 1, values: [0, 5], status: [2, 2] }, [-5, 5], "change");
+  assert.equal(px[3], CHANGE_ALPHA_MIN);
+  assert.equal(px[7], SURFACE_ALPHA);
+});
+
+test("a model's heads are labelled in its own length unit, and a drawdown file as drawdown", () => {
+  assert.equal(lengthUnit({ grid: { length_units: "meters" } }), "m");
+  assert.equal(lengthUnit({ grid: { length_units: "feet" } }), "ft");
+  assert.equal(lengthUnit({ grid: { length_units: null } }), "");
+  assert.equal(headWord({ text: "HEAD" }), "Head");
+  assert.equal(headWord({ text: "DRAWDOWN" }), "Drawdown");
+});
+
+test("one drop zone: MODFLOW files go to the heads reader, mesh results do not", () => {
+  assert.equal(isModflowDrop([{ name: "freyberg.hds" }, { name: "freyberg.dis" }]), true);
+  assert.equal(isModflowDrop([{ name: "model.dis.grb" }]), true);
+  assert.equal(isModflowDrop([{ name: "Muncie.p04.hdf" }]), false);
+  assert.equal(isModflowDrop([{ name: "sandiego_map.nc" }]), false);
+  assert.equal(isModflowDrop([]), false);
 });
