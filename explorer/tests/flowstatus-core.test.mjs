@@ -8,7 +8,7 @@ import {
   rowSummary, sharesLine,
 } from "../src/flowstatus-core.js";
 import { STATUS_CLASSES } from "../src/now-core.js";
-import { riverOpacityFlow, riverThemeKind } from "../src/river-core.js";
+import { riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverThemeKind } from "../src/river-core.js";
 
 // The same bytes aquascope.flowstatus.encode writes for ids [5, 127, 128, 16384, 820425136, 2147483647] and
 // classes [1, 3, 2, 4, 5, 3] (tests/test_flowstatus.py), before gzip.
@@ -62,6 +62,14 @@ test("the colours are the river status layer's five, grey where there is no clas
   const op = riverOpacityFlow(0.35);
   assert.equal(op[0], "interpolate");                     // zoom on the outside, as MapLibre needs
   assert.equal(op[4][0], "case");
+  // the casing only under a classed reach, and never where the line itself has no width
+  const cw = riverCasingWidth(1.6);
+  assert.equal(cw[0], "interpolate");
+  assert.deepEqual(cw[4].slice(-4), [10, 4.7, 12, 5.6]);
+  assert.equal(cw[4][4], 0);
+  const co = riverCasingOpacity();
+  assert.equal(co[4][0], "case");
+  assert.equal(co[4][3], 0);
 });
 
 const M = { issue_date: "2026-10-11", month: 10, base_period: "1950 to 2019",

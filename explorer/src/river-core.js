@@ -93,6 +93,15 @@ export const RIVER_THEMES = {
   dark: { line: "#4f9de0", flow: "#e2f1ff", up: "#8fd0ff", down: "#ff9d42", casing: "#0b141d" },
   imagery: { line: "#6bb9f2", flow: "#ffffff", up: "#a8dcff", down: "#ff9d42", casing: "#0b141d" },
 };
+// Under a classed reach, a casing in the basemap's own background (#559): the class colours are the river status
+// layer's, so without it a brown river vanishes into a brown basin, and a pale one into the land.
+export function riverCasingWidth(extra = 1.6) {
+  return byZoom(WIDTH, (stops) => byOrder(stops, (v) => (v > 0 ? Number((v + extra).toFixed(2)) : 0)));
+}
+export function riverCasingOpacity(scale = 0.9) {
+  const fs = [">", ["coalesce", ["feature-state", "fs"], 0], 0];
+  return byZoom(OPACITY, (stops) => ["case", fs, byOrder(stops, (v) => Number((v * scale).toFixed(3))), 0]);
+}
 export function riverThemeKind(basemap) {
   if (basemap === "dark") return "dark";
   if (basemap === "satellite" || basemap === "satellite-recent") return "imagery";

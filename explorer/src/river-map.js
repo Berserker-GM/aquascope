@@ -10,7 +10,7 @@ import { currentBasemap, ensureShapeImages, fitBoundsTo, map, waitingForIdle } f
 import {
   FLOW_FPS, FLOW_STEPS, RIVERS_ATTRIBUTION, STREAMS_PMTILES, cumulativeKm, damsGeoJSON, flowDash, flowOpacity,
   highlightColor, highlightOpacity, highlightWidth, lineBounds, lineUpTo, networkStates, networkSummary, riverOpacity,
-  riverOpacityFlow, riverTheme, riverThemeKind, riverWidth,
+  riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverTheme, riverThemeKind, riverWidth,
 } from "./river-core.js?v=__BUILD__";
 import { FS_UNCLASSED_OPACITY, flowColorExpr } from "./flowstatus-core.js?v=__BUILD__";
 
@@ -60,6 +60,7 @@ function netPaint() {
 export function setRiverColouring(mode) {
   colouring = mode === "flow" ? "flow" : null;
   if (!state.mapOk || !map || !map.getLayer("river-net-line")) return;
+  syncVisibility();
   const p = netPaint();
   map.setPaintProperty("river-net-line", "line-color", p.color);
   map.setPaintProperty("river-net-line", "line-opacity", p.opacity);
@@ -94,6 +95,9 @@ export function ensureRiverLayers() {
         id, type: "line", source: "river-net", "source-layer": "streams",
         layout: { ...LAYOUT, visibility: "none" }, paint,
       }, before);
+      // Flow vs normal's casing (#559) first, so it sits under the line; drawn only while the classes are on.
+      line("river-fs-casing", { "line-color": th.casing, "line-opacity": riverCasingOpacity(),
+        "line-width": riverCasingWidth() });
       const p = netPaint();
       line("river-net-line", { "line-color": p.color, "line-opacity": p.opacity, "line-width": riverWidth() });
       line("river-flow", { "line-color": th.flow, "line-opacity": flowOpacity(), "line-width": riverWidth(),
@@ -163,6 +167,7 @@ function restyle() {
   paint("river-net-line", "line-color", p.color);
   paint("river-net-line", "line-opacity", p.opacity);
   paint("river-flow", "line-color", th.flow);
+  paint("river-fs-casing", "line-color", th.casing);
   for (const [prop, v] of Object.entries(FLOW_STILL)) paint("river-flow", prop, v);
   paint("river-hl-casing", "line-color", th.casing);
   paint("river-hl-line", "line-color", highlightColor(th));
@@ -175,6 +180,7 @@ function syncVisibility() {
   if (!map || !map.getLayer("river-net-line")) return;
   const vis = (id, on) => { if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none"); };
   vis("river-net-line", state.riversOn);
+  vis("river-fs-casing", state.riversOn && colouring === "flow");
   vis("river-flow", state.riversOn && state.flowOn);
   // A lit network stays when the plain one is off: it is the answer to a click.
   vis("river-hl-casing", state.riversOn || lit.size > 0);

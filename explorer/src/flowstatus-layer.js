@@ -17,6 +17,7 @@ import { map } from "./map.js?v=__BUILD__";
 import { STATUS_CLASSES } from "./now-core.js?v=__BUILD__";
 import { ensureRiverLayers, setRiverColouring, setRiverRowExtras, setRiversVisible } from "./river-map.js?v=__BUILD__";
 import { openModal } from "./shell.js?v=__BUILD__";
+import { refreshStatusOpacity } from "./status-layer.js?v=__BUILD__";
 import { writeUrl } from "./url.js?v=__BUILD__";
 import {
   FS_CREDIT, FS_MIN_ORDER, classOf, decodeFlowStatus, isGzip, issueLine, readFlowNormalParam, rowSummary, sharesLine,
@@ -91,6 +92,7 @@ function schedule() {
 function sync() {
   const on = Boolean(state.flowNormal && state.riversOn && ready());
   setRiverColouring(on ? "flow" : null);
+  refreshStatusOpacity();   // the basins step back while the rivers carry the classes
   if (on) schedule();
 }
 
@@ -129,7 +131,8 @@ function rowBody() {
   return check + bar("sl-bar") +
     '<div class="sl-ends"><span>much below</span><span>normal</span><span>much above</span></div>' +
     `<p class="ml-when">${escapeHtml(issueLine(m))}${shares ? ` ${escapeHtml(shares)}` : ""}</p>` +
-    `<p class="ml-src">Order ${FS_MIN_ORDER} and up; faint lines have no class. Modelled: GEOGLOWS, CC BY 4.0. ` +
+    `<p class="ml-src">Order ${FS_MIN_ORDER} and up; faint lines have no class${state.status ? "; river status fades while this is on" : ""}. ` +
+    "Modelled: GEOGLOWS, CC BY 4.0. " +
     '<button type="button" class="ml-link" data-act="flow-normal-info">About</button></p>';
 }
 

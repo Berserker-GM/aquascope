@@ -266,11 +266,15 @@ its own normal for the month (#559), the NOAA National Water Model map for the w
   month. Checked against the daily record of a Rhine reach, they are the percentiles of 1950 to 2019 (linear
   interpolation) to within 1e-7. The job keeps the 10th, 25th, 75th and 90th of each month and writes only under
   `flowstatus/climatology/`. Those reaches are spread over 23,085 of the store's 27,356 chunks (250 reaches each,
-  every month and probability together, about 0.8 MB compressed), so the build streams about 18 GB.
+  every month and probability together, 0.8 MB compressed), so the build streams about 18.5 GB. Measured on a
+  Europe box (31,128 reaches, 1,737 chunks, 1.39 GB): 8 minutes on a home line, 1.8 GB of memory at the peak (most
+  of it the GEOGLOWS model table), and 24 bytes a reach for each month file, so the whole climatology comes to about
+  250 MB.
 - **Today, daily**: the `flood-warnings` run already reads every order-5 chunk of the forecast, so
   `warnings run --day0` keeps each reach's first-day flow (the ensemble mean of the forecast's first UTC day) as it
   goes, and `python -m aquascope.flowstatus daily` classes it against the forecast month's percentiles. Nothing is
-  downloaded twice. It writes only under `flowstatus/`, and it does not turn the day's Floods ahead issue red if it
+  downloaded twice: the extra cost is one month file (about 20 MB) and a second or two of work. On the Europe box the
+  day's `latest.bin.gz` was 26 kB for 31,128 reaches (0.85 bytes a reach), so about 0.7 MB for the world. It writes only under `flowstatus/`, and it does not turn the day's Floods ahead issue red if it
   fails.
 
 | path | what | licence |
