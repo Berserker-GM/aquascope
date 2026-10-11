@@ -10,6 +10,10 @@ name: Flood warnings
 # It writes ONLY under forecasts/warnings/ in the Archive dataset. Model output, not an official warning.
 # After it, the Explorer's Scout (#563) is run over the world (aquascope.map_scout daily) and published under scout/
 # only: scout/latest.json and scout/<date>.json, what stands out today with its reasons and record checks.
+# The same chunks also give every reach's first-day flow (--day0), which Flow against normal (#559,
+# aquascope.flowstatus) classes against each reach's percentiles for the month (published once by
+# flow-climatology.yml) and publishes under flowstatus/ only: latest.bin.gz for the Explorer's river lines,
+# latest.parquet, <date>.bin.gz and manifest.json.
 # Same HF_TOKEN secret as the harvest. Locally:
 #   python -m aquascope.archive.warnings run --out build --max-chunks 40
 
@@ -61,7 +65,7 @@ jobs:
         env:
           SMOKE: ${{ inputs.smoke }}
         run: |
-          ARGS="--out build --workers 16 --time-budget-min 270"
+          ARGS="--out build --workers 16 --time-budget-min 270 --day0 build/scratch/day0.parquet"
           if [ -n "$SMOKE" ]; then
             case "$SMOKE" in *[!0-9]*) echo "::error::smoke must be a whole number of chunks"; exit 1;; esac
             ARGS="$ARGS --max-chunks $SMOKE"
@@ -110,6 +114,21 @@ jobs:
         continue-on-error: true
         run: python -m aquascope.map_scout publish --out build
 
+      # Flow against normal (#559): today's first-day flows from the run above against the published climatology.
+      # Writes flowstatus/ only. It fails (and says so) until flow-climatology.yml has published the climatology,
+      # without turning the day's Floods ahead issue red. A smoke run builds it but never publishes.
+      - name: Today's flow against normal
+        if: always() && hashFiles('build/scratch/day0.parquet') != ''
+        continue-on-error: true
+        run: python -m aquascope.flowstatus daily --out build --day0 build/scratch/day0.parquet
+
+      - name: Publish flowstatus/ to Hugging Face
+        if: >-
+          always() && env.HF_TOKEN != '' && inputs.smoke == '' && hashFiles('build/flowstatus/manifest.json') != '' &&
+          (github.event_name == 'schedule' || inputs.publish == true)
+        continue-on-error: true
+        run: python -m aquascope.flowstatus publish --out build
+
       - name: Say why a smoke run was not published
         if: inputs.smoke != ''
         run: echo "::notice::A smoke run builds and summarises but does not publish."
@@ -129,4 +148,5 @@ jobs:
           path: |
             build/forecasts/warnings/
             build/scout/
+            build/flowstatus/
           retention-days: 7

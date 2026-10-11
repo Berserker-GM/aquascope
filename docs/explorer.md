@@ -797,6 +797,31 @@ tributaries) and the key says where that cut fell. The ids come from
 feature-state on `riverId`. The network geometry is CC BY-SA 4.0: shown here,
 never republished, and credited in the map's own attribution line.
 
+### Flow vs normal on the rivers
+
+The NOAA National Water Model map colours every reach by its flow against normal; this does it for the world (#559).
+In the legend, the **Rivers** row has **Colour by flow against normal**: every GEOGLOWS reach of Strahler order 5 and
+up takes the colour of its forecast flow for the day against its own normal for the month, in the river status
+layer's five classes and colours (much below, below, normal, above, much above), so a river and the basin around it
+mean the same thing. The key gives the forecast day, the month the normal is for, and the share of reaches above and
+below normal; lines with no class (smaller streams as you zoom in, dry channels) fade to a thin grey.
+
+The classes are computed in Python once a day ([archive.md](archive.md#flow-against-normal-flowstatus)) and published
+as one compact file, `flowstatus/latest.bin.gz` (the river ids and a byte each). The page reads it once and, as the
+stream tiles load, sets each reach's class as MapLibre feature-state on `riverId`, the same mechanism as the lit
+network (which now takes off only its own state, so the two can be on together). A classed reach is drawn a little
+wider than the plain network, on a thin casing in the basemap's background colour, and while the classes are on the
+river status layer's basins fade to 30 % of their opacity: in the same five colours, a brown river would otherwise
+vanish into a brown basin. It is off by default. On the globe only the great rivers are drawn, a pixel or two wide,
+and the basins already answer there; the colouring is for a region (zoom 5 and closer). A link carries `fn=1`.
+
+![Flow vs normal over western Europe at zoom 5, the basins faded](img/globe/flow-vs-normal-europe.png)
+![The Rhine, Mosel and Main at zoom 7](img/globe/flow-vs-normal-rhine.png)
+
+Before the first daily issue the key says it is not published yet, and the rivers and basins stay as they were. The
+same issue is `aquascope flowstatus [--bbox W S E N] [--river-id ID]` and the MCP tool `flow_vs_normal`. Modelled,
+not measured.
+
 The same functions are `aquascope river snap|record|area|trace|dams|upstream|downstream`
 and the MCP tools `snap_to_river`, `reach_record`, `upstream_area`,
 `trace_downstream`, `upstream_dams`, `upstream_ids` and `downstream_ids`.

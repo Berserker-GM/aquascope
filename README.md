@@ -368,7 +368,7 @@ Switch to MCMC with `degree>1` for polynomial models, or pass `prior_precision` 
 
 ## 💻 CLI
 
-AquaScope ships a 47-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
+AquaScope ships a 48-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
 
 ```bash
 # Find stations, then collect data
@@ -384,6 +384,7 @@ aquascope river dams --at 46.948 7.452            # the dams upstream of that re
 aquascope now --station usgs/USGS-01350000        # today against normal, and the 15-day forecast corrected to the gauge
 aquascope bulletin 2026-09 --out bulletin         # last month's state of the rivers: HydroSOS classes, HTML and Markdown
 aquascope warnings --bbox -10 35 30 60            # floods ahead: reaches expected to reach their 2-year flow in 15 days
+aquascope flowstatus --bbox -10 35 30 60          # every big reach's flow today against its normal for the month
 aquascope watch usgs/USGS-01350000 river:230260670 --since 2026-10-01   # what changed since then: data, status, forecast, floods
 aquascope assess 51.415 -0.308 --problem flood_risk   # what can be answered here: gauges in reach, catchment, which methods the record supports
 aquascope context 51.86 5.95                      # flood history, surface water, flood depth, dams, rain gauge, ET and soil at a place

@@ -28,6 +28,7 @@ import { clearRiver, initRiver } from "./src/river.js?v=__BUILD__";
 import { initNow } from "./src/now.js?v=__BUILD__";
 import { initBulletin } from "./src/bulletin.js?v=__BUILD__";
 import { initFloodsAhead } from "./src/floods-ahead.js?v=__BUILD__";  // Floods ahead (#546), on by default
+import { initFlowStatus } from "./src/flowstatus-layer.js?v=__BUILD__";  // Flow vs normal on the rivers (#559)
 import { initFloodDepth } from "./src/flood-depth.js?v=__BUILD__";  // flood depth where floods are forecast (#554)
 import { initMeshView } from "./src/mesh-view.js?v=__BUILD__";  // your model results on the globe (#555)
 import { initMeshReview } from "./src/mesh-review.js?v=__BUILD__";  // review my model results (#564)
@@ -191,6 +192,7 @@ function bringMapOnline(url) {
   if (url.rivers === false) state.riversOn = false;   // on by default (#545); a link can say rivers=0
   if (state.riversOn) { setRiversVisible(true); renderCredits(); }
   initFloodsAhead();
+  initFlowStatus();
   initFloodDepth();
   initFloodsPast();
   initGroundwater();

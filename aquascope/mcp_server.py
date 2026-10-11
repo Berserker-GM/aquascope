@@ -503,6 +503,21 @@ def status_bulletin(month: str | None = None, sources: list[str] | None = None,
     return res
 
 
+def flow_vs_normal(bbox: list[float] | None = None, river_id: int | None = None) -> dict[str, Any]:
+    """Flow against normal: every GEOGLOWS v2 river reach of Strahler order 5 and up classed by today's forecast flow
+    (the ensemble mean of the first day) against its own 10th, 25th, 75th and 90th percentiles of daily flow for the
+    month (retrospective simulation, 1950 to 2019), in five classes from much below to much above normal. From the
+    daily published issue. bbox is [west, south, east, north] in degrees: counts inside it. river_id gives one
+    reach's class, flow and percentiles. Returns the issue date, counts by class and a sentence. MODELLED, not
+    measured: say so when you quote it."""
+    from aquascope import flowstatus
+
+    try:
+        return flowstatus.flow_vs_normal(bbox, river_id=river_id)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
 def flood_warnings(bbox: list[float] | None = None, min_rp: int = 2, limit: int = 50) -> dict[str, Any]:
     """Floods ahead: the river reaches the GEOGLOWS v2 global forecast expects to reach their 2-year flow in the next
     15 days, from the daily published issue (Strahler order 5 and up, ensemble-mean daily peak against the reach's
@@ -1527,6 +1542,7 @@ def build_server():
     server.tool()(forecast_plume)
     server.tool()(status_bulletin)
     server.tool()(flood_warnings)
+    server.tool()(flow_vs_normal)
     server.tool()(correct_to_gauge)
     server.tool()(watch_digest)
     server.tool()(place_context)
