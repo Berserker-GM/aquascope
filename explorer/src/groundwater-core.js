@@ -147,7 +147,7 @@ export function wellsNear(wells, lon, lat, radius) {
 }
 
 export function fmtM(v, { sign = false } = {}) {
-  if (v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
+  if (v === null || v === undefined || !Number.isFinite(Number(v))) return "no value";
   const n = Number(v);
   if (Number.isInteger(n) && Math.abs(n) >= 1) return sign && n > 0 ? `+${n}` : String(n);
   const s = Math.abs(n) >= 100 ? n.toFixed(0) : Math.abs(n) >= 10 ? n.toFixed(1) : n.toFixed(2);

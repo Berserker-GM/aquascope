@@ -499,6 +499,69 @@ Google Maps and Google Earth tiles are deliberately absent: their terms forbid
 this use. Esri's legacy imagery answers without a token but Esri's own
 documentation requires one, so it is out too.
 
+## Groundwater
+
+**Groundwater** in the legend (off until you turn it on) draws a groundwater-level surface
+from the Archive's wells, the way ModelMuse, FloPy and GMS show a head surface, and its
+change over a year. The Archive mirrors the Environment Agency's wells in England (about
+380, Open Government Licence v3.0), so that is where it draws; elsewhere the legend offers
+to go there.
+
+![The head surface over England in July 2026, with the legend's key](img/globe/groundwater-level.png)
+
+- **Level or change.** Level is the head in metres above Ordnance Datum: the wells' datum
+  is common, so this is a head surface, not a depth to water (that would need each well's
+  ground level), with contour lines. **Change over 12 months** is this month minus the
+  same month a year before, at the wells that have both, brown where the level fell and
+  blue-green where it rose; the colours saturate at a round number near the 90th
+  percentile of the changes, so the ordinary rises and falls show.
+- **The month.** The time bar picks it. Each well's value is the mean of its readings in
+  the month, or the reading nearest the 15th within a month. When few wells have reported
+  yet (the Archive is a few weeks behind), the latest month most wells reported in is
+  drawn, and the key says so.
+- **The density mask.** Inverse distance weighting between the wells (power 2, fading to
+  nothing at 40 km), drawn only where at least 3 wells lie within 20 km. Where only one
+  or two do, the map is hatched grey: looked at, too few wells to draw. Where none do,
+  nothing is drawn. The wells are the small dots, in the same colours.
+- **A click** on the surface opens the map card with the value there, how many wells it
+  rests on and the nearest well; on the hatching, how many wells are near and how many the
+  surface needs. A click on a well's gauge opens its record as usual.
+- **Beside it**: GRACE water storage (Layers, Water storage anomaly), the regional change
+  from space, at about 300 km, 2002 to mid-2022.
+
+![Change from July 2025 to July 2026, and the card for a point between wells](img/globe/groundwater-change-card.png)
+
+What it is not: a groundwater model. Wells in different aquifers are mixed, and between
+wells the surface is a guess. How it runs: the page reads the wells' readings from the
+Archive's bundle (`obs/groundwater_level/uk_ea.parquet`, about 4 MB, once) with DuckDB and
+hands the months it needs to Python in the worker; the month, the interpolation and the
+mask are `aquascope.groundwater.surface.surface_from_readings`.
+
+The same in Python: `aquascope groundwater surface [--bbox W S E N] [--month YYYY-MM]
+[--mode level|change] [--compare YYYY-MM] [--geojson out.geojson]` and the MCP tool
+`groundwater_surface`.
+
+### Your MODFLOW heads
+
+Drop a MODFLOW head file (`.hds`) on the map with its grid (`.dis`, `.disv` or
+`.dis.grb`), and the `.nam` FloPy writes if it says where the model is, or open them from
+the Groundwater key. The files are read in your browser's worker by aquascope's own
+reader (plain numpy, [checked against FloPy](modflow.md#checked-against-flopy)) and do not
+leave it. When the files do not say where the model sits, a small form asks for the
+lower-left corner, the rotation and the CRS (and a cell size without a grid file, and a
+start date if you want the time bar to drive it).
+
+The heads are drawn on the model grid, rotated with it, under the rivers: **Your MODFLOW
+heads** in the legend picks the layer, steps through the times with a slider, and plays
+the run with the time bar when the model has dates. The colours span the whole run, so a
+falling head looks like one. A click on a cell gives its row, column, layer and head.
+
+The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPSG:27700]
+[--origin X Y] [--layer N] [--time I] [--geojson out.geojson]` and the MCP tool
+`modflow_heads`. More in [MODFLOW heads on the map](modflow.md).
+
+![On a phone: the head surface over England](img/globe/groundwater-phone.png)
+
 ## Context of a place
 
 Click a point, or open a gauge, and open the **Context** tab: one line per

@@ -117,6 +117,7 @@ nav:
     - Caravan export (large-sample datasets): caravan.md
     - Engineering exports (HEC, SWMM, MODFLOW, FEWS, Raven): engineering_exports.md
     - Use the Archive from R, QGIS, DuckDB: readers.md
+    - MODFLOW heads on the map: modflow.md
     - The Explorer (click any gauge): explorer.md
     - The evidence ladder (model skill at gauges): evidence.md
     - The monthly bulletin (state of the rivers): bulletin.md
