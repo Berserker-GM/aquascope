@@ -70,10 +70,8 @@ async function openFile({ id, file, crs }) {
     await pyodide.loadPackage(["scipy"]);
     scipyLoaded = true;
   }
-  pyodide.runPython("_M.close() if _M is not None else None\n_M = None");
-  for (let k = 1; k <= mounted; k++) {
-    try { pyodide.FS.unmount(`/drop${k}`); } catch { /* not mounted */ }
-  }
+  // The new file is read beside the one on the map: only once it has read does it replace it, so a file
+  // that fails (no coordinate system, not a mesh) leaves the model on the map working.
   mounted += 1;
   const dir = `/drop${mounted}`;
   pyodide.FS.mkdirTree(dir);
@@ -81,11 +79,22 @@ async function openFile({ id, file, crs }) {
   pyodide.globals.set("_path", `${dir}/${file.name}`);
   pyodide.globals.set("_crs", crs ? String(crs) : "");   // "" for none: a JS null arrives as jsnull, not None
   const t0 = performance.now();
-  const res = pyodide.runPython(`
-_M = _mesh.read_mesh(_path, crs=_crs)
-_meta, _arr = _mesh.browser_payload(_M)
+  let res;
+  try {
+    res = pyodide.runPython(`
+_N = _mesh.read_mesh(_path, crs=_crs)
+_meta, _arr = _mesh.browser_payload(_N)
 (json.dumps(_meta), _arr)
 `);
+  } catch (err) {
+    pyodide.runPython("_N = None");
+    try { pyodide.FS.unmount(dir); } catch { /* not mounted */ }
+    throw err;
+  }
+  pyodide.runPython("_M.close() if _M is not None else None\n_M, _N = _N, None");
+  for (let k = 1; k < mounted; k++) {
+    try { pyodide.FS.unmount(`/drop${k}`); } catch { /* not mounted */ }
+  }
   const meta = JSON.parse(res.get(0));
   const arrays = takeArrays(res.get(1));
   res.destroy();

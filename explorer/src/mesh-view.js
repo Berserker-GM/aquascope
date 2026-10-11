@@ -14,7 +14,7 @@ import { CONFIG } from "../config.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
 import { cardOpen, closeCard, openCard, updateCard } from "./map-card.js?v=__BUILD__";
 import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js?v=__BUILD__";
-import { releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
+import { modelClockOn, releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import {
   ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, legendLine,
@@ -136,7 +136,7 @@ export async function openModelFile(file, crs = null) {
     announce(msg);
     return;
   }
-  clearMesh({ keepStatus: true });
+  clearMesh({ keepStatus: true, keepWorker: true });   // the worker has already put the new file in its place
   const { meta, arrays } = res;
   mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable) };
   dbg.mesh = { name: meta.name, size_bytes: meta.size_bytes, cells: meta.cells, steps: meta.times.length,
@@ -152,15 +152,21 @@ export async function openModelFile(file, crs = null) {
   zoomTo(1400);
   paint();
   if (meta.times.length) {
-    useModelClock({
-      times: meta.times, index: step, label: (i) => modelTime(meta.times[i]),
-      summary: `Model time: ${rangeWords(meta.times)}.`,
-      onStep: (i) => showStep(i),
-      onExit: () => showLargest(),
-    });
+    takeClock(step);
     if (meta.has_velocity) loadFrame(step).then(() => drawArrows());
   }
   announce(`${meta.name} is on the map: ${Number(meta.cells).toLocaleString("en-GB")} cells.`);
+}
+
+// The time bar on the model's own times; taken again by "Step through the run" after "Back to dates".
+function takeClock(index) {
+  const { meta } = mesh;
+  useModelClock({
+    times: meta.times, index, label: (i) => modelTime(meta.times[i]),
+    summary: `Model time: ${rangeWords(meta.times)}.`,
+    onStep: (i) => showStep(i),
+    onExit: () => showLargest(),
+  });
 }
 
 function zoomTo(duration) {
@@ -546,7 +552,9 @@ function keyHtml() {
   const velocity = meta.has_velocity
     ? `<div class="mv-opts"><label><input type="checkbox" data-act="arrows"${arrowsOn ? " checked" : ""}> Arrows</label>` +
       `<label><input type="checkbox" data-act="particles"${particlesOn ? " checked" : ""}> Particles</label></div>` +
-      (view === "max" ? `<p class="mv-line muted">Arrows at ${escapeHtml(modelTime(meta.times[step]))}, when the most water is on the mesh.</p>` : "")
+      (view === "max" && meta.times.length
+        ? `<p class="mv-line muted">Arrows at ${escapeHtml(modelTime(meta.times[step]))}` +
+          `${step === meta.peak_step ? ", when the most water is on the mesh" : ""}.</p>` : "")
     : "";
   const stepBtn = meta.times.length
     ? (view === "max"
@@ -584,7 +592,7 @@ function registerRow() {
     act: (name, el) => {
       if (name === "arrows") { arrowsOn = el.checked; if (map.getLayer(ARROWS)) map.setLayoutProperty(ARROWS, "visibility", arrowsOn ? vis() : "none"); drawArrows(); }
       else if (name === "particles") { particlesOn = el.checked; if (particlesOn) startParticles(); else stopParticles(); }
-      else if (name === "steps") { setModelStep(step); }
+      else if (name === "steps") { if (!modelClockOn()) takeClock(step); setModelStep(step); }
       else if (name === "largest") { showLargest(); }
       else if (name === "zoom") zoomTo(900);
       else if (name === "open") { pickFile(); }
@@ -601,7 +609,7 @@ function setVisible(on) {
   refreshLegend("mesh");
 }
 
-export function clearMesh({ keepStatus = false } = {}) {
+export function clearMesh({ keepStatus = false, keepWorker = false } = {}) {
   stopParticles();
   if (mesh && selected >= 0) closeCard();
   selected = -1;
@@ -614,7 +622,7 @@ export function clearMesh({ keepStatus = false } = {}) {
   view = "max";
   releaseModelClock();
   if (!keepStatus) showStatus();
-  if (had) { refreshLegend(); if (worker) ask("close").catch(() => {}); }
+  if (had) { refreshLegend(); if (worker && !keepWorker) ask("close").catch(() => {}); }
 }
 
 // ── boot ────────────────────────────────────────────────────────────────────

@@ -61,3 +61,13 @@
 }
 .tb-model[hidden], .timebar .tb-btn[hidden], .timebar input[hidden] { display: none; }
 .timebar.tb-clock .tb-note { max-width: 26rem; }
+
+/* While a file is read (or turned away), the reading card has the top of the map: the map's lead steps aside. */
+@media (min-width: 641px) {
+  body:has(#mesh-status:not([hidden])) .map-lead { visibility: hidden; }
+}
+/* A phone: the model's clock stays as narrow as the date bar, clear of the round buttons on the right. */
+@media (max-width: 640px) {
+  .timebar.tb-clock .tb-note { max-width: 15rem; }
+  .tb-model { min-width: 8.4rem; }
+}
