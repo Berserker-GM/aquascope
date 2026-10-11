@@ -376,8 +376,8 @@ def _negative(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, k: float
     f2 = _fact(ids, "Cells with a negative depth", int(bad.size), "cells", _count(bad.size))
     title = f"Negative depth: {f1['shown']}{u}"
     reason = (f"The water surface falls below the bed here, to {f1['shown']}{u}; {f2['shown']} "
-              f"{'cell does' if bad.size == 1 else 'cells do'} the same. A model fault to fix before reading the "
-              "depths: check the terrain, the initial conditions and the time step.")
+              f"{'cell goes' if bad.size == 1 else 'cells go'} below zero in all. A model fault to fix before "
+              "reading the depths: check the terrain, the initial conditions and the time step.")
     return [_finding("negative", "problem", m.lat[worst], m.lon[worst], title, reason, [f1, f2], SOURCES["model"],
                      cells=bad)], "flagged", f"{_plural(int(bad.size), 'cell')} with a negative depth."
 
@@ -406,7 +406,8 @@ def _tiny(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, k: float) ->
                        f"{round(100 * film.size / max(wet, 1))}%")
             facts = [f1, f2, f3]
             reason = (f"This cell never gets deeper than {f1['shown']}{u}, under {limit}{u}. "
-                      f"{f2['shown']} cells are like it, {f3['shown']} of those that get wet: rain on the grid, "
+                      f"{f2['shown']} {'cell in all is' if film.size == 1 else 'cells in all are'} like it, "
+                      f"{f3['shown']} of those that get wet: rain on the grid, "
                       "a terrain or a tolerance problem.")
             cells = film
         else:
@@ -444,7 +445,8 @@ def _isolated(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, nb: tupl
             f2 = _fact(ids, "Isolated wet cells", int(alone.size), "cells", _count(alone.size))
             facts.append(f2)
             reason = (f"This cell holds water ({f1['shown']}{u}) while every neighbour stays dry{proxy}; "
-                      f"{f2['shown']} cells are like it. A pit in the terrain, a source term or a wet start "
+                      f"{f2['shown']} {'such cell' if alone.size == 1 else 'such cells'} in all. A pit in the terrain, "
+                      "a source term or a wet start "
                       "left behind.")
         else:
             reason = f"Another wet cell with only dry neighbours ({f1['shown']}{u})."
@@ -473,7 +475,8 @@ def _flicker(m: Mesh, sc: dict[str, Any], ids: _Ids) -> tuple[list, str, str]:
             f3 = _fact(ids, "Cells that flicker", int(bad.size), "cells", _count(bad.size))
             facts.append(f3)
             reason = (f"This cell goes from wet to dry or back {f1['shown']} times in {f2['shown']} steps; "
-                      f"{f3['shown']} cells flicker like it. Often a sign of a time step too long for the mesh "
+                      f"{f3['shown']} {'cell flickers' if bad.size == 1 else 'cells flicker'} in all. Often a sign "
+                      "of a time step too long for the mesh "
                       "or of a shallow, flat area at the edge of the flow.")
         else:
             reason = f"Another cell that flickers: {f1['shown']} changes in {f2['shown']} steps."
@@ -554,7 +557,9 @@ def _mass(m: Mesh, ids: _Ids, wet: np.ndarray) -> tuple[list, str, str]:
         sev = "warning"
     else:
         return [], "ok", f"The model's own volume error is {f1['shown']}{where}, within {fmt(VOLUME_WARN_PCT, 1)}%."
-    extra = f", {facts[1]['shown']} {w['unit'] or ''}".rstrip() if len(facts) > 1 else ""
+    vu = (w["unit"] or "").strip()
+    vu = f" × {vu}" if vu[:1].isdigit() else (f" {vu}" if vu else "")   # "1000 m3" is a unit of a thousand
+    extra = f", {facts[1]['shown']}{vu}" if len(facts) > 1 else ""
     reason = (f"The model's own volume accounting{where} says {f1['shown']} of the water is not accounted "
               f"for{extra}. Over {fmt(VOLUME_WARN_PCT, 1)}% is worth fixing before the depths are used: time step, "
               "mesh size near steep terrain, boundary conditions.")
@@ -577,6 +582,8 @@ def _overlap(run: tuple[str, str] | None, period: tuple[str, str] | None) -> boo
 
 def _radar(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) -> tuple[list, str, str]:
     radar = (floods or {}).get("radar")
+    if floods is None:
+        return [], "skipped", "The floods seen by radar were not looked up."
     if not radar or radar.get("rows") is None:
         return [], "skipped", "The radar floods could not be read" + (
             f" ({radar.get('error')})." if radar and radar.get("error") else ".")
@@ -640,6 +647,8 @@ def _radar(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) -
 
 def _news(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) -> tuple[list, str, str]:
     news = (floods or {}).get("news")
+    if floods is None:
+        return [], "skipped", "The floods in the news were not looked up."
     if not news or news.get("events") is None:
         return [], "skipped", "The news floods could not be read" + (
             f" ({news.get('error')})." if news and news.get("error") else ".")
@@ -711,7 +720,7 @@ def _news(m: Mesh, wet: np.ndarray, floods: dict[str, Any] | None, ids: _Ids) ->
 
 def gauges_inside(m: Mesh, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The gauges (``{source, station_id, name, lat, lon}``) that stand inside a cell of the mesh, each with its
-    ``cell``; at most :data:`MAX_GAUGES`."""
+    ``cell`` (all of them: the gauge check reads the first :data:`MAX_GAUGES` and counts the rest)."""
     rows = [r for r in rows or [] if r.get("lat") is not None and r.get("lon") is not None]
     if not rows:
         return []
@@ -720,8 +729,7 @@ def gauges_inside(m: Mesh, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not rows:
         return []
     cells = cells_at(m, [float(r["lon"]) for r in rows], [float(r["lat"]) for r in rows])
-    out = [{**r, "cell": int(c)} for r, c in zip(rows, cells) if c >= 0]
-    return out[:MAX_GAUGES]
+    return [{**r, "cell": int(c)} for r, c in zip(rows, cells) if c >= 0]
 
 
 def _gauges(m: Mesh, gauges: list[dict[str, Any]] | None, ids: _Ids, unit: str | None) -> tuple[list, str, str]:
@@ -732,6 +740,8 @@ def _gauges(m: Mesh, gauges: list[dict[str, Any]] | None, ids: _Ids, unit: str |
         return [], "ok", "No Archive gauge stands inside the mesh, so no peak can be set against one."
     if not m.times:
         return [], "skipped", "No time steps in this file, so no modelled peak to set against the gauges."
+    total = len(inside)
+    inside = inside[:MAX_GAUGES]
     out = []
     flagged = 0
     for g in inside:
@@ -793,7 +803,8 @@ def _gauges(m: Mesh, gauges: list[dict[str, Any]] | None, ids: _Ids, unit: str |
                                 [fo, fm, fn, fl], src, cells=[c], when=t_model))
     off = (f"{_count(flagged)} observed peak{'' if flagged == 1 else 's'} more than {_plural(GAUGE_DAYS, 'day')} "
            "off the model's" if flagged else f"no observed peak more than {_plural(GAUGE_DAYS, 'day')} off the model's")
-    line = f"{_plural(len(inside), 'gauge')} inside the mesh; {off}."
+    some = f", the first {_count(len(inside))} checked" if total > len(inside) else ""
+    line = f"{_plural(total, 'gauge')} inside the mesh{some}; {off}."
     return out, "flagged" if flagged else "ok", line
 
 
@@ -882,6 +893,7 @@ def review_prompt(findings: list[dict[str, Any]], context: str = "") -> dict[str
         items.append({"id": f["id"], "check": f["label"], "severity": f["severity"], "rules_title": f["rules_title"],
                       "rules_reason": f["rules_reason"],
                       "facts": [{"placeholder": "{" + x["id"] + "}", "label": x["label"], "value": x["shown"],
+                                 **({"unit": x["unit"]} if x.get("unit") else {}),
                                  **({"when": x["when"], "when_placeholder": "{" + x["id"] + ".when}"}
                                     if x.get("when") else {})} for x in f["facts"]]})
     system = "\n".join([
@@ -941,7 +953,13 @@ def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str]
             return None, f"{{{mt.group(1)}.when}} has no time"
         if mt.group(2) == "place":
             return None, "a place placeholder (findings carry coordinates, not names)"
-    stray = claim_lock(words, list(own.values()))
+    # A sign or a digit against a placeholder changes the number code fills in ("-{f1}" turns 3.2% into -3.2%).
+    touch = re.search(r"[-+−±]\s?(?=\{f\d)|[\d.,](?=\{f\d)|\}(?=\d|[.,]\d)|\b(?:minus|negative|plus)\s+(?=\{f\d)",
+                      words, re.I)
+    if touch:
+        return None, f"a sign or a digit against a placeholder ({touch.group(0).strip() or touch.group(0)})"
+    # A fact's unit is code's too ("m3/s", "1000 m3", "km²"): its digits are not a claim.
+    stray = claim_lock(words, [{**x, "label": f"{x['label']} {x.get('unit') or ''}"} for x in own.values()])
     if stray:
         return None, f"a number not in its facts ({', '.join(stray)})"
     said = f"{f['rules_title']} {f['rules_reason']}".lower()
@@ -1069,8 +1087,11 @@ def gauge_series(gauges: list[dict[str, Any]], start: str, end: str, days: int =
     a = (date.fromisoformat(start[:10]) - timedelta(days=days)).isoformat()
     b = (date.fromisoformat(end[:10]) + timedelta(days=days)).isoformat()
     out = []
-    for g in gauges[:MAX_GAUGES]:
+    for n_g, g in enumerate(gauges):
         row = dict(g)
+        if n_g >= MAX_GAUGES:   # counted by the gauge check, not read
+            out.append(row)
+            continue
         try:
             got = fetch_series(g["source"], g["station_id"])
             s = got.get("series")

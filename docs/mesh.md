@@ -76,7 +76,7 @@ per check saying what it found or why it could not run.
 | Volume balance | the volume error HEC-RAS wrote itself (`Results/Unsteady/Summary/Volume Accounting`): over 1% worth a look, over 5% a problem | as said |
 | Floods seen by radar | 0.05° squares where Sentinel-1 saw flooding (Microsoft AI for Good, Oct 2014 to Sep 2024) and the model keeps every cell dry | worth a look in the run's months, information otherwise |
 | Floods in the news | Groundsource flood reports (2000 on) whose footprint covers cells the model keeps dry | worth a look in the run's days, information otherwise |
-| Gauges in the mesh | the observed peak at each Archive gauge standing in a cell against the model's peak at that cell, timing only (a gauge measures flow or stage, the model depth); more than a day apart is worth a look. When no gauge stands inside the mesh, the line says so | as said |
+| Gauges in the mesh | the observed peak at each Archive gauge standing in a cell (the first five; the line counts them all) against the model's peak at that cell, timing only (a gauge measures flow or stage, the model depth); more than a day apart is worth a look. When no gauge stands inside the mesh, the line says so | as said |
 
 When the run's months are outside the radar or news record, the comparison is made with
 every month on record and every finding says "Not this event": it tells where floods
@@ -117,8 +117,8 @@ the agency).
 
 On HEC's Bald Eagle Creek example (the rashdf copy, which has no bed levels and runs in
 January 1999) five checks run: the run is before the radar and news records, so the
-floods are compared with every month on record; five Archive gauges stand in the mesh,
-two of them with daily records for those days (both falling from the start of the run, so
+floods are compared with every month on record; six Archive gauges stand in the mesh and
+the first five are checked, two of them with daily records for those days (both falling from the start of the run, so
 no peak to time) and three without; the largest rises of the water surface are pinned.
 
 ![The review of the Bald Eagle Creek example](img/globe/564-review-baldeagle.png)

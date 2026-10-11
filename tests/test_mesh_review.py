@@ -291,6 +291,26 @@ def test_a_gauge_peak_days_off_is_found_and_nothing_else(mesh_of):
     assert "Timing only" in f["reason"]
 
 
+def test_more_gauges_than_are_checked_are_counted(mesh_of):
+    m = mesh_of()
+    many = [{**gauge(m, cell(4, 2), peak_day=3), "station_id": f"TEST-{k}"} for k in range(R.MAX_GAUGES + 2)]
+    rows = [{k: g[k] for k in ("source", "station_id", "name", "lat", "lon")} for g in many]
+    assert len(R.gauges_inside(m, rows)) == R.MAX_GAUGES + 2   # every gauge inside, none dropped unsaid
+    res = R.review(m, context=clean_context(m, gauges=many))
+    line = next(c for c in res["checks"] if c["check"] == "gauges")["line"]
+    assert line.startswith(f"{R.MAX_GAUGES + 2} gauges inside the mesh, the first {R.MAX_GAUGES} checked")
+    assert len(found(res, "gauges")) == R.MAX_GAUGES
+
+
+def test_one_cell_reads_as_one_cell(mesh_of):
+    d = clean_depths()
+    d[2:6, cell(7, 9)] = 0.5
+    m = mesh_of(d, volume_pct=3.2)
+    res = R.review(m, context=clean_context(m))
+    assert "1 such cell in all" in found(res, "isolated")[0]["reason"]
+    assert "32 × 1000 m3" in found(res, "mass_balance")[0]["reason"]
+
+
 # ── what the review says when it cannot check ───────────────────────────────
 
 
@@ -322,6 +342,8 @@ def test_without_context_the_outside_checks_say_they_were_skipped(mesh_of):
     res = R.review(mesh_of())
     by = {c["check"]: c["status"] for c in res["checks"]}
     assert by["floods_radar"] == by["floods_news"] == by["gauges"] == "skipped"
+    lines = {c["check"]: c["line"] for c in R.review(mesh_of())["checks"]}
+    assert "not looked up" in lines["floods_radar"] and "not looked up" in lines["floods_news"]
     assert by["negative"] == "ok" and by["mass_balance"] == "ok"
 
 
@@ -432,6 +454,9 @@ def test_a_models_words_are_held_to_the_facts(mesh_of):
     ("Below the bed", "Twelve cells go below zero.", "number"),
     ("Below the bed", "Depth falls to {F1.when}.", "has no time"),
     ("", "Depth falls.", "empty"),
+    ("Below the bed", "Depth falls to -{F1} m.", "sign or a digit"),
+    ("Below the bed", "Depth falls to {F1}0 m.", "sign or a digit"),
+    ("Below the bed", "Depth falls to minus {F1} m.", "sign or a digit"),
 ])
 def test_the_claim_lock_refuses(mesh_of, title, reason, why):
     res = _review_with_problems(mesh_of)
