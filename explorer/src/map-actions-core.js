@@ -69,11 +69,15 @@ export function checkPin(p) {
       ...(f.when ? { when: String(f.when).slice(0, 40) } : {}),
     }))
     : [];
+  // A rank (Scout, #563) is drawn in the pin; a kind says which layer the note is about.
+  const rank = Number(p.rank);
   const out = {
     lat: Math.round(lat * 1e5) / 1e5, lon: Math.round(lon * 1e5) / 1e5, title,
     text: p.text ? String(p.text).replace(/\s+/g, " ").trim().slice(0, 600) : "",
     facts,
-    source: p.source ? String(p.source).slice(0, 200) : "",
+    source: p.source ? String(p.source).slice(0, 320) : "",
+    ...(Number.isInteger(rank) && rank >= 1 && rank <= 99 ? { rank } : {}),
+    ...(p.kind ? { kind: String(p.kind).slice(0, 40) } : {}),
   };
   // A note (Explain, #562) is drawn as a short callout on the map rather than a pin you must open.
   if (p.kind === "note") {
