@@ -35,8 +35,8 @@ The forecast, warnings, climatology, skill and bulletin jobs build a smoke run w
 
 ## Status on 2026-10-12
 
-Checked against the live dataset. "Live" prefixes exist now; "declared" ones are written by a workflow that
-has not yet published to the dataset. A declared prefix is part of the contract from its first publish.
+Checked against the live dataset (file listing, Parquet schemas and JSON manifests). Every prefix below is
+published; `scout/`, `waterbalance/` and the daily `flowstatus/` files first appeared on 2026-10-11.
 
 | Prefix | Status | Stability |
 | --- | --- | --- |
@@ -49,9 +49,9 @@ has not yet published to the dataset. A declared prefix is part of the contract 
 | `forecasts/warnings/` | live | experimental |
 | `feeds/` | live | experimental |
 | `flowstatus/climatology/` | live | experimental |
-| `flowstatus/` (daily files) | declared | experimental |
-| `scout/` | declared | experimental |
-| `waterbalance/` | declared | experimental |
+| `flowstatus/` (daily files) | live | experimental |
+| `scout/` | live | experimental |
+| `waterbalance/` | live | experimental |
 | `context/` | live | experimental |
 
 The experimental prefixes were first published in October 2026 by the 0.26.0 and 0.27.0 jobs. They follow the
@@ -199,24 +199,24 @@ Licence: the gauge's agency for observations; GEOGLOWS v2 CC BY 4.0 for forecast
 | `flowstatus/climatology/month-01.parquet` to `month-12.parquet` | `river_id` (int64), `p10`, `p25`, `p75`, `p90` (float32, m3/s): the percentiles of daily flow in that calendar month, 1950 to 2019 | [`flow-climatology.yml`](https://github.com/Rekin226/aquascope/blob/main/.github/workflows/flow-climatology.yml), manual, once |
 | `flowstatus/climatology/reaches.parquet` | `river_id`, `lat`, `lon`, `strahler_order` | flow-climatology.yml |
 | `flowstatus/climatology/manifest.json` | `source`, `base_period`, `percentiles`, `min_strahler_order`, `n`, `files`, `licence` | flow-climatology.yml |
-| `flowstatus/latest.parquet` | `river_id`, `flow_cms`, `class` (1 much below to 5 much above) | flood-warnings.yml, daily (declared) |
-| `flowstatus/latest.bin.gz`, `flowstatus/<YYYY-MM-DD>.bin.gz` | the compact class file the Explorer draws from (format in `aquascope.flowstatus`) | flood-warnings.yml, daily (declared) |
-| `flowstatus/manifest.json` | the day's run | flood-warnings.yml, daily (declared) |
+| `flowstatus/latest.parquet` | `river_id` (int64), `flow_cms` (float32, m3/s), `class` (uint8, 1 much below to 5 much above) | flood-warnings.yml, daily |
+| `flowstatus/latest.bin.gz`, `flowstatus/<YYYY-MM-DD>.bin.gz` | the compact class file the Explorer draws from (format in `aquascope.flowstatus`) | flood-warnings.yml, daily |
+| `flowstatus/manifest.json` | the day's run: `issue_date`, `n`, `counts`, `classes`, `percentiles`, `base_period`, `files`, `licence` | flood-warnings.yml, daily |
 
 Licence: CC BY 4.0 (GEOGLOWS v2 forecast and flow duration curves).
 
-## `scout/`: what stands out today (experimental, declared)
+## `scout/`: what stands out today (experimental)
 
 Written by `flood-warnings.yml`, daily, after the Floods ahead issue (`python -m aquascope.map_scout`).
 
 | File | What |
 | --- | --- |
-| `scout/latest.json` | the world's findings per kind (`status`, `floods_ahead`, `floods_past`, `gauges_today`, `models_disagree`) with their numbers, reasons and record checks |
+| `scout/latest.json` | `made`, `date`, `method`, `inputs`, `findings`, `picks`, `counts`, `sources`: the world's findings, each of one kind (`status`, `floods_ahead`, `floods_past`, `gauges_today`, `models_disagree`), with its place, numbers, reason and source |
 | `scout/<YYYY-MM-DD>.json` | the same, kept by date |
 
 Licence: each finding names its layer, under that layer's licence.
 
-## `waterbalance/`: subbasins by monthly water balance (experimental, declared)
+## `waterbalance/`: subbasins by monthly water balance (experimental)
 
 Written by [`water-balance.yml`](https://github.com/Rekin226/aquascope/blob/main/.github/workflows/water-balance.yml),
 monthly (the 9th, 05:41 UTC), with `python -m aquascope.waterbalance`. Modelled, not measured.

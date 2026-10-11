@@ -485,6 +485,14 @@
    "Studio",
    "Workspace"
   ],
+  "aquascope.studio.desk": [
+   "comment",
+   "resolve",
+   "sensitivity"
+  ],
+  "aquascope.studio.prompts": [
+   "as_json"
+  ],
   "aquascope.utils.http_client": [
    "CachedHTTPClient",
    "RateLimiter"

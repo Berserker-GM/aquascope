@@ -19,7 +19,7 @@ This page says what is covered, what counts as breaking, how a deprecation warns
 
 ### Python
 
-Stable are the names the README, these docs and the Explorer use, read conservatively:
+Stable are the names the README and these docs show, read conservatively:
 
 - the top level: `aquascope.collect`, `aquascope.recommend`, `aquascope.find_stations`, `aquascope.__version__`
   and the convenience names in `aquascope.__init__` (`flood_analysis`, `HydroAgent`, `GRACEProcessor`, ...);
@@ -31,12 +31,13 @@ Stable are the names the README, these docs and the Explorer use, read conservat
   `schemas.water_data`, `schemas.station`, `collectors.base`, `io.interop`, `models.rainfall_runoff`,
   `pipelines.model_builder`, `analysis.eda`, `analysis.quality`, `ai_engine.analyst`, `ai_engine.agent`,
   `ai_engine.recommender`, `ai_engine.team`, `ai_engine.verify`, `ai_engine.providers`,
-  `ai_engine.llm_transport`, `utils.http_client` (for collector authors) and `utils.storage`;
+  `ai_engine.llm_transport`, `utils.http_client` (for collector authors), `utils.storage`, and the Study Desk's
+  `studio.desk.comment`, `resolve` and `sensitivity` with `studio.prompts.as_json`;
 - `aquascope.experimental` itself: its lists and `is_experimental` (the lists' contents change, their names do not).
 
 The snapshot file lists every one of them. A name is public because it is
 in that file, not because it lacks an underscore: a module that is not listed (for example `aquascope.cli`,
-`aquascope.mcp_server`, `aquascope.dashboard`, `aquascope.maintenance`, the Studio's roles and prompts, or the
+`aquascope.mcp_server`, `aquascope.dashboard`, `aquascope.maintenance`, the Studio's roles, or the
 Archive's build steps such as `aquascope.archive.harvest`) is internal, and so is any name in a listed module
 that the file does not name. Call the stable names, or the CLI and MCP faces, instead.
 
@@ -146,7 +147,9 @@ leaves `aquascope.experimental`, its names enter the snapshot, and from then on 
 ## Internal
 
 Anything that is neither in the snapshot nor experimental is internal: underscore names, unlisted modules, the
-maintainer commands above, the Explorer's JavaScript, the workflow files. Internal code changes whenever it needs
+maintainer commands above, the Explorer's JavaScript, the workflow files. The Explorer installs the wheel
+built from the same commit, so a module only its worker imports (the Studio's steering, portable and bundle
+helpers, for example) is internal too. Internal code changes whenever it needs
 to. If you depend on something internal, open an issue: the answer is usually to make it public.
 
 ## How it is enforced

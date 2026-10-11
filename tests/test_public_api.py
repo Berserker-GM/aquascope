@@ -41,8 +41,10 @@ from aquascope import _deprecation, experimental  # noqa: E402
 ALL = "__all__"  # take the module's own __all__
 FUNCTIONS = "functions"  # every public function and class the module itself defines
 
-# How the stable Python surface is chosen: what the README, the docs and the Explorer's worker use, read
-# conservatively. A module's ``__all__`` is its author's statement of what is public; elsewhere only the names the
+# How the stable Python surface is chosen: what the README and the docs show, read conservatively. The Explorer's
+# worker installs the wheel built from the same commit, so a name only the worker imports is internal (the
+# Explorer tests guard it); every stable-module name the worker uses is in here anyway. A module's ``__all__``
+# is its author's statement of what is public; elsewhere only the names the
 # documentation shows are frozen. Experimental modules and names (aquascope.experimental) are left out.
 STABLE_SPEC: dict[str, Any] = {
     "aquascope": ["__version__", "collect", "recommend", "HydroAgent", "ChallengePlanner", "ModelRecommender",
@@ -95,6 +97,8 @@ STABLE_SPEC: dict[str, Any] = {
     "aquascope.schemas.water_data": ["ClimateReading", "DataSource", "GeoLocation", "Quality", "StreamflowReading",
                                      "WaterLevelReading", "WaterQualitySample"],
     "aquascope.studio": ALL,
+    "aquascope.studio.desk": ["comment", "resolve", "sensitivity"],
+    "aquascope.studio.prompts": ["as_json"],
     "aquascope.utils.http_client": ["CachedHTTPClient", "RateLimiter"],
     "aquascope.utils.storage": ["export_netcdf", "save_records"],
     "aquascope.viz": ALL,
