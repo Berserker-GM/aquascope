@@ -446,6 +446,7 @@ def whatif(
     maxiter: int = 25,
     snow: str | bool = "auto",
     basin_ids: int = BASIN_IDS,
+    params: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """A what-if scenario for the basin draining to a river reach, and its change carried down the river.
 
@@ -460,7 +461,9 @@ def whatif(
     each change with its ``range`` from the ``members`` parameter sets that did as well on the validation years;
     ``reaches`` holds each reach downstream to the ``confluences``-th major confluence with its share of the
     basin's water and the changes scaled by it (:data:`SIMPLIFICATION`); ``basin.ids`` lists the basin's reaches
-    for the map. Every number is computed here; ``verdict`` says them in one paragraph.
+    for the map. Every number is computed here; ``verdict`` says them in one paragraph. ``params`` (the
+    ``model.params`` of an earlier answer for the same reach) skips the calibration, so a second scenario on the
+    same basin is quick; the fit is seeded, so the numbers are the ones a fresh run gives.
     """
     from aquascope import advanced, rivers
 
@@ -533,7 +536,7 @@ def whatif(
         centre[0], centre[1], area_km2=model_area, years=int(years or advanced.MODEL_YEARS),
         scenarios=[{"label": sc["label"], "dp_pct": sc["dp_pct"], "dt_c": sc["dt_c"], "dpet_pct": sc["dpet_pct"],
                     "demand_cms": sc["demand_cms"]}],
-        maxiter=int(maxiter), snow=snow, flood_rp=float(flood_rp), members=int(members))
+        maxiter=int(maxiter), snow=snow, flood_rp=float(flood_rp), members=int(members), params=params)
     if cm.get("error"):
         out["error"] = f"the catchment model could not run: {cm['error']}"
         out["model"] = {"error": cm["error"]}

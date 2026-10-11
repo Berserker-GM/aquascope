@@ -39,6 +39,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -719,6 +720,18 @@ def _behavioural_ranges(members: int, best: dict[str, float], use_snow: bool, kg
             "the range is narrow because few were kept, not because the change is certain."}
 
 
+def _given_params(params: Any) -> dict[str, float] | None:
+    """Parameters handed back from an earlier answer, checked: X1-X4 (and DDF and T0 together), finite."""
+    if not isinstance(params, dict):
+        return None
+    keys = ["X1", "X2", "X3", "X4"] + (["DDF", "T0"] if "DDF" in params or "T0" in params else [])
+    try:
+        out = {k: float(params[k]) for k in keys}
+    except (KeyError, TypeError, ValueError):
+        return None
+    return out if all(math.isfinite(v) for v in out.values()) else None
+
+
 def _default_scenarios() -> list[dict[str, Any]]:
     return [{"label": "10% less rain", "dp_pct": -10.0}, {"label": "10% more rain", "dp_pct": 10.0},
             {"label": "2 °C warmer", "dt_c": 2.0}, {"label": "10% less rain and 2 °C warmer", "dp_pct": -10.0,
@@ -741,6 +754,7 @@ def catchment_model(
     snow: str | bool = "auto",
     flood_rp: float | None = None,
     members: int = 0,
+    params: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """GR4J calibrated on the gauge, validated on years it never saw, then run under "what if" changes.
 
@@ -770,7 +784,9 @@ def catchment_model(
     :data:`BEHAVIOURAL_KGE` of the calibrated set's on the years it never saw,
     each run with and without the scenario; the range is the spread of the
     change across the kept sets (5th to 95th percentile from ten, else the
-    extremes). A fixed seed makes it the same every run.
+    extremes). A fixed seed makes it the same every run. ``params`` (the
+    ``params`` of an earlier answer for the same record) skips the
+    calibration and repeats only the runs, so a second scenario is quick.
 
     ``snow`` puts a degree-day snow store in front of GR4J (two more
     calibrated parameters, :func:`aquascope.models.rainfall_runoff.degree_day_snow`).
@@ -835,11 +851,20 @@ def catchment_model(
     cold = forcing["t"] < 0.0
     snow_share = float(forcing.loc[cold, "p"].sum() / forcing["p"].sum()) if forcing["p"].sum() > 0 else 0.0
     use_snow = bool(snow) if not isinstance(snow, str) else snow_share >= SNOW_FRACTION
+    given = _given_params(params)
+    if given is not None:
+        use_snow = "DDF" in given   # the parameters say which model they belong to
     out["snow"] = {"used": use_snow, "share_below_freezing": _clean(snow_share), "rule": str(snow)}
     if use_snow:
+        out["methods"] += _m("degree_day")
+    if given is not None:
+        # A previous calibration of this same record and forcing (the fit is seeded, so it is the same answer
+        # again): only the runs are repeated. The skill below is recomputed from these parameters, not trusted.
+        cal = SimpleNamespace(params=given)
+        out["calibration_reused"] = True
+    elif use_snow:
         cal = calibrate_snow(cal_p, cal_e, forcing["t"].iloc[:mid], cal_q, objective=objective, warmup_days=wu,
                              maxiter=int(maxiter))
-        out["methods"] += _m("degree_day")
     else:
         cal = calibrate(cal_p, cal_e, cal_q, objective=objective, warmup_days=wu, maxiter=int(maxiter))
     model = GR4J(**{k.lower(): cal.params[k] for k in ("X1", "X2", "X3", "X4")})

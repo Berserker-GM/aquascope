@@ -1180,6 +1180,78 @@ def cmd_map(args: argparse.Namespace) -> None:
         print(f"\n  {res['credit']}")
 
 
+def cmd_whatif(args: argparse.Namespace) -> None:
+    """`aquascope whatif`: a scenario for a reach's basin, carried down the river (#565)."""
+    from aquascope import whatif_map as wm
+
+    text = " ".join(args.scenario or []).strip()
+    numbers = {"dp_pct": args.rain, "dt_c": args.warming, "dpet_pct": args.evaporation, "demand_cms": args.demand}
+    by = "the numbers given"
+    if text and not any(v is not None for v in numbers.values()):
+        if args.llm:
+            try:
+                read = wm.model_scenario(text, provider=args.provider, model=args.model, api_key=args.api_key)
+            except (RuntimeError, ValueError) as exc:
+                print(f"  {exc}")
+                sys.exit(1)
+            by = read["model"]
+            for e in read.get("errors") or []:
+                print(f"  {e}")
+            if not read["scenario"]:
+                sys.exit(1)
+        else:
+            read = wm.parse_scenario(text)
+            by = "rules"
+            if not read["matched"]:
+                unknown = "; ".join(read.get("unknown") or [])
+                print(f"  Not understood by the rules{f' ({unknown})' if unknown else ''}. Try --llm with your own "
+                      "key, or give --rain, --warming, --demand.")
+                sys.exit(1)
+        numbers = read["scenario"]
+    if args.river is None and (args.lat is None or args.lon is None):
+        print("  Give --river ID, or --lat and --lon (with --source and --station for a gauge).")
+        sys.exit(1)
+    res = wm.whatif(args.river, lat=args.lat, lon=args.lon, source=args.source, station_id=args.station,
+                    area_km2=args.area, flood_rp=args.rp, members=args.members, confluences=args.confluences,
+                    **numbers)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    if not res.get("ok"):
+        print(f"  {res.get('error')}")
+        sys.exit(1)
+    o, m = res["outlet"], res["model"]
+    print(f"  What if: {res['scenario']['label']} (read by {by})")
+    print(f"  Basin: {res['basin']['area_km2']:,.0f} km2 draining to river reach {o['river_id']}; GR4J calibrated on "
+          f"{'the gauge' if m['calibrated_on'] == 'gauge' else 'GEOGLOWS v2 simulated flow (modelled)'}, "
+          f"validation KGE {(m.get('validation') or {}).get('kge') or float('nan'):.2f} ({m.get('skill_grade')})")
+    print(f"\n  {'At the outlet':<40}{'before':>10}{'after':>10}{'change':>9}  range")
+
+    def fmt(v: float | None) -> str:
+        return "n/a" if v is None else f"{v:,.2f}"
+
+    for key in ("mean", "low", "flood"):
+        row = o[key]
+        rng = row.get("range")
+        ch = row.get("change_pct")
+        print(f"  {row['label']:<40}{fmt(row.get('before')):>10}{fmt(row.get('after')):>10}"
+              f"{'n/a' if ch is None else f'{ch:+.1f}%':>9}  {f'{rng[0]:+.1f} to {rng[1]:+.1f}%' if rng else ''}")
+    print(f"\n  Downstream ({res['downstream']['n_reaches']} reaches, stopped: {res['downstream']['stopped']}):")
+    for r in res["reaches"]:
+        if r is res["reaches"][0] or r.get("confluence") or r is res["reaches"][-1]:
+            tag = f"after confluence {r['confluence']['n']}" if r.get("confluence") else (
+                "the outlet of the basin" if r is res["reaches"][0] else "where the walk stops")
+            print(f"  - reach {r['river_id']}  {r['area_km2']:>11,.0f} km2  share {r['share']:.0%}  mean "
+                  f"{r['mean_change_pct']:+.1f}%  Q95 {r['q95_change_pct']:+.1f}%  flood "
+                  f"{r['flood_change_pct'] if r['flood_change_pct'] is None else round(r['flood_change_pct'], 1)}%"
+                  f"  ({tag})")
+    print(f"\n  {res['verdict']}")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+    print(f"  simplification: {res['simplification']}")
+    print(f"\n  {res['attribution']}")
+
+
 def cmd_mesh(args: argparse.Namespace) -> None:
     """`aquascope mesh FILE`: what a HEC-RAS 2D plan or UGRID mesh result holds (#555), the same summary the
     MCP tool mesh_summary gives and the Explorer draws on the globe."""
@@ -4470,6 +4542,28 @@ def main() -> None:
     p_map.add_argument("--api-key", default=None)
     p_map.add_argument("--today", default=None, help="Read dates as if today were YYYY-MM-DD")
     p_map.add_argument("--json", action="store_true")
+    # ── what if, on the map (#565) ───────────────────────────────────
+    p_wi = sub.add_parser("whatif", help="A what-if scenario for a river reach's basin (GR4J) and its change carried "
+                          "down the river: the Explorer's What if on the map")
+    p_wi.add_argument("scenario", nargs="*", help='In words, for example: "20%% less rain and 2 degrees warmer"')
+    p_wi.add_argument("--river", default=None, help="A GEOGLOWS v2 river_id (or give --lat and --lon to snap)")
+    p_wi.add_argument("--lat", type=float, default=None)
+    p_wi.add_argument("--lon", type=float, default=None)
+    p_wi.add_argument("--source", default=None, help="With --station: calibrate on this gauge instead of GEOGLOWS")
+    p_wi.add_argument("--station", default=None)
+    p_wi.add_argument("--area", type=float, default=None, help="The gauge's catchment area, km2")
+    p_wi.add_argument("--rain", type=float, default=None, help="Rain change in %% (-20 is 20%% less)")
+    p_wi.add_argument("--warming", type=float, default=None, help="Warming in degrees C")
+    p_wi.add_argument("--evaporation", type=float, default=None, help="Evaporation change in %% (default 3%% a degree)")
+    p_wi.add_argument("--demand", type=float, default=None, help="Water taken from the river, m3/s")
+    p_wi.add_argument("--rp", type=float, default=10.0, help="The flood's return period, years (default 10)")
+    p_wi.add_argument("--confluences", type=int, default=3, help="How many major confluences to carry the change past")
+    p_wi.add_argument("--members", type=int, default=24, help="Parameter sets tried for the range (0: no range)")
+    p_wi.add_argument("--llm", action="store_true", help="Read the words with your own model instead of the rules")
+    p_wi.add_argument("--provider", choices=provider_ids(), default=None)
+    p_wi.add_argument("--model", default=None)
+    p_wi.add_argument("--api-key", default=None)
+    p_wi.add_argument("--json", action="store_true")
     # ── model results on a mesh (#555) ──────────────────────────────
     p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
                             "times, the largest depth and speed")
@@ -5305,6 +5399,7 @@ def main() -> None:
         "layers": cmd_layers,
         "map": cmd_map,
         "mesh": cmd_mesh,
+        "whatif": cmd_whatif,
         "river": cmd_river,
         "evidence": cmd_evidence,
         "now": cmd_now,

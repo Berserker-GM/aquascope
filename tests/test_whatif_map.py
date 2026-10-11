@@ -197,3 +197,16 @@ def test_the_catchment_model_keeps_its_old_answer_without_the_new_options(toy_mo
                               scenarios=[{"label": "drier", "dp_pct": -10}])
     assert "flood" not in out["baseline_simulated"] and "range" not in out["scenarios"][0]
     assert "ensemble" not in out and "flood_change_pct" not in out["scenarios"][0]
+
+
+def test_a_second_scenario_reuses_the_calibration_and_agrees(toy_model):
+    first = wm.whatif(IDS["B"], dp_pct=-10, members=4, maxiter=6)
+    again = wm.whatif(IDS["B"], dp_pct=-10, members=4, maxiter=6, params=first["model"]["params"])
+    assert again["ok"] and again["model"].get("params") == first["model"]["params"]
+    for key in ("mean", "low", "flood"):   # the parameters come back rounded to 6 decimals: the same to the display
+        a, b = again["outlet"][key], first["outlet"][key]
+        assert a["change_pct"] == pytest.approx(b["change_pct"], abs=0.01)
+        assert a["before"] == pytest.approx(b["before"], rel=1e-5) and a["after"] == pytest.approx(b["after"], rel=1e-5)
+    assert [r["mean_change_pct"] for r in again["reaches"]] == pytest.approx(
+        [r["mean_change_pct"] for r in first["reaches"]], abs=0.01)
+    assert adv._given_params({"X1": 1, "X2": "x"}) is None and adv._given_params({"X1": 1}) is None
