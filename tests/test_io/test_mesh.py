@@ -490,6 +490,18 @@ def test_a_plan_without_its_geometry_says_what_is_missing_and_how_to_fix_it(tmp_
     assert M.mesh_summary(stripped) == {"ok": False, "error": msg}
 
 
+def test_a_plan_with_results_but_no_2d_areas_is_called_a_hec_ras_file(tmp_path):
+    # A plan holding only 1D results or boundary lines (rashdf's LowerKanawha.p01.bclines.hdf): a HEC-RAS file
+    # with no 2D flow areas, not "no UGRID mesh".
+    path = tmp_path / "lines.p01.hdf"
+    with h5py.File(path, "w") as fh:
+        fh.create_group("Geometry/Boundary Condition Lines")
+        fh.create_group("Results/Unsteady/Output")
+    with pytest.raises(M.MeshError, match="has no 2D flow areas") as err:
+        M.read_mesh(path)
+    assert "UGRID" not in str(err.value)
+
+
 @pytest.mark.parametrize("drop, missing", [
     (f"{M.RAS_GEOM}/Grid", f"{M.RAS_GEOM}/Grid is missing"),
     (f"{M.RAS_GEOM}/Grid/FacePoints Coordinate", "Grid/FacePoints Coordinate is missing"),

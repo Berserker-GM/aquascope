@@ -62,15 +62,17 @@ export const NO_GEOMETRY = "holds model results but not the mesh they sit on";
 
 /**
  * The reader's error, as the page says it. A plan file without its mesh is told what to drop next: the full
- * plan file, or the same file with its geometry file. Every other error is the package's own words.
+ * plan file, or the same file with its geometry file. The 2D area whose mesh is missing is named in words,
+ * not as an HDF5 path. Every other error is the package's own words.
  */
 export function friendlyError(message, name = "") {
   const msg = String(message || "");
   if (!msg.includes(NO_GEOMETRY)) return msg;
-  const missing = (/: (.+?) is missing\./.exec(msg) || [])[1];
-  return `${name || "This file"} holds model results but not the mesh they sit on` +
-    `${missing ? ` (${missing} is not in it)` : ""}. Drop the full plan file (.p01.hdf), or drop this file ` +
-    "together with the geometry file the plan was run with (.g01.hdf).";
+  const missing = (/: (.+?) is missing\./.exec(msg) || [])[1] || "";
+  const area = (/^Geometry\/2D Flow Areas\/([^/]+)/.exec(missing) || [])[1];
+  const what = area && area !== "Attributes" ? ` (no mesh for the 2D area ${area})` : "";
+  return `${name || "This file"} has the model results but not the mesh${what}. Drop the full plan file ` +
+    "(.p01.hdf), or this file together with its geometry file (.g01.hdf).";
 }
 
 /** "BaldEagle.p18.hdf" -> "BaldEagle.p18.hdf"; long names keep their ends: "Grevelingen-FM…_map.nc". */

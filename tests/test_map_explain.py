@@ -328,6 +328,7 @@ def test_the_claim_lock_counts_numbers_in_words_and_other_numerals(facts):
     "-{f1}", "Falls to -{f1} today.", "Falls to \u2212{f1}.", "Up +{f1}.", "\u00b1 {f1}", "Falls to minus {f1}.",
     "Negative {f1} here.", "plus {f1}", "(- {f1})", "- {f1} today", "{f1}0 reaches", "1{f1} reaches", "{f1}.5",
     "{f1},000 m\u00b3/s", "0.{f1}", ".{f1}", "{f1}e3", "{f1}k reports", "{f1}{f2}", "{f1}{f2.when}",
+    "Falls to \u2013{f1}.", "(\u2014{f1})", "\u2013 {f1} today",
 ])
 def test_a_sign_or_a_digit_against_a_placeholder_is_found(words):
     assert me.placeholder_touches(words)
@@ -338,6 +339,7 @@ def test_a_sign_or_a_digit_against_a_placeholder_is_found(words):
 @pytest.mark.parametrize("words", [
     "{f1}-{f2}", "mid-{month}", "Floods ahead - {place}", "At the {f1} today.", "Peaks at {f1}.", "{f1}, then more",
     "in {place}, {month}", "the {f1}-year flow", "{f1} m deep", "since {f1.when}", "{f1} keeps rising", "end.{f1}",
+    "{f1}\u2013{f2}", "Floods ahead \u2014 {place}", "ahead\u2014{place}",
 ])
 def test_wording_around_a_placeholder_is_not_a_sign(words):
     assert me.placeholder_touches(words) == []

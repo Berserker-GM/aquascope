@@ -986,8 +986,8 @@ _ANY_SLOT = r"\{\w+(?:\.\w+)?\}"
 # are wording, not a sign.
 _TOUCH = re.compile(
     r"(?:[+\u2212\u00b1]\s?"                    # a plus, a minus sign or a plus-minus, touching or one space off
-    r"|(?<![^\W\d_]|\})-"                        # a hyphen that does not join a word or two placeholders
-    r"|(?:^|(?<=[(\[=]))\s*-\s+"                  # "- {f1}" opening the words or a bracket
+    r"|(?<![^\W\d_]|\})[-\u2013\u2014]"            # a hyphen or a dash (en, em) not joining words or placeholders
+    r"|(?:^|(?<=[(\[=]))\s*[-\u2013\u2014]\s+"      # "- {f1}" opening the words or a bracket
     r"|\b(?:minus|negative|plus)\s+"             # the sign in words
     r"|\d[.,]?|(?<!\w)\.)"                       # a digit or a decimal point before it ("1{f1}", ".{f1}")
     + _ANY_SLOT

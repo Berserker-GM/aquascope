@@ -41,9 +41,12 @@ test("a plan file without its mesh is told what to drop next; other errors stay 
   const py = `Muncie.p04.timeseries.hdf ${NO_GEOMETRY}: Geometry/2D Flow Areas is missing. It looks like a stripped ` +
     "plan file. Open the full plan file (.p01.hdf), or give the geometry file the plan was run with (.g01.hdf) too.";
   const said = friendlyError(py, "Muncie.p04.timeseries.hdf");
-  assert.match(said, /^Muncie\.p04\.timeseries\.hdf holds model results but not the mesh they sit on/);
-  assert.match(said, /\(Geometry\/2D Flow Areas is not in it\)/);
-  assert.match(said, /Drop the full plan file \(\.p01\.hdf\), or drop this file together with the geometry file/);
+  assert.equal(said, "Muncie.p04.timeseries.hdf has the model results but not the mesh. Drop the full plan file " +
+    "(.p01.hdf), or this file together with its geometry file (.g01.hdf).");
+  // A missing 2D area is named in words, not as its HDF5 path.
+  const area = friendlyError(py.replace("Geometry/2D Flow Areas is", "Geometry/2D Flow Areas/BaldEagleCr/Faces FacePoint Indexes is"), "p.hdf");
+  assert.match(area, /^p\.hdf has the model results but not the mesh \(no mesh for the 2D area BaldEagleCr\)\. Drop/);
+  assert.doesNotMatch(area, /Geometry\//);
   assert.equal(friendlyError("x.hdf has no 2D flow areas."), "x.hdf has no 2D flow areas.");
 });
 

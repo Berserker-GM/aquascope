@@ -738,7 +738,7 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
             a["lsq"] = None
 
     if times and not any(f"{RAS_SUMMARY}/2D Flow Areas/{a['name']}/Maximum Water Surface" in fh for a in areas):
-        notes.append("The largest is over the saved time steps (no summary output in this file).")
+        notes.append("No summary output: the largest is over the saved time steps.")
     angle = _east_north_angle(cx, cy, crs_in, lat) if has_v else None
     src = _RasSource(fh, areas, bed, angle)
     src.n_steps = len(times)
@@ -1223,7 +1223,7 @@ def read_mesh(path: str | Path, *, crs: str | int | None = None, max_cells: int 
         h5py = _h5py()
         with h5py.File(path, "r") as fh:
             is_ras = (f"{RAS_GEOM}/Attributes" in fh or "HEC-RAS" in _text(fh.attrs.get("File Type"))
-                      or _ras_2d_results(fh))
+                      or _ras_2d_results(fh) or _ras_has_results(fh))
         if is_ras:
             return read_ras_plan(path, crs=crs, max_cells=max_cells, geometry=geometry)
         return read_ugrid(path, crs=crs, max_cells=max_cells)
