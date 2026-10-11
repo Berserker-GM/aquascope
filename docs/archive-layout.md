@@ -30,13 +30,15 @@ What is not covered: the dataset card (`README.md`), the contents of the `manife
 beyond the keys named here, row order, Parquet row-group sizes and compression, and anything under a prefix this
 page marks experimental.
 
-Each scheduled job writes only under its own prefix (the harvest also writes the catalogue files at the root).
+Each scheduled job writes only under its own prefix (the harvest also writes the catalogue files at the root),
+plus its own record under `health/jobs/`.
 The forecast, warnings, climatology, skill and bulletin jobs build a smoke run without publishing it.
 
 ## Status on 2026-10-12
 
 Checked against the live dataset (file listing, Parquet schemas and JSON manifests). Every prefix below is
-published; `scout/`, `waterbalance/` and the daily `flowstatus/` files first appeared on 2026-10-11.
+published except `health/`, whose writer was merged on 2026-10-12 and publishes from each job's next run;
+`scout/`, `waterbalance/` and the daily `flowstatus/` files first appeared on 2026-10-11.
 
 | Prefix | Status | Stability |
 | --- | --- | --- |
@@ -53,6 +55,7 @@ published; `scout/`, `waterbalance/` and the daily `flowstatus/` files first app
 | `scout/` | live | experimental |
 | `waterbalance/` | live | experimental |
 | `context/` | live | experimental |
+| `health/` | from the next scheduled runs | experimental |
 
 The experimental prefixes were first published in October 2026 by the 0.26.0 and 0.27.0 jobs. They follow the
 same rules for adding columns, but a path or column there may change in a minor release, with a CHANGELOG
@@ -173,7 +176,7 @@ daily (14:23 UTC), with `python -m aquascope.archive.warnings`. Model output, no
 | File | What |
 | --- | --- |
 | `forecasts/warnings/latest.parquet` | one row per reach expected to reach its 2-year flow in 15 days: `river_id`, `lat`, `lon`, `strahler_order`, `area_km2`, `peak_cms`, `peak_date`, `rp` (years), `share` (of 51 members), `q2` to `q100` (m3/s), `daily` (one character per day, `0` to `6`), `gauges` |
-| `forecasts/warnings/<YYYY-MM-DD>.parquet` | the same table, kept by the forecast's start date |
+| `forecasts/warnings/<YYYY-MM-DD>.parquet` | the same table, kept by the forecast's start date (the last 60 days, then the first of each month; see [retention](archive.md#retention-of-the-daily-files)) |
 | `forecasts/warnings/latest.geojson` | the same reaches as slim points for maps |
 | `forecasts/warnings/manifest.json` | `issue_date`, `valid_from`, `valid_to`, `counts`, `thresholds`, `method`, `smoke` |
 
@@ -200,7 +203,7 @@ Licence: the gauge's agency for observations; GEOGLOWS v2 CC BY 4.0 for forecast
 | `flowstatus/climatology/reaches.parquet` | `river_id`, `lat`, `lon`, `strahler_order` | flow-climatology.yml |
 | `flowstatus/climatology/manifest.json` | `source`, `base_period`, `percentiles`, `min_strahler_order`, `n`, `files`, `licence` | flow-climatology.yml |
 | `flowstatus/latest.parquet` | `river_id` (int64), `flow_cms` (float32, m3/s), `class` (uint8, 1 much below to 5 much above) | flood-warnings.yml, daily |
-| `flowstatus/latest.bin.gz`, `flowstatus/<YYYY-MM-DD>.bin.gz` | the compact class file the Explorer draws from (format in `aquascope.flowstatus`) | flood-warnings.yml, daily |
+| `flowstatus/latest.bin.gz`, `flowstatus/<YYYY-MM-DD>.bin.gz` | the compact class file the Explorer draws from (format in `aquascope.flowstatus`); dated files (the last 60 days, then the first of each month; see [retention](archive.md#retention-of-the-daily-files)) | flood-warnings.yml, daily |
 | `flowstatus/manifest.json` | the day's run: `issue_date`, `n`, `counts`, `classes`, `percentiles`, `base_period`, `files`, `licence` | flood-warnings.yml, daily |
 
 Licence: CC BY 4.0 (GEOGLOWS v2 forecast and flow duration curves).
@@ -212,7 +215,7 @@ Written by `flood-warnings.yml`, daily, after the Floods ahead issue (`python -m
 | File | What |
 | --- | --- |
 | `scout/latest.json` | `made`, `date`, `method`, `inputs`, `findings`, `picks`, `counts`, `sources`: the world's findings, each of one kind (`status`, `floods_ahead`, `floods_past`, `gauges_today`, `models_disagree`), with its place, numbers, reason and source |
-| `scout/<YYYY-MM-DD>.json` | the same, kept by date |
+| `scout/<YYYY-MM-DD>.json` | the same, kept by date (the last 60 days, then the first of each month; see [retention](archive.md#retention-of-the-daily-files)) |
 
 Licence: each finding names its layer, under that layer's licence.
 
@@ -245,6 +248,18 @@ Written by [`bulletin.yml`](https://github.com/Rekin226/aquascope/blob/main/.git
 | `bulletins/index.json` | `latest`, `months` (newest first: `month`, `label`, `made`, `classed`, `considered`, `counts`, `headline`, `sources`) |
 
 Licence: computed from the mirrored observations, under each source's terms.
+
+## `health/`: scheduled job health (experimental)
+
+Written by every scheduled workflow's last step, whether the job passed or not (`aquascope.archive.health_jobs`,
+#593). A smoke run's record is never published.
+
+| File | What |
+| --- | --- |
+| `health/jobs/<job>.json` | one job: `job`, `label`, `workflow`, `cadence`, `cadence_hours`, `stale_after_hours`, `layers`, `writes`, `updated_at`, `last_run`, `last_success`, `last_failure` (each with `status`, `started_at`, `finished_at`, `duration_s`, `event`, `run_url`, `counts`, `data_date`, `reasons`, `notes`), `consecutive_failures`, `history` |
+| `health/jobs/index.json` | `about`, `updated_at`, `jobs`: every job in `JOBS` with its expected cadence and newest state, which the Explorer reads |
+
+Licence: none of its own; the files hold run metadata only, no observations.
 
 ## `context/`: place-context mirrors (experimental)
 

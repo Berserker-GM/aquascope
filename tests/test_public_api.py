@@ -364,7 +364,7 @@ ARCHIVE_FOLDERS = [
     ("aquascope.archive.feeds", "FOLDER"), ("aquascope.bulletin", "FOLDER"), ("aquascope.evidence", "SKILL_FOLDER"),
     ("aquascope.flowstatus", "FOLDER"), ("aquascope.flowstatus", "CLIM_FOLDER"), ("aquascope.map_scout", "FOLDER"),
     ("aquascope.waterbalance", "FOLDER"), ("aquascope.context._common", "MIRROR_FOLDER"),
-    ("aquascope.context.floods_past", "FOLDER"),
+    ("aquascope.context.floods_past", "FOLDER"), ("aquascope.archive.health_jobs", "FOLDER"),
 ]
 
 
