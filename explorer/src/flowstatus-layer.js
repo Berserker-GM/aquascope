@@ -109,11 +109,6 @@ export function setFlowNormal(on, { write = true } = {}) {
   if (write) writeUrl();
 }
 
-/** For the map card and Explain: the class code of a reach today (0 when none), and the manifest. */
-export function flowStatusOf(riverId) {
-  return ready() ? { code: classOf(data, riverId), manifest: data.manifest } : null;
-}
-
 // ── the Rivers row ──────────────────────────────────────────────────────────
 
 const bar = (cls) => `<span class="${cls}">${STATUS_CLASSES.map((c) =>

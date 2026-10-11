@@ -123,14 +123,6 @@ export function issueLine(manifest) {
     `${manifest.smoke ? ", a smoke sample only" : ""}.`;
 }
 
-/** The map card's line for a reach: its class today, or why it has none. */
-export function reachLine(code, manifest) {
-  const c = fsClass(code);
-  if (!manifest || manifest.missing) return "";
-  if (!c) return `Not classed today (Strahler order ${FS_MIN_ORDER} and up only, or a channel dry most of the month).`;
-  return `${c.label[0].toUpperCase()}${c.label.slice(1)} for ${issueDay(manifest)}, modelled.`;
-}
-
 /** The flag in a link: #fn=1 on, #fn=0 off, null when the link does not say. */
 export function readFlowNormalParam(hash) {
   const q = new URLSearchParams(String(hash || "").replace(/^#/, ""));

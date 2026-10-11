@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { gzipSync } from "node:zlib";
 
 import {
-  FS_UNCLASSED, classOf, decodeFlowStatus, flowColorExpr, fsClass, isGzip, issueLine, reachLine, readFlowNormalParam,
+  FS_UNCLASSED, classOf, decodeFlowStatus, flowColorExpr, fsClass, isGzip, issueLine, readFlowNormalParam,
   rowSummary, sharesLine,
 } from "../src/flowstatus-core.js";
 import { STATUS_CLASSES } from "../src/now-core.js";
@@ -76,9 +76,6 @@ test("the words take every number from the manifest", () => {
   assert.equal(sharesLine({}), "");
   assert.match(issueLine(M), /forecast for Sun 11 Oct against each reach's October normal \(1950 to 2019\)/);
   assert.match(issueLine({ missing: true }), /Not published yet/);
-  assert.equal(reachLine(4, M), "Above normal for Sun 11 Oct, modelled.");
-  assert.match(reachLine(0, M), /Not classed today/);
-  assert.equal(reachLine(3, { missing: true }), "");
 });
 
 test("a link turns the colouring on or off, or says nothing", () => {
