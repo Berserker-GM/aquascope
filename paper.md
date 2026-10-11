@@ -9,8 +9,7 @@ tags:
   - large language models
   - reproducibility
 authors:
-  - name: Ouédraogo Abdoul Rachid
-    given-names: Abdoul Rachid
+  - given-names: Abdoul Rachid
     surname: Ouédraogo
     orcid: 0000-0002-4616-4153
     affiliation: 1
