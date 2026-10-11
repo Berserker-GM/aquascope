@@ -30,10 +30,10 @@ Data, all read anonymously over HTTPS:
 Cost, measured on 2026-10-11 (``docs/explorer.md`` has the table): ERA5 is stored one hour of the whole globe per
 chunk, on average 1.83 MB of precipitation and 3.01 MB of evaporation, so a month is about 1,460 chunks and 3.5 GB,
 and 1990 to September 2026 is 441 months and about 1.56 TB. Reading is all there is to it: decoding and summing a
-chunk over the subbasins takes about 2 ms. A GitHub runner read about 74 MB/s, so the backfill is about 6 hours of
-reading. GEOGLOWS's whole monthly record for the 943 outlet reaches is about 0.5 GB. A run reads the published
+chunk over the subbasins takes about 2 ms. GitHub runners read 74 to 186 MB/s, so the backfill is 2.3 to 5.9 hours
+of reading. GEOGLOWS's whole monthly record for the 943 outlet reaches is about 0.5 GB. A run reads the published
 table first and computes only the months that are missing (or were preliminary ERA5T), newest first, until its
-time budget runs out, then publishes what it has: two runs for the backfill, and a few minutes a month after.
+time budget runs out, then publishes what it has: one or two runs for the backfill, a few minutes a month after.
 
 Layout under ``<out>/waterbalance/`` (the only folder this job writes or publishes):
 

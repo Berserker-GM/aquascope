@@ -12,10 +12,10 @@ name: Water balance
 # It writes ONLY under waterbalance/ in the Archive dataset. Modelled, not measured.
 #
 # Cost, measured on 2026-10-11: ERA5 is one whole-globe hour per chunk (on average 1.83 MB of precipitation and
-# 3.01 MB of evaporation), so a month is about 1,460 chunks and 3.5 GB, and 1990 to now about 1.56 TB. A runner read
-# about 74 MB/s, so the backfill is about 6 h of reading: each run reads the published table, computes the missing
-# months newest first until its time budget, and publishes what it has, so two dispatches fill it (the run's summary
-# says how fast it read). After that a monthly run recomputes the newest three months (ERA5T becomes final).
+# 3.01 MB of evaporation), so a month is about 1,460 chunks and 3.5 GB, and 1990 to now about 1.56 TB. Runners read
+# 74 to 186 MB/s, so the backfill is 2.3 to 5.9 h of reading: each run reads the published table, computes the
+# missing months newest first until its time budget, and publishes what it has, so one or two dispatches fill it
+# (the run's summary says how fast it read). After that a monthly run recomputes the newest three months (ERA5T becomes final).
 # Locally:
 #   python -m aquascope.waterbalance run --out build --smoke-hours 6
 

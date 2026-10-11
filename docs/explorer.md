@@ -622,12 +622,12 @@ Reading is the whole cost: decoding a chunk and summing it over the subbasins ta
 
 | Where | What was read | Time |
 |---|---|---|
-| GitHub runner (this PR's smoke, 64 threads) | 480 chunks, 0.82 GB | 11 s, about 74 MB/s; the whole job 2 min 43 s, most of it setting up |
+| GitHub runner (the pull request smoke, 64 threads, two runs) | 480 chunks, 0.82 GB | 11 s and 4.4 s: 74 to 186 MB/s; the whole job 1.5 to 3 min, most of it setting up |
 | Home line (48 threads) | January to September 2026, 13,104 chunks, 24.3 GB | 614 s, 55 to 76 s a month |
 | Home line | GEOGLOWS, the whole monthly record of the 943 outlet reaches: 568 column chunks, 0.49 GB | 125 s |
 
-At the runner's rate the backfill is about 5.9 hours of reading: two dispatches at the
-default 300-minute budget, since each run reads the published table first, computes only
+At the runners' rates the backfill is 2.3 to 5.9 hours of reading: one or two dispatches
+at the default 300-minute budget, since each run reads the published table first, computes only
 the missing months newest first until its budget, and publishes what it has. After that, a
 monthly run recomputes the newest three months (ERA5T becoming final), about 8 to 11 GB, a
 few minutes. Every run's summary reports its rate and extrapolates the backfill. The
