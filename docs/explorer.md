@@ -701,6 +701,24 @@ tributaries) and the key says where that cut fell. The ids come from
 feature-state on `riverId`. The network geometry is CC BY-SA 4.0: shown here,
 never republished, and credited in the map's own attribution line.
 
+### Flow vs normal on the rivers
+
+The NOAA National Water Model map colours every reach by its flow against normal; this does it for the world (#559).
+In the legend, the **Rivers** row has **Colour by flow against normal**: every GEOGLOWS reach of Strahler order 5 and
+up takes the colour of its forecast flow for the day against its own normal for the month, in the river status
+layer's five classes and colours (much below, below, normal, above, much above), so a river and the basin around it
+mean the same thing. The key gives the forecast day, the month the normal is for, and the share of reaches above and
+below normal; lines with no class (smaller streams as you zoom in, dry channels) fade to a thin grey.
+
+The classes are computed in Python once a day ([archive.md](archive.md#flow-against-normal-flowstatus)) and published
+as one compact file, `flowstatus/latest.bin.gz` (the river ids and a byte each). The page reads it once and, as the
+stream tiles load, sets each reach's class as MapLibre feature-state on `riverId`, the same mechanism as the lit
+network (which now takes off only its own state, so the two can be on together). Off by default: on the globe the
+classes compete with the river status layer's basins underneath, and at regional zoom they read best with that
+layer's opacity turned down. A link carries `fn=1`. Before the first daily issue the key says it is not published
+yet and the rivers keep their blue. The same issue is `aquascope flowstatus [--bbox W S E N] [--river-id ID]` and the
+MCP tool `flow_vs_normal`. Modelled, not measured.
+
 The same functions are `aquascope river snap|record|area|trace|dams|upstream|downstream`
 and the MCP tools `snap_to_river`, `reach_record`, `upstream_area`,
 `trace_downstream`, `upstream_dams`, `upstream_ids` and `downstream_ids`.

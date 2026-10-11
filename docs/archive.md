@@ -256,6 +256,40 @@ time budget stops reading at 4.5 hours and counts what it skipped. Model output,
 is also `python -m aquascope.archive.warnings run|publish --out build`; `--max-chunks N` is a smoke run that reads N
 chunks spread over the globe, is marked so, and is never published.
 
+### Flow against normal (`flowstatus/`)
+
+Every reach of Strahler order 5 and up (842,581 reaches), classed once a day by its forecast flow for the day against
+its own normal for the month (#559), the NOAA National Water Model map for the whole world. Two parts:
+
+- **The climatology, once** (`flow-climatology.yml`, run by hand): GEOGLOWS publishes flow duration curves for every
+  reach (`s3://geoglows-v2/retrospective/fdc.zarr`, `daily_monthly`), the percentiles of daily flow in each calendar
+  month. Checked against the daily record of a Rhine reach, they are the percentiles of 1950 to 2019 (linear
+  interpolation) to within 1e-7. The job keeps the 10th, 25th, 75th and 90th of each month and writes only under
+  `flowstatus/climatology/`. Those reaches are spread over 23,085 of the store's 27,356 chunks (250 reaches each,
+  every month and probability together, about 0.8 MB compressed), so the build streams about 18 GB.
+- **Today, daily**: the `flood-warnings` run already reads every order-5 chunk of the forecast, so
+  `warnings run --day0` keeps each reach's first-day flow (the ensemble mean of the forecast's first UTC day) as it
+  goes, and `python -m aquascope.flowstatus daily` classes it against the forecast month's percentiles. Nothing is
+  downloaded twice. It writes only under `flowstatus/`, and it does not turn the day's Floods ahead issue red if it
+  fails.
+
+| path | what | licence |
+| --- | --- | --- |
+| `flowstatus/latest.bin.gz` | the classes for the Explorer: gzip of `AQFS`, a version byte, n (uint32 little endian), the sorted river ids as n LEB128 gaps, n class bytes (1 much below to 5 much above); reaches with no class left out | CC BY 4.0 |
+| `flowstatus/latest.parquet` | `river_id`, `flow_cms` (the first day's ensemble mean), `class` | CC BY 4.0 |
+| `flowstatus/<date>.bin.gz` | the day's classes, kept by the forecast's start date | CC BY 4.0 |
+| `flowstatus/manifest.json` | the issue date, the month, counts by class, the reaches with no flow or a dry channel, the method, what it is not, sizes, licences and the history | |
+| `flowstatus/climatology/month-01.parquet` to `month-12.parquet` | `river_id`, `p10`, `p25`, `p75`, `p90` (m3/s, daily flow in that calendar month, 1950 to 2019) | CC BY 4.0 |
+| `flowstatus/climatology/reaches.parquet` | `river_id`, `lat`, `lon`, `strahler_order` | CC BY 4.0 |
+
+The classes are the river status layer's: below the 10th percentile much below normal, 10th to 25th below, 25th to
+75th normal, 75th to 90th above, above the 90th much above; a flow equal to a bound counts towards normal. A reach whose
+90th percentile is zero (dry nine days in ten that month) is not classed. Modelled, not measured: the flow is the
+model's forecast and the normal the same model's simulated record. Locally:
+`python -m aquascope.flowstatus climatology --out build --max-chunks 40` (a smoke run, marked so, never published),
+`python -m aquascope.flowstatus daily --out build --climatology build --bbox W S E N` (reads the forecast itself), and
+`aquascope flowstatus [--bbox W S E N] [--river-id ID]` to read what is published.
+
 ### Scout (`scout/`)
 
 After the day's Floods ahead issue, the same `flood-warnings` workflow runs the Explorer's Scout (#563) over the
