@@ -18,6 +18,7 @@ import { applyLayerState, initLayerUI, renderCredits, syncRailControls } from ".
 import { initTimeBar } from "./src/time-ui.js?v=__BUILD__";
 import { initFloodsPast } from "./src/floods-past.js?v=__BUILD__";  // Floods past (#547)
 import { initGroundwater } from "./src/groundwater-view.js?v=__BUILD__";  // Groundwater and your MODFLOW heads (#558)
+import { initWaterBalance } from "./src/waterbalance-view.js?v=__BUILD__";  // Subbasins by monthly water balance (#557)
 import { initStatusLayer } from "./src/status-layer.js?v=__BUILD__";
 import { buildRail, syncRail, updateCount } from "./src/rail.js?v=__BUILD__";
 import { setBasinsVisible } from "./src/basins.js?v=__BUILD__";
@@ -193,6 +194,7 @@ function bringMapOnline(url) {
   initFloodDepth();
   initFloodsPast();
   initGroundwater();
+  initWaterBalance();
   initMeshView();
   initMeshReview();
   initMapActions();   // after every layer it can switch (#561)

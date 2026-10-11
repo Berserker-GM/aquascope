@@ -19,6 +19,7 @@ import { DEPTH_CREDIT } from "./flood-depth-core.js?v=__BUILD__";
 import { NEWS_CREDIT, RADAR_CREDIT } from "./floods-past-core.js?v=__BUILD__";
 import { STATUS_CREDIT, monthLabel } from "./status-core.js?v=__BUILD__";
 import { GW_CREDIT } from "./groundwater-core.js?v=__BUILD__";
+import { WB_CREDIT } from "./waterbalance-core.js?v=__BUILD__";
 import { writeUrl } from "./url.js?v=__BUILD__";
 import { openAreaStudy } from "./area-study.js?v=__BUILD__";
 import { cancelAreaContext, openAreaContext } from "./context.js?v=__BUILD__";
@@ -363,6 +364,7 @@ export function renderCredits() {
   if (state.floodsPast) lines.push(NEWS_CREDIT, RADAR_CREDIT);
   if (state.status) lines.push(STATUS_CREDIT);
   if (state.groundwater) lines.push(GW_CREDIT);
+  if (state.waterBalance) lines.push(WB_CREDIT);
   $("rail-credits").innerHTML = lines
     .map((l) => `<div><b>${escapeHtml(l.label)}</b>: ${l.attribution} <span class="muted">(${escapeHtml(l.licence)})</span></div>`)
     .join("");

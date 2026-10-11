@@ -72,6 +72,8 @@ export const LAYER_DEFAULTS = {
   status: true,
   // Groundwater (#558): the wells' head surface, off until asked for.
   groundwater: false,
+  // Water balance (#557): subbasins by monthly rain, evaporation, runoff and closure, off until asked for.
+  waterBalance: false,
 };
 
 export const state = {
