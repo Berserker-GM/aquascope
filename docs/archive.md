@@ -256,6 +256,23 @@ time budget stops reading at 4.5 hours and counts what it skipped. Model output,
 is also `python -m aquascope.archive.warnings run|publish --out build`; `--max-chunks N` is a smoke run that reads N
 chunks spread over the globe, is marked so, and is never published.
 
+### Scout (`scout/`)
+
+After the day's Floods ahead issue, the same `flood-warnings` workflow runs the Explorer's Scout (#563) over the
+whole world and writes only under `scout/`. It reads the published layers (the newest month of the GEOGLOWS river
+status map, the Floods ahead issue, the newest complete month of Floods past, today's gauge snapshot and the
+evidence table) and keeps what stands out, by fixed rules ([explorer.md](explorer.md#scout)).
+
+| path | what |
+| --- | --- |
+| `scout/latest.json` | the findings (up to 25 per kind), each with `lat`, `lon`, `title`, `reason`, its headline `value` and `unit`, all its numbers under `facts`, its `source`; today's ten `picks`; the record checks (a named region's share much above or below normal against the same calendar month since 1990, flood cells against the same month since 2000); the inputs, the method and the sources |
+| `scout/<date>.json` | the same file, kept by the day it was made |
+
+Each finding carries the licence of the layer it came from (the river status map and the forecast CC BY 4.0, the
+return periods CC BY-NC-SA 4.0, Groundsource CC BY 4.0, the Sentinel-1 detections MIT). A day where no layer can be
+read writes nothing, so yesterday's file stays. Not a warning. Also `python -m aquascope.map_scout daily|publish
+--out build`.
+
 ## Monthly bulletins (`bulletins/`)
 
 On the 3rd of every month the `bulletin` workflow (#523) writes last month's state of
