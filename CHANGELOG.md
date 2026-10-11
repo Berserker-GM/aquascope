@@ -15,6 +15,9 @@ All notable changes to AquaScope are documented here.
   - `aquascope._deprecation`: the `DEPRECATED` register and the `moved` (module `__getattr__`) and `deprecated` (function) shims. Empty at this release: nothing is deprecated yet.
   - `tests/test_public_api.py` and the snapshot `tests/fixtures/public_api.json` (454 Python names in 46 modules, the stable CLI commands with their flags, the stable MCP tools with their arguments): CI fails when a stable name, command, flag, tool or argument disappears without a deprecation, when a deprecated name stops warning, when a stable MCP tool gains a required argument, when a new command or tool is not classified, and when a published Archive prefix is missing from the layout page. `python tests/test_public_api.py --update` adds new stable names and never removes.
 
+### Fixed
+- Record the verified v0.27.0 Zenodo DOI (`10.5281/zenodo.23301359`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
+
 ## [0.27.0] - 2026-10-12
 
 ### Added
