@@ -144,7 +144,6 @@ function restyle() {
   if (map && map.getLayer(FILL)) map.setPaintProperty(FILL, "fill-color", fillColorExpression(state.wbVar, state.wbMode));
 }
 
-let pending = null;
 function update() {
   if (!state.waterBalance || !state.mapOk) { renderLegend(); return; }
   if (!manifest) { loadManifest().then(update).catch(() => {}); renderLegend(); return; }
@@ -168,7 +167,6 @@ function update() {
     console.warn(`water balance ${month}:`, err && err.message);
     if (wanted === month) { failed = { month }; renderLegend(); }
   });
-  pending = job;
   holdSettle(job);   // a play waits for the frame
 }
 
@@ -185,7 +183,7 @@ function renderLegend() { refreshLegend("water-balance"); }
 
 function rowBody() {
   const v = state.wbVar, m = state.wbMode;
-  const seg = (list, cur, act) => `<div class="wb-seg" role="group">${list.map((x) =>
+  const seg = (list, cur, act) => `<div class="wb-seg wb-seg-${list.length}" role="group">${list.map((x) =>
     `<button type="button" class="wb-seg-b${x.id === cur ? " on" : ""}" data-act="${act}:${x.id}" aria-pressed="${x.id === cur}">${escapeHtml(x.label)}</button>`).join("")}</div>`;
   const [lo, mid, hi] = rampEnds(v, m);
   const noNormal = m === "anom" && normals && !hasNormals(normals);
@@ -195,8 +193,10 @@ function rowBody() {
     `<span class="wb-ramp" style="background:${rampCss(v, m)}"></span>` +
     `<div class="wb-ends"><span>${escapeHtml(lo)}</span><span>${escapeHtml(mid)}</span><span>${escapeHtml(hi)}</span></div>` +
     `<p class="wb-note">${escapeHtml(variableNote(v, m, { normals: !noNormal }))}</p>` +
-    `<p class="wb-note muted"><i class="wb-none" style="background:${NO_VALUE}"></i>no value${v === "q" || v === "closure" ? " (no GEOGLOWS outlet reach here or upstream)" : ""}` +
-    `${era5t ? ". This month is ERA5T, preliminary" : ""}</p>` +
+    (v === "q" || v === "closure" || m === "anom"
+      ? `<p class="wb-note muted"><i class="wb-none" style="background:${NO_VALUE}"></i>${m === "anom" && v !== "q" && v !== "closure"
+        ? "no normal yet" : "no outlet reach here or upstream"}${era5t ? "; ERA5T, preliminary" : ""}</p>`
+      : era5t ? '<p class="wb-note muted">ERA5T, preliminary</p>' : "") +
     `<p class="ml-src">${escapeHtml(WB_SHORT_CREDIT)} <button type="button" class="ml-link" data-act="info">About</button></p>`;
 }
 
@@ -321,15 +321,14 @@ export function setWaterBalance(on, { write = true } = {}) {
   if (write) writeUrl();
 }
 
-function chooseWaterBalance(on) { setWaterBalance(on); }
-
-/** What the layer shows now, for Explain: { month, variable, mode }, or null when off or empty. */
-export function waterBalanceShown() {
-  if (!state.waterBalance || !wanted) return null;
-  return { month: wanted, variable: state.wbVar, mode: state.wbMode, label: variableOf(state.wbVar).label };
+// The river status colours the same level-4 basins and would sit under this layer, its caption talking about
+// another map: the reader's choice turns it off while the water balance is on, and back on after.
+let statusWasOn = false;
+function chooseWaterBalance(on) {
+  if (on && state.status && actions.setStatus) { statusWasOn = true; actions.setStatus(false); }
+  setWaterBalance(on);
+  if (!on && statusWasOn && actions.setStatus) { statusWasOn = false; actions.setStatus(true); renderCredits(); writeUrl(); }
 }
-
-export const waterBalanceReady = () => (state.waterBalance && pending ? pending.catch(() => {}) : Promise.resolve());
 
 export function initWaterBalance() {
   dbg.waterBalance = () => ({ manifest, shown, wanted, variable: state.wbVar, mode: state.wbMode });
@@ -344,7 +343,7 @@ export function initWaterBalance() {
   const toggle = $("toggle-water-balance");
   if (toggle) {
     toggle.checked = Boolean(state.waterBalance);
-    toggle.addEventListener("change", (e) => setWaterBalance(e.target.checked));
+    toggle.addEventListener("change", (e) => chooseWaterBalance(e.target.checked));
   }
   actions.setWaterBalance = setWaterBalance;
   actions.setWaterBalanceView = setWaterBalanceView;

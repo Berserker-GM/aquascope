@@ -581,6 +581,8 @@ month from January 1990, so play walks the months.
   its area (BasinATLAS). Brown where the river leaves smaller than it came in. Grey where
   GEOGLOWS has no outlet reach for the subbasin or for one upstream of it (457 of 1,342,
   mostly deserts, coasts and islands).
+![Runoff in September 2026: brown where the Nile loses water](img/globe/waterbalance-runoff.png)
+
 - **Closure**: P − ET − Q, **shown as it comes out, never hidden**. It holds the change in
   storage (soil, snow, groundwater, lakes and reservoirs), which swings with the seasons,
   and the errors of three products made separately. Over whole years it should be small;
@@ -592,6 +594,8 @@ month from January 1990, so play walks the months.
   from the file), and the year as bars, rain beside evaporation with runoff stacked on it,
   so the gap between the two is the closure error, with the normal rain as a tick. With a
   whole year it adds the year's closure. **This place** opens the river and gauges there.
+- **Turning it on** turns the river status off while it is on (both colour the same
+  level-4 basins) and back on after.
 
 ![The card of a subbasin: the year as bars](img/globe/waterbalance-card.png)
 
@@ -608,19 +612,29 @@ what the run cost. The level-4 routing comes from the Archive's BasinATLAS level
 each level-12 sub-basin is placed in its level-4 subbasin, which gives the area and which
 subbasin drains into which.
 
-**What it costs**, measured on 2026-10-11. ERA5 on Google Cloud (ARCO-ERA5, read
-anonymously) is stored one whole-globe hour per chunk: about 1.9 MB of precipitation and
-3.0 MB of evaporation, so a month is about 1,460 chunks and 3.6 GB, and January 1990 to
-September 2026 (441 months) about 1.6 TB. Reading is the whole cost: decoding a chunk and
-summing it over the subbasins takes about 2 ms. A whole month took 55 to 67 s on a home
-line (about 55 MB/s with 48 threads). GEOGLOWS's whole monthly record for the 943 outlet
-reaches is 568 chunks, about 0.5 GB (6 s on a GitHub runner). Each run reads the published
-table first and computes only the missing months, newest first, until its time budget
-(300 minutes by default), then publishes what it has, so the backfill takes as many
-dispatches as the runner's bandwidth needs; the pull request smoke and every run's summary
-report the rate. After the backfill, a monthly run recomputes the newest three months
-(ERA5T becoming final): about 11 GB. Level 5 (about 4,700 subbasins) would read the same
-ERA5 chunks; what it lacks is GEOGLOWS's outlet pairing, which exists for level 4 only.
+**What it costs**, measured on 2026-10-11 before building the job. ERA5 on Google Cloud
+(ARCO-ERA5, read anonymously) is stored one whole-globe hour per chunk. Sampled over
+1990 to 2026, a chunk is on average 1.83 MB of precipitation and 3.01 MB of evaporation,
+so a month is about 1,460 chunks and 3.5 GB, and January 1990 to September 2026 (441
+months) about 1.56 TB. The newest, preliminary months are smaller (about 1.7 MB a chunk).
+Reading is the whole cost: decoding a chunk and summing it over the subbasins takes about
+2 ms.
+
+| Where | What was read | Time |
+|---|---|---|
+| GitHub runner (this PR's smoke, 64 threads) | 480 chunks, 0.82 GB | 11 s, about 74 MB/s; the whole job 2 min 43 s, most of it setting up |
+| Home line (48 threads) | January to September 2026, 13,104 chunks, 24.3 GB | 614 s, 55 to 76 s a month |
+| Home line | GEOGLOWS, the whole monthly record of the 943 outlet reaches: 568 column chunks, 0.49 GB | 125 s |
+
+At the runner's rate the backfill is about 5.9 hours of reading: two dispatches at the
+default 300-minute budget, since each run reads the published table first, computes only
+the missing months newest first until its budget, and publishes what it has. After that, a
+monthly run recomputes the newest three months (ERA5T becoming final), about 8 to 11 GB, a
+few minutes. Every run's summary reports its rate and extrapolates the backfill. The
+published files come to about 35 MB for the whole record (the table about 14 MB, the
+year files about 0.5 MB each, the outlines 1.9 MB). Level 5 (about 4,700 subbasins) would
+read the same ERA5 chunks, so it costs the same; what it lacks is GEOGLOWS's outlet
+pairing, which exists for level 4 only, so this layer stays at level 4.
 
 The same in Python: `aquascope waterbalance --at LAT LON` (or `--basin HYBAS_ID`, or a
 month's overview with `--month YYYY-MM [--bbox W S E N] [--variable p|et|q|closure]`), and
@@ -631,7 +645,7 @@ Data: ERA5 hourly single levels, CC BY 4.0, Copernicus Climate Change Service / 
 GEOGLOWS v2 retrospective simulation and HydroSOS tables, CC BY 4.0. HydroBASINS level-4
 subbasins as published in BasinATLAS v1.0 (Linke et al. 2019), CC BY 4.0.
 
-![On a phone: the closure error](img/globe/waterbalance-phone.png)
+![On a phone: the closure error in July 2026, the monsoon storing water over South Asia](img/globe/waterbalance-phone.png)
 
 ## Context of a place
 

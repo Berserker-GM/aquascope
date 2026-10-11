@@ -321,8 +321,9 @@ def test_build_basins_routes_level_4_through_level_12(monkeypatch):
     polys = [_square(0, 0, 2), _square(2, 0, 2), _square(10, 10, 0.1)]
     basins = pd.DataFrame({"HYBAS_ID": [1, 2, 3], "geometry": shapely.to_wkb(polys)})
     pairs = pd.DataFrame({"HYBAS_ID": [1, 2, 2], "LINKNO": [501, 502, 503]})
-    topo = pd.DataFrame({"hybas_id": [11, 12, 21, 31], "next_down": [12, 21, 0, 0], "sub_area": [10.0, 20.0, 30.0, 1.0],
-                         "up_area": [10.0, 30.0, 60.0, 1.0], "lat": [0.5, 1.5, 1.0, 10.05], "lon": [0.5, 1.5, 3.0, 10.05]})
+    topo = pd.DataFrame({"hybas_id": [11, 12, 21, 31], "next_down": [12, 21, 0, 0],
+                         "sub_area": [10.0, 20.0, 30.0, 1.0], "up_area": [10.0, 30.0, 60.0, 1.0],
+                         "lat": [0.5, 1.5, 1.0, 10.05], "lon": [0.5, 1.5, 3.0, 10.05]})
 
     def parquet(df):
         import io
@@ -337,7 +338,8 @@ def test_build_basins_routes_level_4_through_level_12(monkeypatch):
     assert b.down == [1, -1, -1] and b.up == [[], [0], []]
     assert b.outlets == [[501], [502, 503], []] and b.runoff_ok == [True, True, False]
     counts = np.bincount(b.cell_basin, minlength=3)
-    assert counts[0] == 49 and counts[2] == 1           # cell centres strictly inside 2 x 2 degrees: 7 x 7; a speck gets one
+    # cell centres strictly inside 2 x 2 degrees: 7 x 7; a speck smaller than a cell gets the nearest one
+    assert counts[0] == 49 and counts[2] == 1
     assert np.all(b.cell_weight > 0.98)
 
 

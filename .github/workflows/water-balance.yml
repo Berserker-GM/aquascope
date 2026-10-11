@@ -11,11 +11,11 @@ name: Water balance
 #   waterbalance/manifest.json      months covered, method, licences, what the run cost
 # It writes ONLY under waterbalance/ in the Archive dataset. Modelled, not measured.
 #
-# Cost, measured on 2026-10-11: ERA5 is one whole-globe hour per chunk (about 1.9 MB of precipitation and 3.0 MB of
-# evaporation), so a month is about 1,460 chunks and 3.6 GB, and 1990 to now about 1.6 TB. Each run reads the
-# published table, computes the missing months newest first until its time budget, and publishes what it has, so
-# the backfill takes as many dispatches as the runner's bandwidth needs (the run's summary says how fast it read);
-# after that a monthly run recomputes the newest three months (ERA5T becomes final): about 11 GB.
+# Cost, measured on 2026-10-11: ERA5 is one whole-globe hour per chunk (on average 1.83 MB of precipitation and
+# 3.01 MB of evaporation), so a month is about 1,460 chunks and 3.5 GB, and 1990 to now about 1.56 TB. A runner read
+# about 74 MB/s, so the backfill is about 6 h of reading: each run reads the published table, computes the missing
+# months newest first until its time budget, and publishes what it has, so two dispatches fill it (the run's summary
+# says how fast it read). After that a monthly run recomputes the newest three months (ERA5T becomes final).
 # Locally:
 #   python -m aquascope.waterbalance run --out build --smoke-hours 6
 
@@ -104,9 +104,9 @@ jobs:
                 + (f" ({gb * 1000 / s:.0f} MB/s)" if s else "") + f"; {m['missing_hours']} missing.")
           if s and gb:
               rate = gb / s                       # GB per second on this runner
-              total = 1580                        # GB for 1990 to now, measured per chunk on 2026-10-11
+              total = 1560                        # GB for 1990 to now, sampled per chunk on 2026-10-11
               print(f"\nAt this rate the whole 1990-to-now backfill (about {total:,} GB) takes about "
-                    f"{total / rate / 3600:.1f} h of reading, and a month (about 3.6 GB) {3.6 / rate:.0f} s.")
+                    f"{total / rate / 3600:.1f} h of reading, and a month (about 3.5 GB) {3.5 / rate:.0f} s.")
           print(f"\nGEOGLOWS: {c['geoglows_chunks']} chunks in {c['geoglows_seconds']:.0f} s. Whole run "
                 f"{c['seconds'] / 60:.1f} min.")
           EOF

@@ -144,14 +144,14 @@ export function rampCss(variable, mode) {
 export function variableNote(variable, mode, { normals = true } = {}) {
   const v = variableOf(variable).id;
   if (mode === "anom" && !normals) {
-    return "No 1991-2020 normal yet: it needs at least 20 of those years in the table, which the monthly job is still filling in.";
+    return "No 1991-2020 normal yet: the monthly job is still filling in those years.";
   }
-  if (mode === "anom") return "Above or below the subbasin's 1991-2020 mean for the same calendar month.";
+  if (mode === "anom") return "Against the subbasin's 1991-2020 mean for the month.";
   return {
-    p: "Precipitation over each level-4 subbasin in the month (ERA5).",
-    et: "Water evaporated and transpired from each subbasin in the month (ERA5 total evaporation).",
-    q: "The runoff each subbasin makes itself: the GEOGLOWS flow at its outlet minus what comes in from upstream, over its area. Brown where the river loses water crossing it.",
-    closure: "P − ET − Q, shown as it comes out: the change in storage (soil, snow, groundwater, lakes) and the errors of three products made separately. Over whole years it should be small.",
+    p: "Rain over each subbasin in the month (ERA5).",
+    et: "Water evaporated from each subbasin in the month (ERA5).",
+    q: "Runoff made in each subbasin: outlet flow minus inflow (GEOGLOWS). Brown: the river loses water.",
+    closure: "P − ET − Q as it comes out: storage change and the products' errors. Small over whole years.",
   }[v];
 }
 

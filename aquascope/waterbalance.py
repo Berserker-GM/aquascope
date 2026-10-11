@@ -27,13 +27,13 @@ Data, all read anonymously over HTTPS:
   BasinATLAS v1.0 publishes under CC BY 4.0, Linke et al. 2019) and the Archive's BasinATLAS level-12 routing
   (``basins/lev12_topology.parquet``), which gives each level-4 subbasin its area and its upstream neighbours.
 
-Cost, measured on 2026-10-11 (a home line; see ``docs/explorer.md`` for the CI numbers): ERA5 is stored one hour
-of the whole globe per chunk, about 1.9 MB of precipitation and 3.0 MB of evaporation, so a month is about 1,460
-chunks and 3.6 GB, and 1990 to September 2026 is about 441 months and 1.6 TB. Reading is all there is to it:
-decoding and summing a chunk over the subbasins takes about 2 ms. GEOGLOWS's whole monthly record for the 943
-outlet reaches is about 0.5 GB. A run reads the published table first and computes only the months that are
-missing (or were preliminary ERA5T), newest first, until its time budget runs out, then publishes what it has; so
-the 1.6 TB backfill is spread over as many runs as it takes, and a monthly run after that reads about 4 to 11 GB.
+Cost, measured on 2026-10-11 (``docs/explorer.md`` has the table): ERA5 is stored one hour of the whole globe per
+chunk, on average 1.83 MB of precipitation and 3.01 MB of evaporation, so a month is about 1,460 chunks and 3.5 GB,
+and 1990 to September 2026 is 441 months and about 1.56 TB. Reading is all there is to it: decoding and summing a
+chunk over the subbasins takes about 2 ms. A GitHub runner read about 74 MB/s, so the backfill is about 6 hours of
+reading. GEOGLOWS's whole monthly record for the 943 outlet reaches is about 0.5 GB. A run reads the published
+table first and computes only the months that are missing (or were preliminary ERA5T), newest first, until its
+time budget runs out, then publishes what it has: two runs for the backfill, and a few minutes a month after.
 
 Layout under ``<out>/waterbalance/`` (the only folder this job writes or publishes):
 
