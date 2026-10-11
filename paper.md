@@ -10,6 +10,8 @@ tags:
   - reproducibility
 authors:
   - name: Ouédraogo Abdoul Rachid
+    given-names: Abdoul Rachid
+    surname: Ouédraogo
     orcid: 0000-0002-4616-4153
     affiliation: 1
 affiliations:
@@ -61,7 +63,7 @@ NeuralHydrology [@Kratzert2022] is a library for training deep-learning rainfall
 models. Caravan [@Kratzert2023] standardises large-sample datasets of forcing,
 streamflow and catchment attributes for global studies. HydroShare [@Horsburgh2016] is a
 repository for publishing and sharing hydrologic data and models. The GEOGloWS ECMWF
-Streamflow Service [@Hales2022], GloFAS [@Alfieri2013; @Harrigan2020] and Google's Flood
+Streamflow Service [@Hales2025], GloFAS [@Alfieri2013; @Harrigan2020] and Google's Flood
 Hub [@Nearing2024] provide global modelled discharge, forecasts and warnings.
 
 AquaScope builds on these rather than replacing them: it reads GEOGloWS and GloFAS
@@ -117,7 +119,7 @@ placeholder. HydroGym, a benchmark shipped with the package, scores agents again
 reference plans written by a hydrologist at seven real sites, including cases where the
 right answer is to decline.
 
-![The Explorer over the Ganges and Brahmaputra basins (15 September 2026). Four notes
+![The Explorer over the Ganges and Brahmaputra basins (map date 15 September 2026). Four notes
 from "Explain this view", written by rules with no model, each give a number read
 by code from a named source: monthly river status (GEOGloWS), a 15-day forecast
 peak, and reported flood events.\label{fig:explorer}](docs/img/globe/explain-bangladesh.png)
@@ -134,9 +136,10 @@ it directly.
 
 The benchmark already changed the software. In the first recorded run (7 September 2026)
 of the plan-writing role with two Claude models, both scored about 0.9 on the solvable
-cases but declined none of the seven cases that should be declined. After the playbooks'
-decline rules were enforced before any model is asked, the rerun scored 0.96 and 0.93
-against 0.97 for the rule tree alone, with every out-of-scope case declined. The rows,
+cases but declined none of the seven cases that should be declined. After the engine was
+changed to honour each playbook's decline rules before any model is asked and to let a
+model decline, a rerun the next day scored 0.96 and 0.93 against 0.97 for the rule tree
+alone, with every out-of-scope case declined. The rows,
 plans and scoring code are in the repository with a deposit package for a DOI.
 Peer-reviewed studies that use AquaScope are not yet known to us; documented use by
 people outside the project is an open acceptance criterion for version 1.0.
@@ -158,7 +161,7 @@ is not an official warning. The public API is not frozen until 1.0.
 
 Generative AI was used extensively. Much of the code, tests and documentation was
 written with Anthropic's Claude models through Claude Code, under the maintainer's
-direction: 564 of the 818 non-merge commits on the main branch at 0.27.0 carry a Claude
+direction: 551 of the 818 non-merge commits on the main branch at 0.27.0 carry a Claude
 co-author trailer. Changes are merged through pull requests that must pass continuous
 integration (lint, tests on three Python versions, JavaScript tests, the regression
 harness), and the maintainer is responsible for every release. This paper was drafted
