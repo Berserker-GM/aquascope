@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="./flood-depth.css?v=__BUILD__" />
   <link rel="stylesheet" href="./fews.css?v=__BUILD__" />
   <link rel="stylesheet" href="./mesh.css?v=__BUILD__" />
+  <link rel="stylesheet" href="./whatif.css?v=__BUILD__" />
 </head>
 <body class="panel-collapsed">
   <a class="skip" href="#panel">Skip to the results panel</a>
@@ -261,6 +262,51 @@
       </div>
       <section id="mesh-status" class="mesh-status" role="status" aria-live="polite" hidden></section>
       <section id="map-card" class="map-card" role="dialog" aria-modal="false" aria-labelledby="mc-title" tabindex="-1" hidden></section>
+      <!-- what if, on the map (#565): a scenario for the basin, painted on the rivers downstream; src/whatif-map.js -->
+      <div id="wi-swipe" class="wi-swipe" hidden>
+        <span class="wi-sw-line" aria-hidden="true"></span>
+        <span class="wi-sw-label wi-sw-before">Before</span>
+        <span id="wi-sw-after" class="wi-sw-label wi-sw-after">After</span>
+        <div class="wi-sw-handle" role="slider" tabindex="0" aria-label="Before and after divider"
+             aria-valuemin="5" aria-valuemax="95" aria-valuenow="50"><span aria-hidden="true">‹ ›</span></div>
+      </div>
+      <section id="whatif" class="whatif" aria-labelledby="wi-title" hidden>
+        <header class="wi-head">
+          <div>
+            <p class="wi-kicker">What if</p>
+            <h2 id="wi-title" class="wi-title">River reach</h2>
+            <p id="wi-sub" class="wi-sub"></p>
+          </div>
+          <button type="button" class="wi-close" aria-label="Close What if" title="Close (Esc)">×</button>
+        </header>
+        <form id="wi-line" class="wi-line" role="search">
+          <input id="wi-text" type="text" autocomplete="off" spellcheck="false" enterkeyhint="go"
+                 placeholder="“20% less rain and 2 degrees warmer”" aria-label="What if, in words" />
+          <button type="submit" class="btn small" title="Read the words into the sliders, then run">Read</button>
+        </form>
+        <p id="wi-read" class="wi-read" hidden></p>
+        <form id="wi-form" class="wi-form">
+          <label class="wi-slider"><span>Rain</span>
+            <input id="wi-rain" type="range" min="-50" max="50" step="5" value="-20" />
+            <output id="wi-rain-out" for="wi-rain">−20%</output></label>
+          <label class="wi-slider"><span>Warming</span>
+            <input id="wi-warm" type="range" min="-2" max="6" step="0.5" value="0" />
+            <output id="wi-warm-out" for="wi-warm">0 °C</output></label>
+          <label class="wi-slider"><span>Demand</span>
+            <input id="wi-demand" type="number" min="0" step="any" inputmode="decimal" placeholder="0" />
+            <output>m³/s taken</output></label>
+          <div class="wi-run-row">
+            <span id="wi-scn" class="wi-scn"></span>
+            <button id="wi-run" type="submit" class="btn small primary">Run</button>
+          </div>
+        </form>
+        <p id="wi-status" class="wi-status" role="status" hidden></p>
+        <div id="wi-result" class="wi-result" hidden>
+          <div id="wi-measures" class="wi-measures" role="group" aria-label="Paint the rivers by"></div>
+          <p id="wi-model" class="wi-model"></p>
+          <label class="wi-check"><input id="wi-swipe-on" type="checkbox" /> Before/after swipe</label>
+        </div>
+      </section>
       <!-- talk to the map (#561): one line on the map and the action log under it; src/map-command.js and src/map-actions.js -->
       <div id="map-ask" class="map-ask">
         <div class="ma-bar">
