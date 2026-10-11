@@ -503,6 +503,21 @@ def status_bulletin(month: str | None = None, sources: list[str] | None = None,
     return res
 
 
+def flow_vs_normal(bbox: list[float] | None = None, river_id: int | None = None) -> dict[str, Any]:
+    """Flow against normal: every GEOGLOWS v2 river reach of Strahler order 5 and up classed by today's forecast flow
+    (the ensemble mean of the first day) against its own 10th, 25th, 75th and 90th percentiles of daily flow for the
+    month (retrospective simulation, 1950 to 2019), in five classes from much below to much above normal. From the
+    daily published issue. bbox is [west, south, east, north] in degrees: counts inside it. river_id gives one
+    reach's class, flow and percentiles. Returns the issue date, counts by class and a sentence. MODELLED, not
+    measured: say so when you quote it."""
+    from aquascope import flowstatus
+
+    try:
+        return flowstatus.flow_vs_normal(bbox, river_id=river_id)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
 def flood_warnings(bbox: list[float] | None = None, min_rp: int = 2, limit: int = 50) -> dict[str, Any]:
     """Floods ahead: the river reaches the GEOGLOWS v2 global forecast expects to reach their 2-year flow in the next
     15 days, from the daily published issue (Strahler order 5 and up, ensemble-mean daily peak against the reach's
@@ -667,6 +682,25 @@ def groundwater_surface(west: float | None = None, south: float | None = None, e
     return res if grid else surface_summary(res)
 
 
+def water_balance(hybas_id: int | None = None, lat: float | None = None, lon: float | None = None,
+                  month: str | None = None, months: int = 24, bbox: list[float] | None = None, variable: str = "p",
+                  limit: int = 20) -> dict[str, Any]:
+    """The monthly water balance of the HydroBASINS level-4 subbasins (the HEC-HMS and QSWAT basin map, #557):
+    precipitation and actual evapotranspiration from ERA5, the subbasin's own runoff from GEOGLOWS v2 (outlet flow
+    minus inflow from upstream subbasins, in mm over its area) and the closure error P - ET - Q, each with its anomaly
+    against the 1991-2020 normal for the calendar month, monthly since 1990, in mm. With hybas_id (or lat and lon):
+    that subbasin's last `months` months up to `month` (YYYY-MM, default the newest), its normals and the month in
+    words. Without: the month's overview, in bbox [west, south, east, north] if given, with the `limit` subbasins
+    furthest from normal in `variable` (p, et, q or closure). MODELLED (a reanalysis and a routed model); the closure
+    error includes the change in storage and is shown, not hidden: say so when you quote it."""
+    from aquascope.waterbalance import water_balance as _wb
+
+    try:
+        return _wb(hybas_id, lat, lon, month, months=months, bbox=bbox, variable=variable, limit=limit)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
 def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: list[str] | None = None,
                   origin_x: float | None = None, origin_y: float | None = None, rotation: float | None = None,
                   crs: str | None = None, cell_size: float | None = None, start_date: str | None = None,
@@ -756,16 +790,18 @@ def explain_view(bbox: list[float], date: str | None = None, layers: list[str] |
     return _explain(bbox, date, layers)
 
 
-def mesh_summary(path: str, crs: str | None = None) -> dict[str, Any]:
+def mesh_summary(path: str, crs: str | None = None, geometry: str | None = None) -> dict[str, Any]:
     """What a model result on a mesh holds (#555): a HEC-RAS 2D plan HDF5 file (*.p01.hdf) or a UGRID NetCDF
     file (D-Flow FM, ADH, ADCIRC and others) on this machine. Returns the format, the model, the coordinate
     system (from the file, or crs as an EPSG code when the file states none), the extent in degrees, the cells
     per 2D area, the model's own time steps, the units, and the largest depth (or water surface, for a file
     without bed levels) and the largest speed with the cell and place where each happens. Every number is
-    computed from the file by aquascope.io.mesh; ok is false with a plain error for a file it cannot read."""
+    computed from the file by aquascope.io.mesh; ok is false with a plain error for a file it cannot read.
+    geometry is the HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the results but not
+    the mesh (a *.p01.timeseries.hdf)."""
     from aquascope.io.mesh import mesh_summary as _summary
 
-    return _summary(path, crs=crs)
+    return _summary(path, crs=crs, geometry=geometry)
 
 
 def whatif_map(river_id: int | None = None, lat: float | None = None, lon: float | None = None,
@@ -793,7 +829,8 @@ def whatif_map(river_id: int | None = None, lat: float | None = None, lon: float
     return res
 
 
-def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dict[str, Any]:
+def mesh_review(path: str, crs: str | None = None, offline: bool = False,
+                geometry: str | None = None) -> dict[str, Any]:
     """Review a model result on a mesh (#564): checks made by code on a HEC-RAS 2D plan HDF5 file or a UGRID
     NetCDF file on this machine. The deepest places (with depth and the model time), negative depths, cells
     wetted only by a film, isolated wet cells, wet and dry flicker, the model's own volume error (HEC-RAS
@@ -802,10 +839,25 @@ def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dic
     when the run's months are outside those records), and the modelled peak against each Archive gauge inside
     the mesh (or a line saying there is none). Each finding has its lat/lon, severity (problem, warning,
     info), value, unit, reason and source; each check has a line saying what it found or why it was skipped.
-    offline=true runs only the checks on the file. Numbers come from code."""
+    offline=true runs only the checks on the file. geometry is the HEC-RAS geometry file (*.g01.hdf) for a
+    stripped plan file. Numbers come from code."""
     from aquascope.mesh_review import review_file
 
-    return review_file(path, crs=crs, context=not offline)
+    return review_file(path, crs=crs, context=not offline, geometry=geometry)
+
+
+def swmm_summary(inp: str | None = None, out: str | None = None, crs: str | None = None, top: int = 5,
+                 element: str | None = None) -> dict[str, Any]:
+    """What an EPA SWMM model and its results hold (#560): a .inp file, its binary .out results file, or both,
+    on this machine (SWMM 5.0 to 5.2). Returns the network (nodes and links by type; with crs as an EPSG code,
+    or a model mapped in degrees, the coordinate system and extent), the report period and step, the nodes
+    that flood (peak rate in the model's flow units with its time, hours flooded and volume in m3 from the
+    report steps, and lat/lon when placed), the links with the largest flows (peak, its time, and the largest
+    fraction full), and with element one node's or link's time series. Every number is computed from the files
+    by aquascope.io.swmm; ok is false with a plain error for a file it cannot read."""
+    from aquascope.io.swmm import swmm_summary as _summary
+
+    return _summary(inp, out, crs=crs, top=top, element=element)
 
 
 def archive_health() -> dict[str, Any]:
@@ -1515,6 +1567,7 @@ def build_server():
     server.tool()(forecast_plume)
     server.tool()(status_bulletin)
     server.tool()(flood_warnings)
+    server.tool()(flow_vs_normal)
     server.tool()(correct_to_gauge)
     server.tool()(watch_digest)
     server.tool()(place_context)
@@ -1543,6 +1596,7 @@ def build_server():
     server.tool()(flood_depth_overlay)
     server.tool()(groundwater_surface)
     server.tool()(modflow_heads)
+    server.tool()(water_balance)
     server.tool()(river_status_summary)
     server.tool()(map_command)
     server.tool()(map_scout)
@@ -1550,6 +1604,7 @@ def build_server():
     server.tool()(mesh_summary)
     server.tool()(mesh_review)
     server.tool()(whatif_map)
+    server.tool()(swmm_summary)
     server.tool()(list_analyses)
     server.tool()(analyse_table)
     server.tool()(station_view)

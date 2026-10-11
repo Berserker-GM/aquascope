@@ -18,7 +18,7 @@ import { modelClockOn, releaseModelClock, setModelStep, useModelClock } from "./
 import { announce } from "./a11y.js?v=__BUILD__";
 import { isModflowDrop } from "./groundwater-core.js?v=__BUILD__";
 import {
-  ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, legendLine,
+  ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, friendlyError, legendLine, pickModelFiles,
   metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rampCss, rangeWords, rasterizeIds, scaleFor,
   shortName, thinArrows, ticks, variableWords,
 } from "./mesh-core.js?v=__BUILD__";
@@ -40,7 +40,7 @@ let reqId = 0;
 const waiting = new Map();
 
 let mesh = null;        // { meta, arrays, index, scale, frame }
-let pending = null;     // { file, crs } while a file waits for its coordinate system
+let pending = null;     // { file, geometry } while a file waits for its coordinate system
 let view = "max";       // "max" (largest over the run) or "step"
 let step = 0;           // the model step on show, and the step the arrows come from in the max view
 let frame = null;       // { step, value, u, v } of `step`
@@ -139,19 +139,26 @@ function showStatus({ text = "", busy = false, error = false, askCrs = false, ke
 
 // ── opening a file ──────────────────────────────────────────────────────────
 
-export async function openModelFile(file, crs = null) {
+/** Open what a drop or a pick brought: a model result, with its HEC-RAS geometry file when one came along. */
+export function openModelFiles(files) {
+  const got = pickModelFiles(files);
+  if (got.why) { showStatus({ text: got.why, error: true }); announce(got.why); return; }
+  openModelFile(got.file, null, got.geometry);
+}
+
+export async function openModelFile(file, crs = null, geometry = null) {
   const why = checkFile(file);
   if (why) { showStatus({ text: why, error: true }); announce(why); return; }
   if (!state.mapOk || !map) { showStatus({ text: "The map could not start in this browser, so a model cannot be drawn.", error: true }); return; }
   pending = null;
-  showStatus({ text: `Reading ${shortName(file.name, 40)}…`, busy: true });
+  showStatus({ text: `Reading ${shortName(file.name, 40)}${geometry ? ` with ${shortName(geometry.name, 28)}` : ""}…`, busy: true });
   let res;
   try {
-    res = await ask("open", { file, crs });
+    res = await ask("open", { file, crs, geometry });
   } catch (err) {
-    const msg = String(err.message || err);
+    const msg = err.mesh ? friendlyError(err.message, file.name) : String(err.message || err);
     if (/EPSG/.test(msg)) {
-      pending = { file };
+      pending = { file, geometry };
       showStatus({ text: msg, error: true, askCrs: true });
     } else {
       showStatus({ text: err.mesh ? msg : `Could not read ${file.name}: ${msg}`, error: true });
@@ -665,7 +672,8 @@ export function initMeshView() {
   const input = $("mesh-file");
   if (input) {
     input.accept = ACCEPT;
-    input.addEventListener("change", () => { if (input.files && input.files[0]) openModelFile(input.files[0]); });
+    input.multiple = true;   // a stripped plan file and its geometry file, picked together
+    input.addEventListener("change", () => { if (input.files && input.files.length) openModelFiles(input.files); });
   }
   const btn = $("btn-mesh");
   if (btn) btn.addEventListener("click", pickFile);
@@ -681,7 +689,7 @@ export function initMeshView() {
       e.preventDefault();
       const box = status.querySelector("input[name=epsg]");
       const code = ((box && box.value) || "").trim();
-      if (pending && /^\d{4,6}$/.test(code)) openModelFile(pending.file, code);
+      if (pending && /^\d{4,6}$/.test(code)) openModelFile(pending.file, code, pending.geometry);
     });
   }
   const wrap = document.querySelector(".map-wrap");
@@ -697,8 +705,7 @@ export function initMeshView() {
       depth = 0;
       drop.hidden = true;
       if (isModflowDrop(e.dataTransfer.files)) return;   // MODFLOW heads: groundwater-view.js reads them (#558)
-      const file = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (file) openModelFile(file);
+      if (e.dataTransfer.files && e.dataTransfer.files.length) openModelFiles(e.dataTransfer.files);
     });
   }
   if (!state.mapOk || !map) return;

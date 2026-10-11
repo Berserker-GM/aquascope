@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="./style.css?v=__BUILD__" />
   <link rel="stylesheet" href="./floods-past.css?v=__BUILD__" />
   <link rel="stylesheet" href="./groundwater.css?v=__BUILD__" />
+  <link rel="stylesheet" href="./waterbalance.css?v=__BUILD__" />
   <link rel="stylesheet" href="./flood-depth.css?v=__BUILD__" />
   <link rel="stylesheet" href="./fews.css?v=__BUILD__" />
   <link rel="stylesheet" href="./mesh.css?v=__BUILD__" />
@@ -140,6 +141,11 @@
             <input type="checkbox" id="toggle-groundwater" />
             <i style="background:linear-gradient(90deg,#c7e9b4,#41b6c4,#0c2c84);border-radius:2px"></i>
             <span class="rail-label">Groundwater (wells, your MODFLOW heads)</span>
+          </label>
+          <label class="rail-row" title="HydroBASINS level-4 subbasins by monthly rain, evaporation, runoff and closure error (ERA5, GEOGLOWS v2, CC BY 4.0; modelled), following the time bar">
+            <input type="checkbox" id="toggle-water-balance" />
+            <i style="background:linear-gradient(90deg,#deebf7,#6baed6,#08519c);border-radius:2px"></i>
+            <span class="rail-label">Water balance (subbasins, monthly)</span>
           </label>
           <label class="rail-row" title="GEOGLOWS v2 stream network (TDX-Hydro, CC BY-SA 4.0): wider for bigger rivers, small streams as you zoom in">
             <input type="checkbox" id="toggle-rivers" checked />

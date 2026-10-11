@@ -219,8 +219,8 @@ model ready, or a key in Ask ✨, the model puts the findings in order and words
 choosing from a few more than ten. It never writes a number: every number, date,
 place and ranking is a slot (`{area}`, `{peak}`, `{month}`) that the package fills in,
 and wording with a digit, a percent sign, a number word or a word like "record" or
-"largest" outside the slots is refused, so the rules' wording stays (the line says how
-many were refused). The maintainer's keys are never used for visitors.
+"largest" outside the slots is refused, and so is a sign set against a slot ("-{peak}",
+"minus {area}"), so the rules' wording stays (the line says how many were refused). The maintainer's keys are never used for visitors.
 
 The same scan is `aquascope layers scout [--bbox W S E N] [--month YYYY-MM]
 [--published]`, the MCP tool `map_scout`, and, for an assistant in the browser, the
@@ -270,7 +270,9 @@ Who words the notes:
    Ask the map. The model only chooses and orders the facts and writes the words
    between them. It writes each number as a placeholder (`{f3}`), which code fills in
    from the facts, and a note whose words hold any other number, in digits or in words
-   ("twelve", "half"), is refused (the claim lock); the line under the box says how many were refused and why. When fewer than
+   ("twelve", "half"), or with a sign or a digit set against a placeholder ("-{f3}", "minus {f3}",
+   "{f3}0", which would change the number code puts in), is refused (the claim lock, the same check
+   Scout and the mesh review make); the line under the box says how many were refused and why. When fewer than
    three pass, notes in fixed wording on the other facts make up the rest.
 
 A layer still reading its file (just after the page opens, or after a new date) is
@@ -642,6 +644,100 @@ The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPS
 
 ![On a phone: the head surface over England](img/globe/groundwater-phone.png)
 
+## Water balance
+
+**Water balance** in the legend (off until you turn it on) colours every HydroBASINS
+level-4 subbasin (1,342 of them, about 100,000 km² on average) by its month, the way
+HEC-HMS and QSWAT basin maps show where the water goes. It follows the time bar month by
+month from January 1990, so play walks the months.
+
+![Rain in September 2026 over the level-4 subbasins](img/globe/waterbalance-rain.png)
+
+- **Rain**: ERA5 total precipitation, summed over the month's hours and averaged over the
+  0.25° cells whose centres fall in the subbasin, weighted by area.
+- **Evaporation**: ERA5 total evaporation, which over land is the actual
+  evapotranspiration, averaged the same way. ERA5's rather than WaPOR's: WaPOR covers
+  Africa and the Near East since 2018, this map the world since 1990.
+- **Runoff**: the runoff the subbasin makes itself, the GEOGLOWS v2 monthly flow at its
+  outlet reach minus the flow coming in from the level-4 subbasins upstream, spread over
+  its area (BasinATLAS). Brown where the river leaves smaller than it came in. Grey where
+  GEOGLOWS has no outlet reach for the subbasin or for one upstream of it (457 of 1,342,
+  mostly deserts, coasts and islands), and where the difference cannot be trusted, so it
+  is withheld (the card says which check, the flows stay in the table): the reach paired
+  with the outlet carries less than half the inflow (a delta, a coast with several
+  outlets), the river brings in more than a metre of water a month over the subbasin (a
+  small subbasin on a big river, where 5 % of the inflow is already 50 mm), the outlet
+  carries more than the rain over the record, or the inflow comes from a subbasin that
+  fails one of these. On the nine months of 2026 that withholds 37 subbasins and leaves
+  848 with runoff; without it the Amazon mouth showed a loss of over 100,000 mm in a month.
+![Runoff in September 2026: brown where the Nile loses water](img/globe/waterbalance-runoff.png)
+
+- **Closure**: P − ET − Q, **shown as it comes out, never hidden**. It holds the change in
+  storage (soil, snow, groundwater, lakes and reservoirs), which swings with the seasons,
+  and the errors of three products made separately. Over whole years it should be small;
+  where it is not, one of the three is off. GEOGLOWS is itself driven by ERA5 runoff, so
+  the three are not independent.
+- **vs normal**: each of the four against the subbasin's 1991-2020 mean for the calendar
+  month (it needs at least 20 of those years; until the table holds them the key says so).
+- **A click** on a subbasin opens the map card: the month in one sentence (every number
+  from the file), and the year as bars, rain beside evaporation with runoff stacked on it,
+  so the gap between the two is the closure error, with the normal rain as a tick. With a
+  whole year it adds the year's closure. **This place** opens the river and gauges there.
+- **Turning it on** turns the river status off while it is on (both colour the same
+  level-4 basins) and back on after.
+
+![The card of a subbasin at the Amazon mouth: the year as bars, and why its runoff is withheld](img/globe/waterbalance-card.png)
+
+Months after ERA5's final data are ERA5T, preliminary, and are recomputed when final; the
+key and the card say so.
+
+How it is made: `.github/workflows/water-balance.yml` runs `python -m aquascope.waterbalance
+run` on the 9th of every month and publishes `waterbalance/` in the Archive dataset (and
+nothing else): `monthly.parquet` (one row per subbasin and month, every variable and its
+anomaly, the outlet flows), `normals.parquet`, `basins.parquet` (areas, outlet reaches,
+upstream and downstream neighbours), `basins.geojson` (simplified outlines, about 2 MB),
+`normals.json` and one `years/<YYYY>.json` per year for the Explorer, and a manifest with
+what the run cost. The level-4 routing comes from the Archive's BasinATLAS level-12 table:
+each level-12 sub-basin is placed in its level-4 subbasin, which gives the area and which
+subbasin drains into which.
+
+**What it costs**, measured on 2026-10-11 before building the job. ERA5 on Google Cloud
+(ARCO-ERA5, read anonymously) is stored one whole-globe hour per chunk. Sampled over
+1990 to 2026, a chunk is on average 1.83 MB of precipitation and 3.01 MB of evaporation,
+so a month is about 1,460 chunks and 3.5 GB, and January 1990 to September 2026 (441
+months) about 1.56 TB. The newest, preliminary months are smaller (about 1.7 MB a chunk).
+Reading is the whole cost: decoding a chunk and summing it over the subbasins takes about
+2 ms.
+
+| Where | What was read | Time |
+|---|---|---|
+| GitHub runner (the pull request smoke, 64 threads, two runs) | 480 chunks, 0.82 GB | 11 s and 4.4 s: 74 to 186 MB/s; the whole job 1.5 to 3 min, most of it setting up |
+| Home line (48 threads) | January to September 2026, 13,104 chunks, 24.3 GB | 614 s, 55 to 76 s a month |
+| Home line | GEOGLOWS, the whole monthly record of the 943 outlet reaches: 568 column chunks, 0.49 GB | 125 s |
+
+At the runners' rates the backfill is 2.3 to 5.9 hours of reading: one or two dispatches
+at the default 300-minute budget, since each run reads the published table first, computes only
+the missing months newest first until its budget, and publishes what it has. After that, a
+monthly run recomputes the newest three months (ERA5T becoming final), about 8 to 11 GB, a
+few minutes. Every run's summary reports its rate and extrapolates the backfill. The
+published files come to about 35 to 50 MB for the whole record (the table 14 to 25 MB,
+the year files about 0.5 to 0.7 MB each, the outlines 1.9 MB; the upper ends measured on a
+full-size table of random numbers, which compress worse than real ones). Writing that
+full-size table took 3 minutes and 3.3 GB of memory at most, inside a runner's 7 GB. Level 5 (about 4,700 subbasins) would
+read the same ERA5 chunks, so it costs the same; what it lacks is GEOGLOWS's outlet
+pairing, which exists for level 4 only, so this layer stays at level 4.
+
+The same in Python: `aquascope waterbalance --at LAT LON` (or `--basin HYBAS_ID`, or a
+month's overview with `--month YYYY-MM [--bbox W S E N] [--variable p|et|q|closure]`), and
+the MCP tool `water_balance`.
+
+Data: ERA5 hourly single levels, CC BY 4.0, Copernicus Climate Change Service / ECMWF
+(Hersbach et al. 2020; contains modified Copernicus Climate Change Service information).
+GEOGLOWS v2 retrospective simulation and HydroSOS tables, CC BY 4.0. HydroBASINS level-4
+subbasins as published in BasinATLAS v1.0 (Linke et al. 2019), CC BY 4.0.
+
+![On a phone: the closure error in July 2026, the monsoon storing water over South Asia](img/globe/waterbalance-phone.png)
+
 ## Context of a place
 
 Click a point, or open a gauge, and open the **Context** tab: one line per
@@ -780,6 +876,31 @@ tributaries) and the key says where that cut fell. The ids come from
 `aquascope.rivers.upstream_ids` and `downstream_ids`, drawn with MapLibre
 feature-state on `riverId`. The network geometry is CC BY-SA 4.0: shown here,
 never republished, and credited in the map's own attribution line.
+
+### Flow vs normal on the rivers
+
+The NOAA National Water Model map colours every reach by its flow against normal; this does it for the world (#559).
+In the legend, the **Rivers** row has **Colour by flow against normal**: every GEOGLOWS reach of Strahler order 5 and
+up takes the colour of its forecast flow for the day against its own normal for the month, in the river status
+layer's five classes and colours (much below, below, normal, above, much above), so a river and the basin around it
+mean the same thing. The key gives the forecast day, the month the normal is for, and the share of reaches above and
+below normal; lines with no class (smaller streams as you zoom in, dry channels) fade to a thin grey.
+
+The classes are computed in Python once a day ([archive.md](archive.md#flow-against-normal-flowstatus)) and published
+as one compact file, `flowstatus/latest.bin.gz` (the river ids and a byte each). The page reads it once and, as the
+stream tiles load, sets each reach's class as MapLibre feature-state on `riverId`, the same mechanism as the lit
+network (which now takes off only its own state, so the two can be on together). A classed reach is drawn a little
+wider than the plain network, on a thin casing in the basemap's background colour, and while the classes are on the
+river status layer's basins fade to 30 % of their opacity: in the same five colours, a brown river would otherwise
+vanish into a brown basin. It is off by default. On the globe only the great rivers are drawn, a pixel or two wide,
+and the basins already answer there; the colouring is for a region (zoom 5 and closer). A link carries `fn=1`.
+
+![Flow vs normal over western Europe at zoom 5, the basins faded](img/globe/flow-vs-normal-europe.png)
+![The Rhine, Mosel and Main at zoom 7](img/globe/flow-vs-normal-rhine.png)
+
+Before the first daily issue the key says it is not published yet, and the rivers and basins stay as they were. The
+same issue is `aquascope flowstatus [--bbox W S E N] [--river-id ID]` and the MCP tool `flow_vs_normal`. Modelled,
+not measured.
 
 The same functions are `aquascope river snap|record|area|trace|dams|upstream|downstream`
 and the MCP tools `snap_to_river`, `reach_record`, `upstream_area`,
@@ -1045,6 +1166,16 @@ UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read get
 plain sentence why: not a model result, a HEC-RAS geometry file with no results in it,
 over 2 GB, or over 250,000 cells.
 
+A stripped HEC-RAS plan file (`*.p01.timeseries.hdf`) holds the results but not the mesh
+they sit on. Dropped alone, it gets one sentence naming the part that is missing and what
+to drop instead: the full plan file, or the stripped file and the geometry file the plan
+was run with (`*.g01.hdf`) together. Dropped (or picked) together, the two are read as one
+run.
+
+![A stripped plan dropped alone: what is missing and what to drop](img/globe/555-stripped-alone.png)
+
+![The same plan dropped with its geometry file](img/globe/555-stripped-with-geometry.png)
+
 **How it works.** The file is handed to a worker with its own Python (Pyodide), mounted
 read-only (WORKERFS) so its bytes are read from the file as needed and never copied into
 memory. `aquascope.io.mesh` reads the cells, the maxima and the step with the most water
@@ -1056,6 +1187,12 @@ reader is `aquascope mesh FILE` and the MCP tool `mesh_summary` ([mesh.md](mesh.
 ![Particles drifting with the current](img/globe/555-particles.png)
 
 ![The same run on a phone](img/globe/555-phone.png)
+
+**SWMM models are next.** A SWMM model (`.inp`) and its results (`.out`) read in the
+browser (#560): `aquascope.io.swmm` needs only numpy and gives the same values as SWMM's own
+reader. They are not on the map yet; for now `aquascope swmm model.inp model.out` and the
+MCP tool `swmm_summary` list the flooding nodes and the largest flows. What was tested and
+the plan for the map view are in [assessments/swmm.md](assessments/swmm.md).
 
 ## The monthly bulletin
 

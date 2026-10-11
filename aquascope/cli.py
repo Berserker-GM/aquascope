@@ -1260,7 +1260,7 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     if args.file == "review" and args.review_file:
         _mesh_review(args)
         return
-    res = mesh_summary(args.file, crs=args.crs)
+    res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
         if not res.get("ok"):
@@ -1268,8 +1268,7 @@ def cmd_mesh(args: argparse.Namespace) -> None:
         return
     if not res.get("ok"):
         print(f"  {res['error']}")
-        if "EPSG" in res["error"]:
-            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        _mesh_hint(res["error"])
         sys.exit(1)
     fmt = {"hec-ras": "HEC-RAS 2D plan", "ugrid": "UGRID mesh"}.get(res["format"], res["format"])
     print(f"  {res['name']}: {fmt}, {res['model']}")
@@ -1296,11 +1295,14 @@ def cmd_mesh(args: argparse.Namespace) -> None:
         print(f"  note: {note}")
 
 
-def _mesh_review(args: argparse.Namespace) -> None:
-    """`aquascope mesh review FILE` (#564): the checks the Explorer's "Review these results" runs."""
-    from aquascope.mesh_review import review_file
+def cmd_swmm(args: argparse.Namespace) -> None:
+    """`aquascope swmm FILE [FILE]`: what an EPA SWMM model (.inp) and its results (.out) hold (#560), the same
+    summary the MCP tool swmm_summary gives."""
+    from aquascope.io.swmm import swmm_summary
 
-    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top)
+    inp = next((f for f in args.files if f.lower().endswith(".inp")), None)
+    out = next((f for f in args.files if not f.lower().endswith(".inp")), None)
+    res = swmm_summary(inp, out, crs=args.crs, top=args.top, element=args.element)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
         if not res.get("ok"):
@@ -1308,8 +1310,61 @@ def _mesh_review(args: argparse.Namespace) -> None:
         return
     if not res.get("ok"):
         print(f"  {res['error']}")
-        if "EPSG" in res["error"]:
-            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        sys.exit(1)
+    net = res.get("network")
+    if net:
+        kinds = ", ".join(f"{v} {k}" for k, v in net["node_types"].items())
+        lkinds = ", ".join(f"{v} {k}" for k, v in net["link_types"].items())
+        print(f"  {net['file']}: {net['title'] or 'SWMM model'} ({net['flow_units']})")
+        print(f"  {net['nodes']} nodes ({kinds}); {net['links']} links ({lkinds}); {net['subcatchments']} subcatchments")
+        if net.get("crs"):
+            w, s_, e, n = net["bbox"]
+            print(f"  Coordinate system: {net['crs']['label']}; extent {w:.4f} to {e:.4f} E, {s_:.4f} to {n:.4f} N")
+    r = res.get("results")
+    if r:
+        print(f"  {r['file']}: SWMM {r['swmm_version']}, {r['periods']} report steps of {r['report_step_s']} s, "
+              f"{r['start']} to {r['end']}")
+        fl = res.get("flooding")
+        if fl is not None:
+            print(f"  Nodes flooded: {fl['nodes_flooded']} of {r['nodes']}")
+            for row in fl["nodes"]:
+                where = f" at {row['lat']}, {row['lon']}" if row.get("lat") is not None else ""
+                print(f"    {row['id']} ({row['type']}): peak {row['peak']} {fl['unit']} at {row['peak_time']}, "
+                      f"{row['hours_flooded']} h, {row['volume_m3']} m3{where}")
+        fw = res.get("flows")
+        if fw is not None and fw["links"]:
+            print("  Largest flows:")
+            for row in fw["links"]:
+                print(f"    {row['id']} ({row['type']}): {row['peak']} {fw['unit']} at {row['peak_time']}, "
+                      f"fullest {row['peak_capacity']}")
+    if res.get("series"):
+        s = res["series"]
+        print(f"  {s['kind'].title()} {s['id']}: {len(s['times'])} values; use --json for the series")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+
+
+def _mesh_hint(error: str) -> None:
+    """The flag that fixes a mesh file's error, when one does."""
+    if "EPSG" in error:
+        print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+    elif "not the mesh they sit on" in error:
+        print("  Pass the geometry file with --geometry, for example --geometry Model.g01.hdf.")
+
+
+def _mesh_review(args: argparse.Namespace) -> None:
+    """`aquascope mesh review FILE` (#564): the checks the Explorer's "Review these results" runs."""
+    from aquascope.mesh_review import review_file
+
+    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
         sys.exit(1)
     m = res["mesh"]
     print(f"  {m['name']}: {m['cells']:,} cells, {m['steps']} time steps")
@@ -1665,6 +1720,85 @@ def cmd_warnings(args: argparse.Namespace) -> None:
                   f"{r['peak_cms'] or 0:>10,.0f}  {r['q2'] or 0:>10,.0f}  {r['peak_date']:<10}  {r['share']:.0%}")
         if res.get("truncated"):
             print(f"  ... the first {len(res['reaches'])} shown; --limit N for more")
+    print()
+    print(f"  {res.get('not') or ''}")
+
+
+def cmd_waterbalance(args: argparse.Namespace) -> None:
+    """`aquascope waterbalance [--basin ID | --at LAT LON] [--month YYYY-MM]`: subbasins by monthly water balance
+    (#557): rain, evaporation, runoff and the closure error P - ET - Q, against the 1991-2020 normal."""
+    from aquascope.waterbalance import LABELS, water_balance
+
+    lat, lon = (args.at if args.at else (None, None))
+    try:
+        res = water_balance(args.basin, lat, lon, args.month, months=args.months, bbox=args.bbox,
+                            variable=args.variable, limit=args.limit, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+
+    def mm(x: object) -> str:
+        return "" if x is None else f"{x:,.0f}"
+
+    if res.get("series"):
+        print(f"  Subbasin {res['hybas_id']}, {res['area_km2'] or 0:,.0f} km2. mm per month:")
+        print()
+        print(f"  {'Month':<8} {'Rain':>6} {'Evap':>6} {'Runoff':>7} {'P-ET-Q':>7}   {'Rain vs normal':>14}")
+        for r in res["series"]:
+            print(f"  {r['month']:<8} {mm(r['p_mm']):>6} {mm(r['et_mm']):>6} {mm(r['q_mm']):>7} "
+                  f"{mm(r['closure_mm']):>7}   {mm(r['p_anom']):>14}")
+        if res.get("runoff_withheld_because"):
+            print(f"  No runoff here: {res['runoff_withheld_because']}.")
+        elif res.get("runoff_ok") is False:
+            print("  No runoff here: GEOGLOWS has no outlet reach for this subbasin or one upstream of it.")
+    elif res.get("furthest_from_normal"):
+        v = res["variable"]
+        print()
+        print(f"  Furthest from normal in {LABELS[v]} (mm):")
+        for r in res["furthest_from_normal"]:
+            print(f"  {r['hybas_id']:>12}  {mm(r[f'{v}_mm']):>6}  {r[f'{v}_anom']:+,.0f}")
+    print()
+    print(f"  {res.get('closure') or ''}")
+
+
+def cmd_flowstatus(args: argparse.Namespace) -> None:
+    """`aquascope flowstatus [--bbox W S E N] [--river-id ID]`: every big reach's flow against normal (#559)."""
+    from aquascope import flowstatus
+
+    try:
+        res = flowstatus.flow_vs_normal(args.bbox, river_id=args.river_id, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+    total = sum(res["counts"].values())
+    print()
+    for c in flowstatus.CLASSES:
+        k = res["counts"].get(c["id"], 0)
+        share = f"{k / total:.0%}" if total else "-"
+        print(f"  {c['label']:<18} {k:>9,}  {share:>4}   {c['range']}")
+    reach = res.get("reach")
+    if reach:
+        print()
+        label = next((c["label"] for c in flowstatus.CLASSES if c["id"] == reach.get("class")), None)
+        flow = f", {reach['flow_cms']:,.4g} m3/s today" if reach.get("flow_cms") is not None else ""
+        print(f"  Reach {reach['river_id']}: {label or 'not classed'}{flow}")
+        if reach.get("p25") is not None:
+            print(f"  Normal for month {res.get('month')}: {reach['p25']:,.4g} to {reach['p75']:,.4g} m3/s "
+                  f"(10th {reach['p10']:,.4g}, 90th {reach['p90']:,.4g})")
+        if reach.get("why"):
+            print(f"  {reach['why']}")
     print()
     print(f"  {res.get('not') or ''}")
 
@@ -4572,10 +4706,21 @@ def main() -> None:
     p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
                         help="With 'review': the model result to check")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
+    p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
+                        help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
+                             "results but not the mesh (a *.p01.timeseries.hdf)")
     p_mesh.add_argument("--offline", action="store_true",
                         help="With 'review': only the checks on the file (no observed floods, no gauges)")
     p_mesh.add_argument("--top", type=int, default=5, help="With 'review': how many of the deepest places to list")
     p_mesh.add_argument("--json", action="store_true")
+    # ── EPA SWMM models and results (#560) ──────────────────────────
+    p_swmm = sub.add_parser("swmm", help="What an EPA SWMM model (.inp) and its results (.out) hold: the network, "
+                            "the flooding nodes, the largest flows")
+    p_swmm.add_argument("files", nargs="+", help="A SWMM .inp file, its .out results file, or both")
+    p_swmm.add_argument("--crs", default=None, help="The model's coordinate system (EPSG code) to place it on the globe")
+    p_swmm.add_argument("--top", type=int, default=5, help="How many flooding nodes and links to list")
+    p_swmm.add_argument("--element", default=None, help="A node or link id: add its time series (with --json)")
+    p_swmm.add_argument("--json", action="store_true")
     # ── basins ───────────────────────────────────────────────────────
     p_bul = sub.add_parser("bulletin", help="The month's state of the rivers: every Archive gauge against normal, "
                            "HydroSOS classes")
@@ -4596,6 +4741,25 @@ def main() -> None:
     p_warn.add_argument("--limit", type=int, default=20, help="Reaches listed (highest class first)")
     p_warn.add_argument("--local", default=None, help="Read an issue written by python -m aquascope.archive.warnings")
     p_warn.add_argument("--json", action="store_true")
+    p_wb = sub.add_parser("waterbalance", help="Subbasins by monthly water balance: rain, evaporation, runoff and "
+                          "the closure error P - ET - Q (ERA5, GEOGLOWS v2; modelled)")
+    p_wb.add_argument("--basin", type=int, default=None, metavar="HYBAS_ID", help="A HydroBASINS level-4 subbasin")
+    p_wb.add_argument("--at", nargs=2, type=float, default=None, metavar=("LAT", "LON"),
+                      help="The subbasin holding this point")
+    p_wb.add_argument("--month", default=None, help="YYYY-MM (default the newest)")
+    p_wb.add_argument("--months", type=int, default=24, help="Months listed for a subbasin (24)")
+    p_wb.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_wb.add_argument("--variable", default="p", choices=["p", "et", "q", "closure"],
+                      help="Without a subbasin: rank the month's subbasins by their anomaly in this")
+    p_wb.add_argument("--limit", type=int, default=20)
+    p_wb.add_argument("--local", default=None, help="Read a folder written by python -m aquascope.waterbalance")
+    p_wb.add_argument("--json", action="store_true")
+    p_fs = sub.add_parser("flowstatus", help="Flow against normal: every big river reach's forecast flow today "
+                          "against its normal for the month (GEOGLOWS, modelled)")
+    p_fs.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_fs.add_argument("--river-id", type=int, default=None, help="One GEOGLOWS reach: its flow, class and normal")
+    p_fs.add_argument("--local", default=None, help="Read folders written by python -m aquascope.flowstatus")
+    p_fs.add_argument("--json", action="store_true")
     p_now = sub.add_parser("now", help="Today against normal and the next 15 days (GEOGLOWS, GloFAS), corrected to a gauge")
     p_now.add_argument("coords", nargs="*", type=float, metavar="LAT LON", help="A point, snapped to its river reach")
     p_now.add_argument("--station", default=None, metavar="SOURCE/ID", help="A gauge: its status, and the forecast "
@@ -5400,11 +5564,14 @@ def main() -> None:
         "map": cmd_map,
         "mesh": cmd_mesh,
         "whatif": cmd_whatif,
+        "swmm": cmd_swmm,
         "river": cmd_river,
         "evidence": cmd_evidence,
         "now": cmd_now,
         "bulletin": cmd_bulletin,
         "warnings": cmd_warnings,
+        "waterbalance": cmd_waterbalance,
+        "flowstatus": cmd_flowstatus,
         "watch": cmd_watch,
         "assess": cmd_assess,
         "context": cmd_context,

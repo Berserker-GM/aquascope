@@ -7,6 +7,8 @@ export const CONFIG = {
   basinsBase: "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/basins/",
   // Now and next (#517): the daily status snapshot written by forecast-archive.yml.
   forecastsBase: "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/forecasts/",
+  // Flow vs normal (#559): every big reach's class for the day, written daily by flood-warnings.yml.
+  flowstatusBase: "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/flowstatus/",
   // The monthly bulletin (#523): bulletins/index.json and bulletins/<YYYY-MM>/, written by bulletin.yml.
   bulletinsBase: "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/bulletins/",
   // Watch (#521): the per-gauge Atom feeds and their index, written by the same daily workflow.

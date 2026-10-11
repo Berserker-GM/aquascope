@@ -368,7 +368,7 @@ Switch to MCMC with `degree>1` for polynomial models, or pass `prior_precision` 
 
 ## 💻 CLI
 
-AquaScope ships a 46-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
+AquaScope ships a 49-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
 
 ```bash
 # Find stations, then collect data
@@ -384,6 +384,7 @@ aquascope river dams --at 46.948 7.452            # the dams upstream of that re
 aquascope now --station usgs/USGS-01350000        # today against normal, and the 15-day forecast corrected to the gauge
 aquascope bulletin 2026-09 --out bulletin         # last month's state of the rivers: HydroSOS classes, HTML and Markdown
 aquascope warnings --bbox -10 35 30 60            # floods ahead: reaches expected to reach their 2-year flow in 15 days
+aquascope flowstatus --bbox -10 35 30 60          # every big reach's flow today against its normal for the month
 aquascope watch usgs/USGS-01350000 river:230260670 --since 2026-10-01   # what changed since then: data, status, forecast, floods
 aquascope assess 51.415 -0.308 --problem flood_risk   # what can be answered here: gauges in reach, catchment, which methods the record supports
 aquascope context 51.86 5.95                      # flood history, surface water, flood depth, dams, rain gauge, ET and soil at a place
@@ -394,6 +395,7 @@ aquascope layers frames precip --start 2024-05-01 --end 2024-05-20   # a time-la
 aquascope map "trace the Nile to the sea" --resolve   # plain words to the Explorer's map actions (keyless rules)
 aquascope mesh my_run.p01.hdf                     # a HEC-RAS 2D or UGRID mesh result: cells, times, largest depth and speed
 aquascope whatif --lat 47.598 --lon 8.682 "20% less rain and 2 degrees warmer"   # GR4J for the basin, the change carried downstream
+aquascope swmm model.inp model.out --crs 32617   # an EPA SWMM model and results: network, flooding nodes, largest flows
 aquascope layers scout --bbox -10 35 30 60           # what stands out on the map, each with its reason (the Explorer's Scout)
 aquascope groundwater surface --mode change      # the head surface of the Archive's wells and its change, masked where wells are sparse
 aquascope modflow model.hds --grid model.dis.grb --crs EPSG:27700   # your MODFLOW heads on the map: cells in lon/lat, per layer and time

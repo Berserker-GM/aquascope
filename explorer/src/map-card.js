@@ -66,6 +66,8 @@ const el = () => $("map-card");
  *   figure: { value, unit, label } | { pending } | null           the one key number
  *   plume: { data, head, color, label, line } | { pending } | { empty }   an ensemble plume (#556,
  *                             fews.js); it takes the place of the sparkline and the number
+ *   chart: { svg, alt, key, label }   a small chart made by a layer's core module from published numbers
+ *                             (the water balance's monthly bars, #557); also in place of the sparkline
  *   note,                     an extra line (for example what a trace found)
  *   credit,                   where the numbers come from, with the licence
  *   details: () => void,      the Details button (omitted: no button)
@@ -177,13 +179,22 @@ function plumeHtml(pl) {
     (pl.line ? `<p class="mc-pl-line">${escapeHtml(pl.line)}</p>` : "");
 }
 
+// A layer's own small chart (#557): the SVG and its key come from the layer's core module, fixed words and
+// numbers only.
+function chartHtml(c) {
+  if (!c) return "";
+  return (c.label ? `<p class="mc-pl-label">${escapeHtml(c.label)}</p>` : "") +
+    `<div class="mc-chart" role="img" aria-label="${escapeHtml(c.alt || "chart")}">${c.svg || ""}</div>` +
+    (c.key ? `<p class="mc-chart-key">${c.key}</p>` : "");
+}
+
 function render() {
   const card = el();
   if (!card || !spec) return;
   const active = document.activeElement && card.contains(document.activeElement) ? document.activeElement.dataset.act : null;
   const s = spec;
   const buttons = (s.buttons || []).filter((b) => !b.hidden);
-  const middle = s.plume ? plumeHtml(s.plume) : (s.spark || s.figure)
+  const middle = s.plume ? plumeHtml(s.plume) : s.chart ? chartHtml(s.chart) : (s.spark || s.figure)
     ? `<div class="mc-row"><div class="mc-spark-wrap">${sparkHtml(s.spark)}</div>${figureHtml(s.figure)}</div>` : "";
   card.innerHTML = `
     <div class="mc-head">

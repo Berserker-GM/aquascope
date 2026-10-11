@@ -8,7 +8,7 @@
 // Top to bottom in the same order as the layers on the map (#543): what is
 // drawn on top is listed first.
 export const ROW_ORDER = ["mesh", "river-lit", "gauges", "forecast-points", "floods-ahead", "flood-depth", "rivers", "modflow", "groundwater",
-  "floods-past", "status"];
+  "water-balance", "floods-past", "status"];
 
 export function rowRank(id) {
   const i = ROW_ORDER.indexOf(id);
