@@ -12,6 +12,7 @@ All notable changes to AquaScope are documented here.
   - The volume check now reads each 2D area's volumes under the names HEC-RAS gives them (`Vol Starting`, `Vol Ending`, `Cum Inflow`, `Cum Outflow` under `Volume Accounting 2D/<area>`); before, the area's error was found but its volumes came back empty.
   - Where the plan wrote HEC-RAS's own cell velocity (`Cell Velocity - Velocity X / Y`), the reader uses it for the arrows, a cell's series and the largest speed, instead of rebuilding it from the faces (on this run the rebuild gave 4.35 m/s where HEC-RAS says 3.83 m/s). A run that wrote cell velocity but not face velocity now has arrows.
   - The film check's share of wet cells under 1% read "0%"; it now reads, for example, "0.13%".
+- Record the verified v0.27.0 Zenodo DOI (`10.5281/zenodo.23301359`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
 
 ## [0.27.0] - 2026-10-12
 
