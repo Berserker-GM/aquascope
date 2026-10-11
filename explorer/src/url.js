@@ -108,6 +108,9 @@ function currentHash({ view } = {}) {
   flag("status", "ws");
   flag("groundwater", "gw");
   flag("flowNormal", "fn");
+  flag("waterBalance", "wb");
+  if (state.waterBalance && state.wbVar && state.wbVar !== "p") q.set("wbv", state.wbVar);
+  if (state.waterBalance && state.wbMode === "anom") q.set("wbm", "anom");
   return `#${q.toString().replace(/%2F/gi, "/").replace(/%2C/gi, ",")}`;
 }
 

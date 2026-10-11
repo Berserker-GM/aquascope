@@ -66,6 +66,9 @@ LAYERS: dict[str, dict[str, Any]] = {
     "groundwater": {"label": "Groundwater", "aliases": (
         "groundwater", "groundwater level", "groundwater levels", "groundwater surface", "water table",
         "head surface", "heads", "well levels", "wells", "modelmuse", "modflow", "modflow heads")},
+    "water_balance": {"label": "Water balance", "aliases": (
+        "water balance", "water budget", "basin water balance", "subbasin water balance", "subbasins",
+        "evaporation", "evapotranspiration", "runoff", "closure error", "hec-hms", "qswat", "swat")},
     "floods_ahead": {"label": "Floods ahead", "aliases": (
         "floods ahead", "flood forecast", "flood forecasts", "forecast floods", "flood warnings", "warnings",
         "future floods", "upcoming floods")},

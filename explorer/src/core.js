@@ -74,6 +74,8 @@ export const LAYER_DEFAULTS = {
   groundwater: false,
   // Flow vs normal on the rivers (#559): off until asked for, from the Rivers row of the legend.
   flowNormal: false,
+  // Water balance (#557): subbasins by monthly rain, evaporation, runoff and closure, off until asked for.
+  waterBalance: false,
 };
 
 export const state = {

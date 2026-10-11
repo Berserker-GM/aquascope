@@ -9,6 +9,7 @@ export const MAX_FILE_BYTES = 2 * 1024 ** 3;   // the same limit as aquascope.io
 export const MAX_CELLS = 250000;               // aquascope.io.mesh.MAX_CELLS
 export const ACCEPT = ".hdf,.h5,.hdf5,.nc,.nc4,.cdf";
 const EXT = /\.(hdf|h5|hdf5|nc|nc4|cdf)$/i;
+const GEOMETRY = /\.g\d\d\.hdf$/i;   // a HEC-RAS geometry file
 
 // Light to deep blue, the flood-depth family (flood-depth-core.js), so a user's depth reads like the JRC one.
 export const STOPS = [
@@ -27,14 +28,51 @@ export function checkFile(file) {
     return `${name || "This file"} is not a model result the viewer reads. Drop a HEC-RAS plan file (.p01.hdf) or a ` +
       "UGRID NetCDF file (.nc).";
   }
-  if (/\.g\d\d\.hdf$/i.test(name)) {
-    return `${name} is a HEC-RAS geometry file, with no results in it. Drop the plan's result file (.p01.hdf).`;
+  if (GEOMETRY.test(name)) {
+    return `${name} is a HEC-RAS geometry file, with no results in it. Drop the plan's result file (.p01.hdf), ` +
+      "or a stripped plan file (.p01.timeseries.hdf) together with this one.";
   }
   if (Number(file.size) > MAX_FILE_BYTES) {
     return `${name} is ${(Number(file.size) / 1024 ** 3).toFixed(1)} GB; the viewer reads files up to 2 GB.`;
   }
   if (!(Number(file.size) > 0)) return `${name} is empty.`;
   return null;
+}
+
+/**
+ * The files of one drop or pick: the model result, and a HEC-RAS geometry file (.g01.hdf) dropped with it for
+ * a stripped plan file that holds the results but not the mesh. Returns { file, geometry } (geometry null when
+ * none came), or { why } in words when the drop holds no result the viewer reads.
+ */
+export function pickModelFiles(files) {
+  const list = [...(files || [])].filter(Boolean);
+  if (!list.length) return { why: "No file." };
+  const geometry = list.find((f) => GEOMETRY.test(String(f.name || ""))) || null;
+  const rest = list.filter((f) => f !== geometry);
+  if (!rest.length) return { why: checkFile(geometry) };
+  const file = rest.find((f) => checkFile(f) === null);
+  if (!file) return { why: checkFile(rest[0]) };
+  if (geometry && Number(geometry.size) > MAX_FILE_BYTES) return { why: checkFile({ name: geometry.name, size: geometry.size }) };
+  return { file, geometry };
+}
+
+// aquascope.io.mesh's error for a plan file without its mesh (a stripped .p01.timeseries.hdf): its opening words
+// (a Python test keeps the two equal) and the part it names as missing.
+export const NO_GEOMETRY = "holds model results but not the mesh they sit on";
+
+/**
+ * The reader's error, as the page says it. A plan file without its mesh is told what to drop next: the full
+ * plan file, or the same file with its geometry file. The 2D area whose mesh is missing is named in words,
+ * not as an HDF5 path. Every other error is the package's own words.
+ */
+export function friendlyError(message, name = "") {
+  const msg = String(message || "");
+  if (!msg.includes(NO_GEOMETRY)) return msg;
+  const missing = (/: (.+?) is missing\./.exec(msg) || [])[1] || "";
+  const area = (/^Geometry\/2D Flow Areas\/([^/]+)/.exec(missing) || [])[1];
+  const what = area && area !== "Attributes" ? ` (no mesh for the 2D area ${area})` : "";
+  return `${name || "This file"} has the model results but not the mesh${what}. Drop the full plan file ` +
+    "(.p01.hdf), or this file together with its geometry file (.g01.hdf).";
 }
 
 /** "BaldEagle.p18.hdf" -> "BaldEagle.p18.hdf"; long names keep their ends: "Grevelingen-FM…_map.nc". */
