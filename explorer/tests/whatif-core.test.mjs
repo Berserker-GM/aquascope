@@ -74,11 +74,11 @@ test("the swipe splits by longitude", () => {
 test("a painted reach's card says the three changes, its share and the confluence", () => {
   const c = reachCard(RESULT, 230000003);
   assert.equal(c.status, "Mean flow −20% (−21 to −20%)");
-  assert.match(c.note, /53% of the water here comes from the basin modelled/);
-  assert.match(c.note, /Major confluence 1: 400 km² join/);
+  assert.equal(c.figure.value, "53");
+  assert.match(c.note, /Major confluence 1: 400 km² join here/);
   assert.match(c.note, /10-year flood −24%/);
-  assert.equal(c.figure.value, "−20");
-  assert.match(reachCard(RESULT, 230000002).note, /The basin's outlet/);
+  assert.equal(c.figure.label, "of the water is the basin's");
+  assert.equal(reachCard(RESULT, 230000002).figure.label, "drain to the outlet");
   assert.match(reachCard(RESULT, 230000001).note, /lumped/);
   assert.equal(reachCard(RESULT, 999), null);
 });

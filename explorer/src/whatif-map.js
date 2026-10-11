@@ -17,6 +17,7 @@ import { logAction, registerSlotWriter, slotValue } from "./map-actions.js?v=__B
 import { askModelConfig, currentContext } from "./ask.js?v=__BUILD__";
 import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-model.js?v=__BUILD__";
 import { STREAMS_PMTILES } from "./river-core.js?v=__BUILD__";
+import { clearRiverNetwork } from "./river-map.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import {
   CLASSES, MEASURES, NEUTRAL, basinRows, beforeSet, classOf, lineColorExpr, lineFilterExpr, logLabel, outletLines,
@@ -149,9 +150,9 @@ function labelFeatures(result, measure, before) {
     const id = Number(r.river_id);
     const at = points.get(id) || (Number.isFinite(r.lon) ? [r.lon, r.lat] : null);
     if (!at) return;
-    const off = before.has(id);
+    if (before.has(id)) return;   // left of the swipe: the river as it is, no change to label
     feats.push({ type: "Feature", geometry: { type: "Point", coordinates: at },
-      properties: { kind: i === 0 ? "outlet" : "confluence", rank: i, text: off ? "0%" : pct(r[key]) } });
+      properties: { kind: i === 0 ? "outlet" : "confluence", rank: i, text: pct(r[key]) } });
   });
   const at = result.reach;
   if (at && Number.isFinite(at.lon) && !feats.some((f) => f.properties.kind === "outlet")) {
@@ -194,6 +195,8 @@ function paint(value, { frame = true } = {}) {
     refreshLegend("whatif");
     return;
   }
+  // The click's own lit network (what drains here, the way to the sea) would compete with the painting.
+  if (frame) clearRiverNetwork();
   draw();
   if (frame) {
     const box = resultBounds(value.result);

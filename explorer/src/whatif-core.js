@@ -44,7 +44,9 @@ export function pct(v, digits = 0) {
 /** "−15 to −9%" from a range, or "" without one. */
 export function rangeWords(r, digits = 0) {
   if (!Array.isArray(r) || r.length !== 2 || !finite(r[0]) || !finite(r[1])) return "";
-  return `${pct(r[0], digits).replace("%", "")} to ${pct(r[1], digits)}`;
+  const lo = pct(r[0], digits), hi = pct(r[1], digits);
+  if (lo === hi) return "";   // a range that rounds to one number says nothing more than the number
+  return `${lo.replace("%", "")} to ${hi}`;
 }
 
 /** The class a change falls in (its index in CLASSES). */
@@ -145,7 +147,9 @@ export function outletLines(result) {
   return ["mean", "low", "flood"].map((k) => {
     const row = o[k] || {};
     const r = rangeWords(row.range);
-    return { key: k, label: row.label || MEASURES[k].label, change: row.change_pct, text: `${pct(row.change_pct)}${r ? ` (${r})` : ""}`,
+    // The panel is small: "low flow (Q95)", the full definition is in the package's label and the CLI.
+    const label = k === "low" ? MEASURES.low.label : (row.label || MEASURES[k].label);
+    return { key: k, label, change: row.change_pct, text: `${pct(row.change_pct)}${r ? ` (${r})` : ""}`,
       color: colorOf(row.change_pct) };
   });
 }
@@ -164,24 +168,21 @@ export function reachCard(result, rid) {
   }
   const outletId = reaches.length ? Number(reaches[0].river_id) : null;
   const flood = result.outlet && result.outlet.flood ? result.outlet.flood.label : "flood";
-  const lines = [
-    `Low flow (Q95) ${pct(r.q95_change_pct)}${rangeWords(r.q95_range) ? ` (${rangeWords(r.q95_range)})` : ""}`,
-    `${flood[0].toUpperCase()}${flood.slice(1)} ${pct(r.flood_change_pct)}${rangeWords(r.flood_range) ? ` (${rangeWords(r.flood_range)})` : ""}`,
-  ];
-  let where;
-  if (inBasin) where = "In the basin modelled: GR4J is lumped, so the whole basin gets the outlet's change.";
-  else if (id === outletId) where = `The basin's outlet: ${Math.round(r.area_km2).toLocaleString("en-US")} km² drain here.`;
-  else {
-    const share = Math.round(Number(r.share) * 100);
-    where = `${share}% of the water here comes from the basin modelled (${Math.round(r.area_km2).toLocaleString("en-US")} km² drain here).`;
-    if (r.confluence) where += ` Major confluence ${r.confluence.n}: ${Math.round(r.confluence.tributary_km2).toLocaleString("en-US")} km² join.`;
-  }
+  const withRange = (v, rg) => `${pct(v)}${rangeWords(rg) ? ` (${rangeWords(rg)})` : ""}`;
+  const lines = [`Low flow (Q95) ${withRange(r.q95_change_pct, r.q95_range)}`,
+    `${flood[0].toUpperCase()}${flood.slice(1)} ${withRange(r.flood_change_pct, r.flood_range)}`];
+  let where = "";
+  if (inBasin) where = " In the basin modelled: GR4J is lumped, one change for the whole basin.";
+  else if (r.confluence) where = ` Major confluence ${r.confluence.n}: ${Math.round(r.confluence.tributary_km2).toLocaleString("en-US")} km² join here.`;
+  const share = Math.round(Number(r.share) * 100);
   return {
     title: `River reach ${id}`,
-    status: `Mean flow ${pct(r.mean_change_pct)}${rangeWords(r.mean_range) ? ` (${rangeWords(r.mean_range)})` : ""}`,
+    status: `Mean flow ${withRange(r.mean_change_pct, r.mean_range)}`,
     color: colorOf(r.mean_change_pct),
-    figure: { value: pct(r.mean_change_pct).replace("%", ""), unit: "%", label: "mean flow" },
-    note: `${lines.join(" · ")}. ${where}`,
+    figure: inBasin || id === outletId
+      ? { value: Math.round(r.area_km2).toLocaleString("en-US"), unit: " km²", label: id === outletId ? "drain to the outlet" : "basin modelled" }
+      : { value: String(share), unit: "%", label: "of the water is the basin's" },
+    note: `${lines.join(" · ")}.${where}`,
   };
 }
 
@@ -198,10 +199,18 @@ export function paintedIds(result) {
   return [...down, ...basinRows(result).map((r) => r.river_id)];
 }
 
-/** A box around the painted reaches' own positions (lon/lat from the routing tables) and the click, padded. */
+/**
+ * What to frame after a run: the basin (its box from the routing tables) and the river down to the first major
+ * confluence, where the change is still large enough to see; the rest of the way is a pan away.
+ */
 export function resultBounds(result) {
   const pts = [];
-  for (const r of (result && result.reaches) || []) if (finite(r.lon) && finite(r.lat)) pts.push([Number(r.lon), Number(r.lat)]);
+  const reaches = (result && result.reaches) || [];
+  const first = reaches.findIndex((r) => r.confluence);
+  const near = first >= 0 ? reaches.slice(0, first + 1) : reaches;
+  for (const r of near) if (finite(r.lon) && finite(r.lat)) pts.push([Number(r.lon), Number(r.lat)]);
+  const bb = result && result.basin && result.basin.bbox;
+  if (Array.isArray(bb) && bb.length === 4 && bb.every(finite)) pts.push([bb[0], bb[1]], [bb[2], bb[3]]);
   const c = result && result.basin && result.basin.centre;
   if (Array.isArray(c) && finite(c[0]) && finite(c[1])) pts.push([Number(c[1]), Number(c[0])]);
   const at = result && result.reach;

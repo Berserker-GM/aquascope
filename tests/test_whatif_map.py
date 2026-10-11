@@ -172,6 +172,7 @@ def test_whatif_runs_the_model_and_paints_the_way_down(toy_model):
     assert conf1["mean_change_pct"] == pytest.approx(o["mean"]["change_pct"] * 500 / 950, abs=0.01)
     assert conf1["confluence"]["n"] == 1
     assert set(res["basin"]["ids"]) == {IDS["A"], IDS["B"]} and res["basin"]["area_km2"] == 500.0
+    assert res["basin"]["bbox"] == [8.0, 47.0, 8.05, 47.02]
     assert "20% less rain, 2 °C warmer" in res["verdict"] and "confluence 1" in res["verdict"]
     assert res["scenario"]["label"] == "20% less rain, 2 °C warmer"
     assert any(m["name"].startswith("Area-weighted") for m in res["methods"])

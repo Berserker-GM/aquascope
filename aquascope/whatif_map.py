@@ -387,8 +387,9 @@ def downstream_shares(net: Any, i: int, *, confluences: int = CONFLUENCES, max_r
     return {"basin_km2": round(basin / 1e6, 2), "reaches": reaches, "stopped": stopped, "majors": majors}
 
 
-def _centroid(net: Any, i: int) -> tuple[float, float] | None:
-    """The area-weighted centre of the basin upstream of reach index ``i`` (lat, lon), from the unit catchments."""
+def _centroid(net: Any, i: int) -> tuple[float, float, list[float]] | None:
+    """The area-weighted centre of the basin upstream of reach index ``i`` (lat, lon) and the box around its unit
+    catchments' centres ([west, south, east, north]), from the routing tables."""
     import numpy as np
 
     from aquascope.rivers import _upstream_tree
@@ -400,7 +401,9 @@ def _centroid(net: Any, i: int) -> tuple[float, float] | None:
     if not ok.any():
         return None
     w = a[ok]
-    return float(np.average(lat[ok], weights=w)), float(np.average(lon[ok], weights=w))
+    box = [round(float(lon[ok].min()), 4), round(float(lat[ok].min()), 4), round(float(lon[ok].max()), 4),
+           round(float(lat[ok].max()), 4)]
+    return float(np.average(lat[ok], weights=w)), float(np.average(lon[ok], weights=w)), box
 
 
 # ── the run ──────────────────────────────────────────────────────────────────
@@ -526,7 +529,7 @@ def whatif(
         out["error"] = "the routing tables give no area for this basin"
         return out
     ups = rivers.upstream_ids(rid, max_n=max(1, int(basin_ids)), lat=lat, lon=lon)
-    out["basin"] = {"area_km2": basin_km2, "centre": [round(centre[0], 4), round(centre[1], 4)],
+    out["basin"] = {"area_km2": basin_km2, "centre": [round(centre[0], 4), round(centre[1], 4)], "bbox": centre[2],
                     "n_reaches": ups["n_upstream"], "ids": ups["ids"], "truncated": ups["truncated"],
                     "min_area_km2": ups["min_area_km2"]}
     # the model, without and with the scenario
