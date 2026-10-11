@@ -783,6 +783,20 @@ def mesh_review(path: str, crs: str | None = None, offline: bool = False) -> dic
     return review_file(path, crs=crs, context=not offline)
 
 
+def swmm_summary(inp: str | None = None, out: str | None = None, crs: str | None = None, top: int = 5,
+                 element: str | None = None) -> dict[str, Any]:
+    """What an EPA SWMM model and its results hold (#560): a .inp file, its binary .out results file, or both,
+    on this machine (SWMM 5.0 to 5.2). Returns the network (nodes and links by type; with crs as an EPSG code,
+    or a model mapped in degrees, the coordinate system and extent), the report period and step, the nodes
+    that flood (peak rate in the model's flow units with its time, hours flooded and volume in m3 from the
+    report steps, and lat/lon when placed), the links with the largest flows (peak, its time, and the largest
+    fraction full), and with element one node's or link's time series. Every number is computed from the files
+    by aquascope.io.swmm; ok is false with a plain error for a file it cannot read."""
+    from aquascope.io.swmm import swmm_summary as _summary
+
+    return _summary(inp, out, crs=crs, top=top, element=element)
+
+
 def archive_health() -> dict[str, Any]:
     """Status of the last catalog harvest per source (health.json from the Archive)."""
     import httpx
@@ -1524,6 +1538,7 @@ def build_server():
     server.tool()(explain_view)
     server.tool()(mesh_summary)
     server.tool()(mesh_review)
+    server.tool()(swmm_summary)
     server.tool()(list_analyses)
     server.tool()(analyse_table)
     server.tool()(station_view)

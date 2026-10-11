@@ -145,6 +145,8 @@ MAGIC = 516114522
 MAX_FILE_BYTES = 2 * 1024**3
 # Values read per block when scanning the results (about 32 MB of float32).
 BLOCK_VALUES = 8_000_000
+# The most values per variable an element's time series returns.
+SERIES_POINTS = 2000
 
 FLOW_UNITS = ("CFS", "GPM", "MGD", "CMS", "LPS", "MLD")
 # Cubic metres per second in one of each flow unit: exact from 1 ft = 0.3048 m and 1 US gallon = 3.785411784 L.
@@ -341,7 +343,7 @@ def read_swmm_inp(path: str | Path, *, crs: str | int | None = None) -> SwmmNetw
                       subcatchments=len(sec.get("SUBCATCHMENTS", [])))
     missing = sum(1 for n in nodes if n["x"] is None)
     if missing:
-        net.notes.append(f"{missing} of {len(nodes)} nodes have no coordinates in [COORDINATES].")
+        net.notes.append(f"Nodes without coordinates in [COORDINATES]: {missing} of {len(nodes)}.")
 
     given = None
     if crs is not None and str(crs).strip():
@@ -479,9 +481,13 @@ class SwmmOutput:
     def units(self) -> dict[str, str]:
         return units_of(self.flow_units)
 
+    def time_at(self, period: int) -> str:
+        """The time of one report period: the first is one report step after the report start, as SWMM writes."""
+        return _iso(self.start + timedelta(seconds=self.report_step_s * (int(period) + 1)))
+
     def times(self) -> list[str]:
-        """The report times: the first is one report step after the report start, as SWMM writes them."""
-        return [_iso(self.start + timedelta(seconds=self.report_step_s * (k + 1))) for k in range(self.n_periods)]
+        """Every report time."""
+        return [self.time_at(k) for k in range(self.n_periods)]
 
     def _column(self, kind: str, var: str | int) -> tuple[int, int, int]:
         """(offset of the first object, stride between objects, object count) for one variable."""
@@ -589,14 +595,13 @@ def _flooding(o: SwmmOutput, net: SwmmNetwork | None, top: int) -> dict[str, Any
     pk = o.peaks("node", "flooding")
     step_h = o.report_step_s / 3600.0
     to_m3 = TO_M3S[o.flow_units] * o.report_step_s
-    times = o.times()
     where = _where(net, "node")
     flooded = [i for i in range(len(o.nodes)) if pk["positive_periods"][i] > 0]
     flooded.sort(key=lambda i: -pk["max"][i])
     rows = []
     for i in flooded[:top]:
         row = {"id": o.nodes[i], "type": o.node_types[i], "peak": _num(pk["max"][i]),
-               "peak_time": times[pk["period"][i]] if pk["period"][i] >= 0 else None,
+               "peak_time": o.time_at(pk["period"][i]) if pk["period"][i] >= 0 else None,
                "hours_flooded": _num(pk["positive_periods"][i] * step_h, 2),
                "volume_m3": _num(pk["positive_sum"][i] * to_m3, 1)}
         row.update(where.get(o.nodes[i], {}))
@@ -608,13 +613,12 @@ def _flooding(o: SwmmOutput, net: SwmmNetwork | None, top: int) -> dict[str, Any
 def _flows(o: SwmmOutput, net: SwmmNetwork | None, top: int) -> dict[str, Any]:
     pk = o.peaks("link", "flow", absolute=True)
     cap = o.peaks("link", "capacity")
-    times = o.times()
     where = _where(net, "link")
     order = sorted(range(len(o.links)), key=lambda i: -abs(pk["max"][i]))
     rows = []
     for i in order[:top]:
         row = {"id": o.links[i], "type": o.link_types[i], "peak": _num(pk["max"][i]),
-               "peak_time": times[pk["period"][i]] if pk["period"][i] >= 0 else None,
+               "peak_time": o.time_at(pk["period"][i]) if pk["period"][i] >= 0 else None,
                "peak_capacity": _num(cap["max"][i], 3)}
         row.update(where.get(o.links[i], {}))
         rows.append(row)
@@ -629,9 +633,12 @@ def _series(o: SwmmOutput, element: str) -> dict[str, Any]:
         kind, variables = "link", ("flow", "depth", "velocity")
     else:
         raise SwmmError(f"No node or link named {element!r} in {o.path.name}.")
-    out: dict[str, Any] = {"id": element, "kind": kind, "times": o.times(), "units": {}}
+    # A long run is thinned to at most SERIES_POINTS values per variable (every n-th report step, said so).
+    every = max(1, -(-o.n_periods // SERIES_POINTS))
+    out: dict[str, Any] = {"id": element, "kind": kind, "every": every,
+                           "times": [o.time_at(k) for k in range(0, o.n_periods, every)], "units": {}}
     for v in variables:
-        vals = o.values(kind, v, [element])[:, 0]
+        vals = o.values(kind, v, [element])[::every, 0]
         out[v] = [_num(x, 4) for x in vals]
         out["units"][v] = o.units[v]
     return out
@@ -642,7 +649,8 @@ def swmm_summary(inp: str | Path | None = None, out: str | Path | None = None, *
     """What a SWMM model and its results hold, without their arrays: the network (nodes and links by type, the
     coordinate system and extent when placed), the report period, the nodes that flood (peak rate, its time,
     hours and volume from the report steps) and the links with the largest flows (peak, its time, and the
-    largest fraction full). ``element`` adds one node's or link's time series. Every number is computed from the
+    largest fraction full). ``element`` adds one node's or link's time series (at most SERIES_POINTS values per
+    variable; ``every`` says which report steps were kept). Every number is computed from the
     files; ok is false with a plain error for a file the readers cannot use."""
     if inp is None and out is None:
         return {"ok": False, "error": "Give a SWMM .inp file, its .out results file, or both."}
@@ -669,8 +677,8 @@ def swmm_summary(inp: str | Path | None = None, out: str | Path | None = None, *
                                   "units": o.units, "subcatchments": len(o.subcatchments), "nodes": len(o.nodes),
                                   "links": len(o.links), "pollutants": o.pollutants, "periods": o.n_periods,
                                   "report_step_s": o.report_step_s,
-                                  "start": o.times()[0] if o.n_periods else None,
-                                  "end": o.times()[-1] if o.n_periods else None}
+                                  "start": o.time_at(0) if o.n_periods else None,
+                                  "end": o.time_at(o.n_periods - 1) if o.n_periods else None}
                 if o.error_code:
                     res["notes"].append(f"SWMM reported error code {o.error_code} for this run.")
                 if o.n_periods:
