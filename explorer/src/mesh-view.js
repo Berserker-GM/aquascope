@@ -149,7 +149,7 @@ export async function openModelFile(file, crs = null) {
   registerRow();
   openLegendRow("mesh", true);
   addLayers();
-  map.fitBounds([[meta.bbox[0], meta.bbox[1]], [meta.bbox[2], meta.bbox[3]]], { padding: 70, maxZoom: 15, duration: 1400 });
+  zoomTo(1400);
   paint();
   if (meta.times.length) {
     useModelClock({
@@ -161,6 +161,12 @@ export async function openModelFile(file, crs = null) {
     if (meta.has_velocity) loadFrame(step).then(() => drawArrows());
   }
   announce(`${meta.name} is on the map: ${Number(meta.cells).toLocaleString("en-GB")} cells.`);
+}
+
+function zoomTo(duration) {
+  const b = mesh.meta.bbox;
+  const pad = (globalThis.innerWidth || 1024) <= 520 ? 28 : 70;
+  map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: pad, maxZoom: 15, duration });
 }
 
 function pickFile() {
@@ -580,7 +586,7 @@ function registerRow() {
       else if (name === "particles") { particlesOn = el.checked; if (particlesOn) startParticles(); else stopParticles(); }
       else if (name === "steps") { setModelStep(step); }
       else if (name === "largest") { showLargest(); }
-      else if (name === "zoom") { const b = mesh.meta.bbox; map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: 70, maxZoom: 15, duration: 900 }); }
+      else if (name === "zoom") zoomTo(900);
       else if (name === "open") { pickFile(); }
       else if (name === "clear") { clearMesh(); }
     },
