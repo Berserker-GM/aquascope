@@ -7,6 +7,8 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-10-12
+
 ### Added
 - **Flow vs normal on every big river** (#559, part of #566), the NOAA National Water Model map for the whole world: every GEOGLOWS v2 reach of Strahler order 5 and up (842,581) coloured by its forecast flow for the day against its own normal for the month ([docs](docs/explorer.md#flow-vs-normal-on-the-rivers)).
   - `aquascope.flowstatus`: the climatology, once (`flow-climatology.yml`, by hand): the 10th, 25th, 75th and 90th percentiles of daily flow by calendar month from GEOGLOWS's `retrospective/fdc.zarr` (checked to be 1950 to 2019 against four reaches' daily records), published under `flowstatus/climatology/`. Then daily: `warnings run --day0` keeps each reach's first-day ensemble-mean flow from the chunks Floods ahead already reads, so nothing is downloaded twice, and `flowstatus daily` classes it in the river status layer's five HydroSOS classes and publishes `flowstatus/latest.bin.gz` (sorted river ids as varint gaps and a class byte each), `latest.parquet` and a manifest, writing only under `flowstatus/`.
