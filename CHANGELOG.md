@@ -7,7 +7,14 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Every scheduled job reports its health** (#593, with #449; part of the 1.0 milestone).
+  - `aquascope.archive.health_jobs`: one record per job under `health/jobs/<job>.json` in the Archive (last run, last success, last failure, duration, row or file counts read from the job's own manifest, the data's date, failed runs in a row and the recent runs, from which the green streak of scheduled runs is counted), plus `health/jobs/index.json` with every job and its expected cadence. The cadence of every job is in one table, `JOBS`, and travels with the index. `python -m aquascope.archive.health_jobs status` prints the published index.
+  - Each scheduled workflow (harvest, forecast archive, flood warnings with scout and flow against normal, model skill, bulletin, water balance, showcase, repair, and the CAMELS, Explorer live and Pyodide checks; the place-context mirror when dispatched) ends with a step that runs whether the job passed or not, writes only under `health/jobs/`, never publishes a smoke run's record and never turns the job red. A failed scheduled run opens or comments on one `job-health` issue per job, and the next good run closes it, as the harvest already did for collectors. A scheduled run counts as failed when it did not publish, so a harvest that ran and published nothing (#449) is now red and filed.
+  - In the Explorer: a layer whose job is late says so in its legend row ("3 d old", with the expected cadence in its tooltip), and **Tools > Data status** lists every job: on time, late, last run failed, or when dispatched.
+
 ### Changed
+- `harvest.yml` fails a scheduled run that did not publish, and says in the workflow why the observation step is allowed to stop early (#449).
 - **The daily jobs prune their dated files** (#597, part of the 1.0 milestone): the publish step of `flowstatus/`, `forecasts/warnings/` and `scout/` keeps the latest files, every dated file of the last 60 days (counted back from the newest) and the first of each month before that, and deletes the older dated files and their manifest history entries in the same Hugging Face commit, inside its own folder only. Unpruned, `flowstatus/` and `forecasts/warnings/` would each grow by a few hundred MB a year. `publish --dry-run` lists what would be pruned and uploads nothing. `forecasts/issued/` (the archive of record) and `forecasts/status/` (about 22 kB a day) are kept whole. The rule is `aquascope.archive.retention`, documented in [docs/archive.md](docs/archive.md#retention-of-the-daily-files); `publish_folder` gains `delete=`.
 
 ### Fixed
