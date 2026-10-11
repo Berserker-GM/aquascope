@@ -148,7 +148,7 @@ def test_ras_without_normals_or_ordered_points_gives_the_same_mesh(tmp_path):
 def test_ras_without_bed_levels_shows_the_water_surface_and_says_so(tmp_path):
     m = M.read_ras_plan(make_ras(tmp_path / "run.hdf", bed=False))
     assert m.variable == "water_surface"
-    assert any("depth cannot be worked out" in n for n in m.notes)
+    assert any("so no depth" in n for n in m.notes)
     np.testing.assert_allclose(m.max_value, [13, 13, 13, 13, 13, 30])
     m.close()
 

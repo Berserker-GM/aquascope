@@ -164,11 +164,13 @@ export function modelTime(iso, { year = true } = {}) {
   return m[4] ? `${day} ${m[4]}:${m[5]}` : day;
 }
 
-/** "37 steps, 1 Jan 1999 12:00 to 4 Jan 1999 12:00" */
+/** "37 steps, 1 Jan 1999 12:00 to 4 Jan 12:00" (the year once when both ends share it) */
 export function rangeWords(times) {
   if (!times || !times.length) return "no time steps";
   if (times.length === 1) return `one step, ${modelTime(times[0])}`;
-  return `${times.length} steps, ${modelTime(times[0])} to ${modelTime(times[times.length - 1])}`;
+  const a = times[0], b = times[times.length - 1];
+  const same = String(a).slice(0, 4) === String(b).slice(0, 4);
+  return `${times.length} steps, ${modelTime(a)} to ${modelTime(b, { year: !same })}`;
 }
 
 export function variableWords(variable) {
@@ -270,8 +272,8 @@ export function thinArrows(pts, spacing = 34) {
 
 /** An arrow's size from its speed: 0.45 at rest to 1 at the scale's top speed. */
 export function arrowSize(speed, top) {
-  if (!(speed > 0) || !(top > 0)) return 0.45;
-  return Math.round((0.45 + 0.55 * Math.min(1, Math.sqrt(speed / top))) * 100) / 100;
+  if (!(speed > 0) || !(top > 0)) return 0.5;
+  return Math.round((0.5 + 0.5 * Math.min(1, Math.sqrt(speed / top))) * 100) / 100;
 }
 
 /**
@@ -317,7 +319,7 @@ export function canvasFrame(bbox, nCells, max = 2048) {
   const mx = (E - W) * Math.PI / 180, my = mercY(N) - mercY(S);
   const aspect = mx / (my || 1e-9);
   const perSide = Math.sqrt(Math.max(1, nCells));
-  const want = Math.min(max, Math.max(512, Math.round(perSide * 8)));
+  const want = Math.min(max, Math.max(1024, Math.round(perSide * 32)));
   const width = aspect >= 1 ? want : Math.max(16, Math.round(want * aspect));
   const height = aspect >= 1 ? Math.max(16, Math.round(want / aspect)) : want;
   const yN = mercY(N), ySpan = my || 1e-9;
@@ -355,7 +357,8 @@ export function cellFacts(meta, cell, { at = null, largest = {}, when = null } =
   let note = "";
   if (at && Number.isFinite(at.u) && Number.isFinite(at.v)) {
     const sp = Math.hypot(at.u, at.v);
-    note = `Velocity ${fmt(sp)}${vunit ? ` ${vunit}` : ""}${sp > 0 ? `, towards the ${heading(at.u, at.v)}` : ""}.`;
+    note = sp >= 0.005 ? `Velocity ${fmt(sp)}${vunit ? ` ${vunit}` : ""}, towards the ${heading(at.u, at.v)}.`
+      : "Still water at this step.";
   } else if (Number.isFinite(largest.speed)) {
     note = `Largest speed ${fmt(largest.speed)}${vunit ? ` ${vunit}` : ""}.`;
   }
@@ -365,6 +368,13 @@ export function cellFacts(meta, cell, { at = null, largest = {}, when = null } =
 }
 
 function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+
+/** "HEC-RAS 6.5 February 2024" -> "HEC-RAS 6.5"; other model names pass through, shortened. */
+export function modelShort(model) {
+  const s = String(model || "");
+  const m = /^(HEC-RAS\s+[\d.]+)/i.exec(s);
+  return m ? m[1] : shortName(s, 32);
+}
 
 /** The legend line under the ramp. */
 export function legendLine(meta, { step = null } = {}) {

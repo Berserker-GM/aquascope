@@ -44,6 +44,8 @@ import numpy as np
 # little; what costs memory is the mesh itself (its cells, their rings and two arrays per time step).
 MAX_FILE_BYTES = 2 * 1024**3
 MAX_CELLS = 250_000
+# Index arrays are np.intp throughout: 32 bits in the browser (Pyodide is wasm32), where numpy refuses to cast
+# int64 counts or indices down for np.repeat and np.bincount.
 # A cell is dry below this depth, in the file's own length unit.
 DRY_DEPTH = 0.01
 # Above this many face values (steps x faces), the RAS cell speed maximum is taken from the summary output instead
@@ -460,16 +462,16 @@ def _ras_rings(g, n: int, centers: np.ndarray, pairs_c: np.ndarray, pairs_f: np.
         valid = idx >= 0
         counts = valid.sum(axis=1)
         flat = idx[valid]
-        offsets = np.concatenate([[0], np.cumsum(counts)]).astype("i8")
+        offsets = np.concatenate([[0], np.cumsum(counts)]).astype(np.intp)
         return offsets, fp_xy[flat, 0], fp_xy[flat, 1]
     pc = np.concatenate([pairs_c, pairs_c])
     pp = np.concatenate([face_fp[pairs_f, 0], face_fp[pairs_f, 1]])
-    key = np.unique(pc.astype("i8") * (len(fp_xy) + 1) + pp)
-    pc, pp = key // (len(fp_xy) + 1), key % (len(fp_xy) + 1)
+    key = np.unique(pc.astype(np.int64) * (len(fp_xy) + 1) + pp)   # int64: cells x points passes 2**31
+    pc, pp = (key // (len(fp_xy) + 1)).astype(np.intp), (key % (len(fp_xy) + 1)).astype(np.intp)
     ang = np.arctan2(fp_xy[pp, 1] - centers[pc, 1], fp_xy[pp, 0] - centers[pc, 0])
     order = np.lexsort((ang, pc))
     pc, pp = pc[order], pp[order]
-    offsets = np.concatenate([[0], np.cumsum(np.bincount(pc, minlength=n))]).astype("i8")
+    offsets = np.concatenate([[0], np.cumsum(np.bincount(pc, minlength=n))]).astype(np.intp)
     return offsets, fp_xy[pp, 0], fp_xy[pp, 1]
 
 
@@ -477,12 +479,13 @@ def _ras_area(fh, name: str, count: int, cell_points: np.ndarray | None, cell_in
               index: int) -> dict[str, Any]:
     g = fh[f"{RAS_GEOM}/{name}"]
     fp_xy = np.asarray(g["FacePoints Coordinate"][:], dtype="f8")
-    face_fp = np.asarray(g["Faces FacePoint Indexes"][:], dtype="i8")
-    info = np.asarray(g["Cells Face and Orientation Info"][:count], dtype="i8")
-    vals = np.asarray(g["Cells Face and Orientation Values"][:], dtype="i8")
+    face_fp = np.asarray(g["Faces FacePoint Indexes"][:], dtype=np.intp)
+    info = np.asarray(g["Cells Face and Orientation Info"][:count], dtype=np.intp)
+    vals = np.asarray(g["Cells Face and Orientation Values"][:], dtype=np.intp)
     counts = info[:, 1]
     pairs_c = np.repeat(np.arange(count), counts)
-    pairs_f = np.concatenate([vals[s:s + c, 0] for s, c in info]) if count else np.zeros(0, "i8")
+    first = np.cumsum(counts) - counts
+    pairs_f = vals[np.repeat(info[:, 0] - first, counts) + np.arange(int(counts.sum()), dtype=np.intp), 0]
     if "Cells Center Coordinate" in g:
         centers = np.asarray(g["Cells Center Coordinate"][:count], dtype="f8")
     elif cell_points is not None and cell_info is not None:
@@ -540,7 +543,7 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
     if total > max_cells:
         raise MeshError(f"{name} has {total:,} cells; the mesh viewer draws up to {max_cells:,}.")
     cell_points = np.asarray(fh[f"{RAS_GEOM}/Cell Points"][:], "f8") if f"{RAS_GEOM}/Cell Points" in fh else None
-    cell_info = np.asarray(fh[f"{RAS_GEOM}/Cell Info"][:], "i8") if f"{RAS_GEOM}/Cell Info" in fh else None
+    cell_info = np.asarray(fh[f"{RAS_GEOM}/Cell Info"][:], np.intp) if f"{RAS_GEOM}/Cell Info" in fh else None
     areas, start = [], 0
     for i, (n_name, count) in enumerate(zip(names, counts)):
         a = _ras_area(fh, n_name, count, cell_points, cell_info, i)
@@ -559,7 +562,7 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
     lon, lat, crs_info = _to_lonlat(cx, cy, crs_in, origin)
     rlon, rlat, _ = _to_lonlat(np.concatenate([a["rx"] for a in areas]), np.concatenate([a["ry"] for a in areas]),
                                crs_in, origin)
-    offsets = [np.asarray([0], "i8")]
+    offsets = [np.asarray([0], np.intp)]
     base = 0
     for a in areas:
         offsets.append(a["offsets"][1:] + base)
@@ -571,8 +574,7 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
     notes: list[str] = []
     variable = "depth" if bed is not None else "water_surface"
     if bed is None:
-        notes.append("This file has no cell bed levels (Cells Minimum Elevation), so depth cannot be worked out: "
-                     "the map shows the water surface elevation instead.")
+        notes.append("No bed levels in this file (Cells Minimum Elevation), so no depth: this is the water surface.")
 
     times: list[str] = []
     if f"{RAS_TS}/Time Date Stamp (ms)" in fh or f"{RAS_TS}/Time Date Stamp" in fh:
@@ -946,7 +948,7 @@ def _read_ugrid(nc, name: str, size: int, crs: str | int | None, max_cells: int)
     conn_raw = _read(nc, fnc)
     ca = nc.attrs(fnc)
     start = int(np.asarray(ca.get("start_index", 0)).reshape(-1)[0])
-    conn = np.where(np.isfinite(conn_raw), conn_raw, -1).astype("i8")
+    conn = np.where(np.isfinite(conn_raw), conn_raw, -1).astype(np.intp)
     conn = np.where(conn >= start, conn - start, -1)
     if conn.ndim == 2 and conn.shape[0] < conn.shape[1] and conn.shape[0] <= 8 and conn.shape[1] > 8:
         conn = conn.T   # stored nodes-first
@@ -963,7 +965,7 @@ def _read_ugrid(nc, name: str, size: int, crs: str | int | None, max_cells: int)
     node_lon, node_lat, crs_info = _to_lonlat(nx_, ny_, crs_in, origin)
     valid = conn >= 0
     counts = valid.sum(axis=1)
-    ring_offsets = np.concatenate([[0], np.cumsum(counts)]).astype("i8")
+    ring_offsets = np.concatenate([[0], np.cumsum(counts)]).astype(np.intp)
     flat = conn[valid]
     ring_lon, ring_lat = node_lon[flat], node_lat[flat]
     face_x = np.nanmean(np.where(valid, nx_[np.where(valid, conn, 0)], np.nan), axis=1)
@@ -1026,8 +1028,7 @@ def _read_ugrid(nc, name: str, size: int, crs: str | int | None, max_cells: int)
             bed = b
         else:
             variable = "water_surface"
-            notes.append("This file has a water level but no bed level, so depth cannot be worked out: the map shows "
-                         "the water level instead.")
+            notes.append("No bed level in this file, so no depth: this is the water level.")
     u_var = _pick(nc, data_vars, _U_NAMES, ("sea_water_x_velocity", "eastward_sea_water_velocity",
                                             "eastward_water_velocity"), mesh)
     v_var = _pick(nc, data_vars, _V_NAMES, ("sea_water_y_velocity", "northward_sea_water_velocity",

@@ -79,7 +79,7 @@ async function openFile({ id, file, crs }) {
   pyodide.FS.mkdirTree(dir);
   pyodide.FS.mount(pyodide.FS.filesystems.WORKERFS, { files: [file] }, dir);
   pyodide.globals.set("_path", `${dir}/${file.name}`);
-  pyodide.globals.set("_crs", crs ? String(crs) : null);
+  pyodide.globals.set("_crs", crs ? String(crs) : "");   // "" for none: a JS null arrives as jsnull, not None
   const t0 = performance.now();
   const res = pyodide.runPython(`
 _M = _mesh.read_mesh(_path, crs=_crs)

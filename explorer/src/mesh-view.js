@@ -9,16 +9,16 @@
 // geometry and the maxima once and one time step when asked. This module draws; mesh-core.js decides the
 // colours, the arrows, the click and the words.
 
-import { $, actions, clickLayers, escapeHtml, state } from "./core.js?v=__BUILD__";
+import { $, actions, claimClicks, clickLayers, escapeHtml, state } from "./core.js?v=__BUILD__";
 import { CONFIG } from "../config.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
-import { closeCard, openCard, updateCard } from "./map-card.js?v=__BUILD__";
+import { cardOpen, closeCard, openCard, updateCard } from "./map-card.js?v=__BUILD__";
 import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js?v=__BUILD__";
 import { releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import {
   ACCEPT, advect, arrowSize, bearing, binOf, bins, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt,
-  legendLine, metresPer, modelTime, particleTimeScale, rampCss, rangeWords, scaleFor, shortName, thinArrows, ticks,
+  legendLine, metresPer, modelShort, modelTime, particleTimeScale, rampCss, rangeWords, scaleFor, shortName, thinArrows, ticks,
   variableWords,
 } from "./mesh-core.js?v=__BUILD__";
 
@@ -154,7 +154,7 @@ export async function openModelFile(file, crs = null) {
   if (meta.times.length) {
     useModelClock({
       times: meta.times, index: step, label: (i) => modelTime(meta.times[i]),
-      summary: `On the model's own clock: ${rangeWords(meta.times)}.`,
+      summary: `Model time: ${rangeWords(meta.times)}.`,
       onStep: (i) => showStep(i),
       onExit: () => showLargest(),
     });
@@ -278,18 +278,19 @@ function addLayers() {
     map.addLayer({ id: SEL, type: "line", source: SEL, layout: { visibility: vis() },
       paint: { "line-color": "#0b1f33", "line-width": 2.2 } }, before);
   }
-  if (!map.hasImage(ARROW_ICON)) map.addImage(ARROW_ICON, arrowImage(), { sdf: true, pixelRatio: 2 });
+  if (!map.hasImage(ARROW_ICON)) map.addImage(ARROW_ICON, arrowImage(), { sdf: true, pixelRatio: 1.7 });
   if (!map.getSource(ARROWS)) {
     map.addSource(ARROWS, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     map.addLayer({ id: ARROWS, type: "symbol", source: ARROWS,
       layout: { visibility: arrowsOn ? vis() : "none", "icon-image": ARROW_ICON, "icon-rotate": ["get", "b"],
         "icon-rotation-alignment": "map", "icon-size": ["get", "s"], "icon-allow-overlap": true, "icon-ignore-placement": true },
-      paint: { "icon-color": "#0f2740", "icon-halo-color": "rgba(255,255,255,0.9)", "icon-halo-width": 1.1, "icon-opacity": 0.92 } }, before);
+      paint: { "icon-color": "#0c2238", "icon-halo-color": "rgba(255,255,255,0.95)", "icon-halo-width": 1.6, "icon-opacity": 0.95 } }, before);
   }
   if (!bound) {
     bound = true;
     clickLayers.add(HIT);
     map.on("click", HIT, onClick);
+    claimClicks((ll) => Boolean(mesh && visible && cellAt(mesh.index, ll.lng, ll.lat) >= 0));
     map.on("mouseenter", HIT, () => { map.getCanvas().style.cursor = "crosshair"; });
     map.on("mouseleave", HIT, () => { map.getCanvas().style.cursor = ""; });
   }
@@ -469,6 +470,7 @@ function ringOf(i) {
 function syncSelection() {
   const src = map && map.getSource(SEL);
   if (!src) return;
+  if (selected >= 0 && !cardOpen()) selected = -1;   // the card was closed: so is the outline
   src.setData(selected >= 0 && mesh
     ? { type: "FeatureCollection", features: [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ringOf(selected) } }] }
     : { type: "FeatureCollection", features: [] });
@@ -484,29 +486,36 @@ function cardSpec(i, { keepSeries = false } = {}) {
   const f = cellFacts(meta, i, { at, largest, when: meta.times[step] });
   const c = colorAt(at ? at.value : largest.value, mesh.scale);
   const spec = {
-    title: f.title, sub: `${shortName(meta.name, 34)} · ${meta.model}`,
+    title: f.title, sub: `${shortName(meta.name, 30)} · ${modelShort(meta.model)}`,
     status: { text: f.status, color: c ? `rgb(${c[0]},${c[1]},${c[2]})` : null },
     figure: f.figure, note: f.note,
+    buttons: [{ id: "largest", label: "Show the largest", title: "The largest value over the run, in every cell",
+      onClick: () => showLargest(), hidden: view !== "step" }],
   };
   if (!keepSeries) spec.spark = meta.times.length ? { pending: true, label: `${variableWords(meta.variable)} over the run` } : null;
   return spec;
 }
 
+const GAUGES = ["points", "clusters", "now-dots"];
+
 function onClick(e) {
   if (!mesh) return;
-  const others = ["points", "clusters", ...[...clickLayers].filter((id) => id !== HIT)].filter((id) => map.getLayer(id));
-  if (others.length && map.queryRenderedFeatures(e.point, { layers: others }).length) return;
+  // A gauge under the click is what the reader meant; inside the mesh, the mesh answers before the background
+  // layers (they step aside through clickClaimed); outside a cell, they answer, or the map's own click.
+  const gauges = GAUGES.filter((id) => map.getLayer(id));
+  if (gauges.length && map.queryRenderedFeatures(e.point, { layers: gauges }).length) return;
   const { lng, lat } = e.lngLat;
   const i = cellAt(mesh.index, lng, lat);
-  if (i < 0) { actions.selectPoint(lat, lng); return; }
+  if (i < 0) {
+    const others = [...clickLayers].filter((id) => id !== HIT && map.getLayer(id));
+    if (!others.length || !map.queryRenderedFeatures(e.point, { layers: others }).length) actions.selectPoint(lat, lng);
+    return;
+  }
   selected = i;
   const { meta } = mesh;
   openCard({
     id: `mesh:${i}`, lngLat: [mesh.arrays.lon[i], mesh.arrays.lat[i]], lift: 6, what: "Your model",
-    ...cardSpec(i), credit: `${CREDIT} ${meta.crs.label}.`,
-    buttons: meta.times.length
-      ? [{ id: "largest", label: "Largest", title: "The largest value over the run, in every cell", onClick: () => showLargest() }]
-      : [],
+    ...cardSpec(i), credit: "Your file, read in your browser by aquascope. Nothing is uploaded.",
   });
   syncSelection();
   if (!meta.times.length) return;
@@ -535,7 +544,7 @@ function keyHtml() {
   const velocity = meta.has_velocity
     ? `<div class="mv-opts"><label><input type="checkbox" data-act="arrows"${arrowsOn ? " checked" : ""}> Arrows</label>` +
       `<label><input type="checkbox" data-act="particles"${particlesOn ? " checked" : ""}> Particles</label></div>` +
-      `<p class="mv-line muted">Arrows: the flow at ${escapeHtml(modelTime(meta.times[step]))}${view === "max" ? ", the step with the most water" : ""}.</p>`
+      (view === "max" ? `<p class="mv-line muted">Arrows at ${escapeHtml(modelTime(meta.times[step]))}, when the most water is on the mesh.</p>` : "")
     : "";
   const stepBtn = meta.times.length
     ? (view === "max"
@@ -546,8 +555,15 @@ function keyHtml() {
     `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>` +
     velocity + notes +
     `<p class="mv-actions">${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
-    `<button type="button" class="fd-go" data-act="open">Open another</button><button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
-    `<p class="fd-src">${escapeHtml(meta.model)} · ${escapeHtml(meta.crs.label)} · read in your browser, nothing uploaded</p>`;
+    `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
+    `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
+    `stays in your browser</p>`;
+}
+
+// "NAD83 / Pennsylvania North (ftUS) (EPSG:2271)" -> "EPSG:2271"
+function crsShort(label) {
+  const m = /EPSG:\d+/.exec(String(label || ""));
+  return m ? m[0] : String(label || "");
 }
 
 function registerRow() {

@@ -14,7 +14,7 @@
 .md-box .md-title { color: var(--ink); font-weight: 650; font-size: .92rem; margin-bottom: .3rem; }
 
 .mesh-status {
-  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7;
+  position: absolute; top: 54px; left: 50%; transform: translateX(-50%); z-index: 9;
   width: max-content; max-width: min(27rem, calc(100% - 24px)); padding: 9px 12px 10px;
   background: var(--surface-solid); color: var(--ink); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-2); font-size: .8rem; line-height: 1.4;
