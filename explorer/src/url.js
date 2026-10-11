@@ -106,6 +106,7 @@ function currentHash({ view } = {}) {
   flag("heat", "hm");
   flag("floodsPast", "fp");
   flag("status", "ws");
+  flag("groundwater", "gw");
   return `#${q.toString().replace(/%2F/gi, "/").replace(/%2C/gi, ",")}`;
 }
 

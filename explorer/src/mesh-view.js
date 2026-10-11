@@ -16,6 +16,7 @@ import { cardOpen, closeCard, openCard, updateCard } from "./map-card.js?v=__BUI
 import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js?v=__BUILD__";
 import { modelClockOn, releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
+import { isModflowDrop } from "./groundwater-core.js?v=__BUILD__";
 import {
   ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, legendLine,
   metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rampCss, rangeWords, rasterizeIds, scaleFor,
@@ -667,6 +668,7 @@ export function initMeshView() {
       e.preventDefault();
       depth = 0;
       drop.hidden = true;
+      if (isModflowDrop(e.dataTransfer.files)) return;   // MODFLOW heads: groundwater-view.js reads them (#558)
       const file = e.dataTransfer.files && e.dataTransfer.files[0];
       if (file) openModelFile(file);
     });

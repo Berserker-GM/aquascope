@@ -3717,8 +3717,78 @@ def cmd_agri(args: argparse.Namespace) -> None:
         cmd_agri_productivity(args)
 
 
+def cmd_modflow(args: argparse.Namespace) -> None:
+    """`aquascope modflow`: a MODFLOW head file on the map (#558)."""
+    from aquascope.groundwater.surface import modflow_geojson, modflow_summary, read_modflow_heads
+
+    cell = args.cell_size
+    res = read_modflow_heads(args.hds, args.grid, origin=args.origin, rotation=args.rotation, crs=args.crs,
+                             cell_size=(cell[0] if cell and len(cell) == 1 else cell), start_date=args.start_date,
+                             time_units=args.time_units, sidecars=args.sidecar)
+    out = modflow_summary(res, args.time, args.layer)
+    if args.geojson and not res.get("error"):
+        Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
+    elif res.get("error"):
+        print(f"  {res['error']}")
+    else:
+        print(f"  {out['summary']}")
+        g = out["grid"]
+        print(f"  grid from {g['from']}, origin {g['origin'][0]:g}, {g['origin'][1]:g}, rotation {g['rotation']:g}")
+        print(f"  extent {out['bbox']} (lon/lat)")
+        f = out["frame"]
+        when = f["date"] or f"t = {f['time']:g} {out['time_units']}"
+        lo = "no head" if f["min"] is None else f"{f['min']:g} to {f['max']:g}"
+        print(f"  layer {f['layer']}, {when}: heads {lo} on {f['cells_with_head']:,} cells")
+        for note in out.get("notes") or []:
+            print(f"  {note}")
+        if args.geojson:
+            print(f"  wrote {args.geojson}")
+    if res.get("error"):
+        sys.exit(1)
+
+
+def _print_groundwater_surface(res: dict) -> None:
+    """`aquascope groundwater surface`: what was drawn, the mask rule, and the wells."""
+    if res.get("error"):
+        print(f"  {res['error']}")
+        return
+    print(f"  {res['summary']}")
+    for note in res.get("notes") or []:
+        print(f"  {note}")
+    if res.get("range"):
+        lo, hi = res["range"]
+        print(f"  colour range {lo:g} to {hi:g} m" + (f"; contours every {res['contours']['step']:g} m"
+                                                    if (res.get("contours") or {}).get("step") else ""))
+    print(f"  {res['rule']}")
+    for w in sorted(res.get("wells") or [], key=lambda w: w["value"])[:12]:
+        print(f"  {w['value']:>9.2f} m  {w.get('name') or w['id']}  ({w['lat']:.3f}, {w['lon']:.3f})  {w['how']}")
+    print(f"\n  {res['not']}")
+    print(f"  {res['grace']}")
+    print(f"  {res['attribution']} ({res['licence']})")
+
+
 def cmd_groundwater(args: argparse.Namespace) -> None:
     """Run groundwater analysis."""
+    if getattr(args, "action", None) == "surface":
+        from aquascope.groundwater.surface import groundwater_surface, surface_geojson, surface_summary
+
+        res = groundwater_surface(args.bbox, month=args.month, mode=args.mode, compare=args.compare)
+        if args.geojson and res.get("grid"):
+            Path(args.geojson).write_text(json.dumps(surface_geojson(res)), encoding="utf-8")
+            print(f"  wrote {args.geojson}")
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        else:
+            _print_groundwater_surface(surface_summary(res) | {"contours": res.get("contours")})
+        if res.get("error"):
+            sys.exit(1)
+        return
+    if not args.analysis or not args.file:
+        print("aquascope groundwater: --analysis and --file are needed (or use 'aquascope groundwater surface')",
+              file=sys.stderr)
+        sys.exit(2)
     import numpy as np
     import pandas as pd
 
@@ -5073,14 +5143,25 @@ def main() -> None:
     p_alerts.add_argument("--param-col", default="parameter", help="Column containing parameter names")
 
     # ── groundwater ──────────────────────────────────────────────────
-    p_gw = sub.add_parser("groundwater", help="Run groundwater analysis (trend, recession, recharge, Theis)")
+    p_gw = sub.add_parser("groundwater", help="Run groundwater analysis (trend, recession, recharge, Theis), or "
+                          "'groundwater surface': the head surface from the Archive's wells (#558)")
+    p_gw.add_argument("action", nargs="?", choices=["surface"], default=None,
+                      help="surface: a groundwater-level surface and its change from the Archive's wells")
     p_gw.add_argument(
         "--analysis",
-        required=True,
+        default=None,
         choices=["trend", "recession", "seasonal", "hydrograph", "recharge-wtf", "theis"],
-        help="Analysis type",
+        help="Analysis type (needed without 'surface')",
     )
-    p_gw.add_argument("--file", required=True, help="Path to well level data (CSV with DatetimeIndex)")
+    p_gw.add_argument("--file", default=None, help="Path to well level data (CSV with DatetimeIndex)")
+    p_gw.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=None,
+                      help="surface: the box (default every well)")
+    p_gw.add_argument("--month", default=None, help="surface: the month, YYYY-MM (default the newest well covered)")
+    p_gw.add_argument("--mode", choices=["level", "change"], default="level",
+                      help="surface: the head (level) or its change against --compare (default 12 months earlier)")
+    p_gw.add_argument("--compare", default=None, help="surface: the earlier month for --mode change, YYYY-MM")
+    p_gw.add_argument("--geojson", default=None, help="surface: write the drawn cells, contours and wells here")
+    p_gw.add_argument("--json", action="store_true", help="surface: print the whole result as JSON")
     p_gw.add_argument(
         "--specific-yield", type=float, default=0.15, help="Specific yield for WTF recharge (default: 0.15)"
     )
@@ -5089,6 +5170,26 @@ def main() -> None:
     p_gw.add_argument("--pumping-rate", type=float, default=None, help="Pumping rate m³/day (Theis)")
     p_gw.add_argument("--distance", type=float, default=None, help="Distance from well in metres (Theis)")
     p_gw.add_argument("--output", default=None, help="Save results to JSON")
+
+    # ── modflow (#558) ───────────────────────────────────────────────
+    p_mf = sub.add_parser("modflow", help="Read MODFLOW heads (.hds) onto a map: cells in lon/lat, heads per "
+                          "layer and time, as a summary or GeoJSON (#558)")
+    p_mf.add_argument("hds", help="The binary head (or drawdown) file, MODFLOW-2005 or MODFLOW 6")
+    p_mf.add_argument("--grid", default=None, help="Its grid: .dis, .disv (text) or .dis.grb/.disv.grb (MODFLOW 6)")
+    p_mf.add_argument("--sidecar", action="append", default=None,
+                      help="Another file that says where or when (a .nam with FloPy's georeference, a .tdis)")
+    p_mf.add_argument("--origin", nargs=2, type=float, metavar=("X", "Y"), default=None,
+                      help="The grid's lower-left corner in --crs (overrides the grid file)")
+    p_mf.add_argument("--rotation", type=float, default=None, help="Degrees counter-clockwise (overrides the grid)")
+    p_mf.add_argument("--crs", default=None, help="The model's CRS, e.g. EPSG:27700 (needed if the files have none)")
+    p_mf.add_argument("--cell-size", nargs="+", type=float, default=None,
+                      help="Without --grid: the cell width (and height) of a regular grid")
+    p_mf.add_argument("--start-date", default=None, help="Model time 0 as YYYY-MM-DD, to give times as dates")
+    p_mf.add_argument("--time-units", default=None, help="days (default), hours, minutes, seconds or years")
+    p_mf.add_argument("--time", type=int, default=-1, help="Which time step (index, default the last)")
+    p_mf.add_argument("--layer", type=int, default=None, help="Which layer (1-based, default the first)")
+    p_mf.add_argument("--geojson", default=None, help="Write that time and layer's cells with their head here")
+    p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────
     p_climate = sub.add_parser("climate", help="Climate projections and indices")
@@ -5193,6 +5294,7 @@ def main() -> None:
         "dashboard": cmd_dashboard,
         "agri": cmd_agri,
         "groundwater": cmd_groundwater,
+        "modflow": cmd_modflow,
         "climate": cmd_climate,
         "completion": cmd_completion,
     }

@@ -63,6 +63,9 @@ LAYERS: dict[str, dict[str, Any]] = {
     "floods_past": {"label": "Floods past", "aliases": (
         "floods past", "past floods", "flood events", "flood news", "floods in the news", "radar floods",
         "flood history", "historical floods")},
+    "groundwater": {"label": "Groundwater", "aliases": (
+        "groundwater", "groundwater level", "groundwater levels", "groundwater surface", "water table",
+        "head surface", "heads", "well levels", "wells", "modelmuse", "modflow", "modflow heads")},
     "floods_ahead": {"label": "Floods ahead", "aliases": (
         "floods ahead", "flood forecast", "flood forecasts", "forecast floods", "flood warnings", "warnings",
         "future floods", "upcoming floods")},

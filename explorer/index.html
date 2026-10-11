@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="./style.css?v=__BUILD__" />
   <link rel="stylesheet" href="./floods-past.css?v=__BUILD__" />
+  <link rel="stylesheet" href="./groundwater.css?v=__BUILD__" />
   <link rel="stylesheet" href="./flood-depth.css?v=__BUILD__" />
   <link rel="stylesheet" href="./fews.css?v=__BUILD__" />
   <link rel="stylesheet" href="./mesh.css?v=__BUILD__" />
@@ -133,6 +134,11 @@
             <input type="checkbox" id="toggle-floods-past" checked />
             <i style="background:#e8820c;border-radius:50%"></i>
             <span class="rail-label">Floods past (news and radar)</span>
+          </label>
+          <label class="rail-row" title="A head surface from the Environment Agency's wells (England, OGL v3.0), drawn only where wells are dense enough, following the time bar; drop your MODFLOW heads on the map">
+            <input type="checkbox" id="toggle-groundwater" />
+            <i style="background:linear-gradient(90deg,#c7e9b4,#41b6c4,#0c2c84);border-radius:2px"></i>
+            <span class="rail-label">Groundwater (wells, your MODFLOW heads)</span>
           </label>
           <label class="rail-row" title="GEOGLOWS v2 stream network (TDX-Hydro, CC BY-SA 4.0): wider for bigger rivers, small streams as you zoom in">
             <input type="checkbox" id="toggle-rivers" checked />
@@ -250,7 +256,7 @@
       <div id="mesh-drop" class="mesh-drop" hidden>
         <div class="md-box">
           <p class="md-title">Drop your model results</p>
-          <p>A HEC-RAS 2D plan file (.p01.hdf) or a UGRID NetCDF mesh (.nc), up to 2 GB. It stays in your browser.</p>
+          <p>A HEC-RAS 2D plan file (.p01.hdf) or a UGRID NetCDF mesh (.nc), up to 2 GB, or MODFLOW heads (.hds with its .dis or .dis.grb). They stay in your browser.</p>
         </div>
       </div>
       <section id="mesh-status" class="mesh-status" role="status" aria-live="polite" hidden></section>
