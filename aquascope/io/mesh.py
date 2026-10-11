@@ -812,9 +812,15 @@ def _ras_max_speed(fh, areas, src: _RasSource, times: list[str], notes: list[str
         lsq = a.get("lsq")
         if a.get("cv"):
             best = np.zeros(n)
+            seg = None if src.bed is None else src.bed[a["start"]:a["start"] + n]
             for i in range(0, len(times), 64):
-                u, v = src._cell_uv(a, (slice(i, i + 64), slice(0, n)))
-                best = np.fmax(best, _nanmax(np.hypot(u, v), axis=0))
+                sel = (slice(i, i + 64), slice(0, n))
+                u, v = src._cell_uv(a, sel)
+                speed = np.hypot(u, v)
+                ws = None if seg is None else src._ws(a, sel)
+                if ws is not None:   # RAS writes a small velocity in dry cells too; the frame and series leave it out
+                    speed[~(ws - seg > DRY_DEPTH)] = np.nan
+                best = np.fmax(best, _nanmax(speed, axis=0))
         elif fv is None or lsq is None:
             parts.append(np.full(n, np.nan))
             continue

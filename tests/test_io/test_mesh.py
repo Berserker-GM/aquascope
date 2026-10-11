@@ -155,6 +155,18 @@ def test_ras_uses_the_models_own_cell_velocity_where_written(tmp_path, faces):
     m.close()
 
 
+def test_ras_largest_own_cell_velocity_leaves_out_dry_steps(tmp_path):
+    # RAS writes a small velocity in dry cells (up to 0.24 m/s on the real 6.5 plan); cell 4 is dry at step 0,
+    # so a speed written there must not become its largest, as the frame and the series leave it out too.
+    own = (-0.3, 0.8)
+    path = make_ras(tmp_path / "run.p01.hdf", cell_velocity=own)
+    with h5py.File(path, "r+") as f:
+        f[f"{M.RAS_TS}/2D Flow Areas/Grid/Cell Velocity - Velocity X"][0, 4] = 10.0
+    m = M.read_ras_plan(path)
+    np.testing.assert_allclose(m.max_speed[4], 2 * math.hypot(*own), atol=1e-3)
+    m.close()
+
+
 def test_ras_without_normals_or_ordered_points_gives_the_same_mesh(tmp_path):
     full = M.read_ras_plan(make_ras(tmp_path / "a.hdf"))
     bare = M.read_ras_plan(make_ras(tmp_path / "b.hdf", normals=False, ordered=False))

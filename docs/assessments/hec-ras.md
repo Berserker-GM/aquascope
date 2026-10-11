@@ -121,6 +121,9 @@ cells: the largest differs by up to 0.62 m/s, and the largest speed on the mesh 
 4.35 m/s where HEC-RAS says 3.83 m/s (cell 3375). **Fixed**: where the plan wrote cell
 velocity, the reader uses it for the arrows, the card's series and the largest speed, and
 falls back to the faces otherwise (Bald Eagle, which has only face velocity, reads as before).
+HEC-RAS also writes a small velocity in dry cells (up to 0.24 m/s here, the 99th percentile
+0.004 m/s); the largest speed leaves out the steps a cell is dry, as the arrows and the card
+do (7 cells' largest speed would otherwise rise, by up to 0.13 m/s).
 
 ## In the Explorer
 
