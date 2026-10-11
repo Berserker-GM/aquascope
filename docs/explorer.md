@@ -219,8 +219,8 @@ model ready, or a key in Ask ✨, the model puts the findings in order and words
 choosing from a few more than ten. It never writes a number: every number, date,
 place and ranking is a slot (`{area}`, `{peak}`, `{month}`) that the package fills in,
 and wording with a digit, a percent sign, a number word or a word like "record" or
-"largest" outside the slots is refused, so the rules' wording stays (the line says how
-many were refused). The maintainer's keys are never used for visitors.
+"largest" outside the slots is refused, and so is a sign set against a slot ("-{peak}",
+"minus {area}"), so the rules' wording stays (the line says how many were refused). The maintainer's keys are never used for visitors.
 
 The same scan is `aquascope layers scout [--bbox W S E N] [--month YYYY-MM]
 [--published]`, the MCP tool `map_scout`, and, for an assistant in the browser, the
@@ -270,7 +270,9 @@ Who words the notes:
    Ask the map. The model only chooses and orders the facts and writes the words
    between them. It writes each number as a placeholder (`{f3}`), which code fills in
    from the facts, and a note whose words hold any other number, in digits or in words
-   ("twelve", "half"), is refused (the claim lock); the line under the box says how many were refused and why. When fewer than
+   ("twelve", "half"), or with a sign or a digit set against a placeholder ("-{f3}", "minus {f3}",
+   "{f3}0", which would change the number code puts in), is refused (the claim lock, the same check
+   Scout and the mesh review make); the line under the box says how many were refused and why. When fewer than
    three pass, notes in fixed wording on the other facts make up the rest.
 
 A layer still reading its file (just after the page opens, or after a new date) is
@@ -964,6 +966,12 @@ A file that does not say its coordinate system gets one question: its EPSG code 
 UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read gets one
 plain sentence why: not a model result, a HEC-RAS geometry file with no results in it,
 over 2 GB, or over 250,000 cells.
+
+A stripped HEC-RAS plan file (`*.p01.timeseries.hdf`) holds the results but not the mesh
+they sit on. Dropped alone, it gets one sentence naming the part that is missing and what
+to drop instead: the full plan file, or the stripped file and the geometry file the plan
+was run with (`*.g01.hdf`) together. Dropped (or picked) together, the two are read as one
+run.
 
 **How it works.** The file is handed to a worker with its own Python (Pyodide), mounted
 read-only (WORKERFS) so its bytes are read from the file as needed and never copied into
