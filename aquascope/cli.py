@@ -1185,6 +1185,9 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     MCP tool mesh_summary gives and the Explorer draws on the globe."""
     from aquascope.io.mesh import mesh_summary
 
+    if args.file == "review" and args.review_file:
+        _mesh_review(args)
+        return
     res = mesh_summary(args.file, crs=args.crs)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
@@ -1219,6 +1222,37 @@ def cmd_mesh(args: argparse.Namespace) -> None:
         print(f"  Largest speed: {sp['value']}{unit} at {sp['lat']}, {sp['lon']} (cell {sp['cell']})")
     for note in res.get("notes") or []:
         print(f"  note: {note}")
+
+
+def _mesh_review(args: argparse.Namespace) -> None:
+    """`aquascope mesh review FILE` (#564): the checks the Explorer's "Review these results" runs."""
+    from aquascope.mesh_review import review_file
+
+    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        if "EPSG" in res["error"]:
+            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        sys.exit(1)
+    m = res["mesh"]
+    print(f"  {m['name']}: {m['cells']:,} cells, {m['steps']} time steps")
+    print(f"  {res['summary']}")
+    print()
+    for c in res["checks"]:
+        print(f"  {c['status']:<8} {c['label']}: {c['line']}")
+    if res["findings"]:
+        print()
+    for f in res["findings"]:
+        print(f"  {f['rank']:>2}. [{f['severity']}] {f['title']}  ({f['lat']:.5f}, {f['lon']:.5f})")
+        print(f"      {f['reason']}")
+        print(f"      Source: {f['source']}")
+    for e in res.get("errors") or []:
+        print(f"  note: {e}")
 
 
 def cmd_basins(args: argparse.Namespace) -> None:
@@ -4439,8 +4473,14 @@ def main() -> None:
     # ── model results on a mesh (#555) ──────────────────────────────
     p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
                             "times, the largest depth and speed")
-    p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file")
+    p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file; or 'review' then the "
+                        "file, to check the run (#564)")
+    p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
+                        help="With 'review': the model result to check")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
+    p_mesh.add_argument("--offline", action="store_true",
+                        help="With 'review': only the checks on the file (no observed floods, no gauges)")
+    p_mesh.add_argument("--top", type=int, default=5, help="With 'review': how many of the deepest places to list")
     p_mesh.add_argument("--json", action="store_true")
     # ── basins ───────────────────────────────────────────────────────
     p_bul = sub.add_parser("bulletin", help="The month's state of the rivers: every Archive gauge against normal, "

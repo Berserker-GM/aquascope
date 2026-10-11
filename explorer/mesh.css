@@ -71,3 +71,21 @@
   .timebar.tb-clock .tb-note { max-width: 15rem; }
   .tb-model { min-width: 8.4rem; }
 }
+
+/* Review my model results (#564): the pins wear their severity, the legend row lists the checks. */
+.ma-pin.review svg path { fill: var(--pin, #2563a8); }
+.ma-pin.review:hover svg path, .ma-pin.review:focus-visible svg path { fill: color-mix(in srgb, var(--pin, #2563a8) 78%, #000); }
+.ml-body .mv-review { margin: .5rem 0 0; padding: .4rem 0 0; border-top: 1px solid var(--line); font-size: .72rem; line-height: 1.35; }
+.mv-review .mr-head { margin: 0; color: var(--ink); font-weight: 600; }
+.mv-review .mr-who { margin: .15rem 0 0; color: var(--muted); font-size: .68rem; }
+.mv-review details { margin: .3rem 0 0; }
+.mv-review summary { cursor: pointer; color: var(--blue-dark); font-size: .7rem; }
+.mv-review ul { list-style: none; margin: .3rem 0 0; padding: 0; display: grid; gap: .25rem; }
+.mv-review li { display: grid; grid-template-columns: 1rem 1fr; gap: .1rem .35rem; }
+.mv-review li b { font-weight: 650; color: var(--ink); }
+.mv-review li span { grid-column: 2; color: var(--ink-2); }
+.mv-review .mr-mark { grid-row: span 2; text-align: center; font-weight: 700; color: var(--muted); }
+.mv-review li.flagged .mr-mark { color: #b45309; }
+.mv-review li.ok .mr-mark { color: #2f7d4f; }
+.mv-review .mr-key { display: flex; flex-wrap: wrap; gap: .2rem .7rem; margin: .3rem 0 0; color: var(--ink-2); font-size: .68rem; }
+.mv-review .mr-key i { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .25rem; vertical-align: -1px; }

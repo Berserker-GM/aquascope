@@ -155,6 +155,15 @@ class Mesh:
                 best, best_i = float(total[k]), i + k
         return best_i
 
+    def values_block(self, start: int, stop: int, *, raw: bool = False) -> np.ndarray:
+        """Steps ``start`` to ``stop`` (not included) as a (steps, cells) array: depth (or water surface) with the
+        dry cells NaN, or with ``raw`` the values as the file gives them (a negative or tiny depth kept), which is
+        what the checks in :mod:`aquascope.mesh_review` read."""
+        if not self.times:
+            raise MeshError("This file has no time steps, only its maxima.")
+        start, stop = max(0, int(start)), min(len(self.times), int(stop))
+        return np.atleast_2d(self._source.values_block(slice(start, stop), raw=raw))
+
     def bbox(self) -> list[float]:
         """[west, south, east, north] of the cell outlines, in degrees."""
         return [float(np.nanmin(self.ring_lon)), float(np.nanmin(self.ring_lat)),
@@ -324,6 +333,7 @@ class _RasSource:
         self.areas = areas
         self.bed = bed
         self.angle = angle
+        self.n_steps = 0
 
     def close(self) -> None:
         try:
@@ -369,16 +379,17 @@ class _RasSource:
         v[dry] = np.nan
         return {"value": value, "u": u, "v": v}
 
-    def values_block(self, sl: slice) -> np.ndarray:
-        """Depth (or water surface) for a block of steps: (steps, cells)."""
+    def values_block(self, sl: slice, raw: bool = False) -> np.ndarray:
+        """Depth (or water surface) for a block of steps: (steps, cells). ``raw`` keeps the depth as the file
+        gives it (water surface less bed, negative or tiny included), without the dry cells set to NaN."""
         parts = []
         for a in self.areas:
             n = a["cells"]
             ws = self._ws(a, (sl, slice(0, n)))
             if ws is None:
-                continue
+                ws = np.full((len(range(*sl.indices(self.n_steps))), n), np.nan)   # an area without output
             bed = None if self.bed is None else self.bed[a["start"]:a["start"] + n]
-            parts.append(self._value(ws, bed))
+            parts.append((ws if bed is None else ws - bed) if raw else self._value(ws, bed))
         return np.concatenate(parts, axis=1)
 
     def series(self, cell: int) -> dict[str, Any]:
@@ -592,6 +603,7 @@ def _read_ras(fh, name: str, size: int, crs: str | int | None, max_cells: int) -
 
     angle = _east_north_angle(cx, cy, crs_in, lat) if has_v else None
     src = _RasSource(fh, areas, bed, angle)
+    src.n_steps = len(times)
     max_value = _ras_max_value(fh, areas, bed, src, times)
     max_speed = _ras_max_speed(fh, areas, src, times, notes) if has_v else None
     plan = fh.get("Plan Data/Plan Information")
@@ -856,8 +868,13 @@ class _UgridSource:
             speed[~np.isfinite(value)] = np.nan
         return {"value": value, "speed": speed}
 
-    def values_block(self, sl: slice) -> np.ndarray:
-        return self._value(sl)
+    def values_block(self, sl: slice, raw: bool = False) -> np.ndarray:
+        if not raw:
+            return self._value(sl)
+        if self.value_var:
+            return self._get(self.value_var, sl)
+        d = self._get(self.level_var, sl)
+        return d - self.bed if self.bed is not None else d
 
     def block_max(self, which: str, n_steps: int, block: int = 32) -> np.ndarray:
         best = np.full(self.n_faces, np.nan)

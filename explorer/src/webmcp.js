@@ -133,6 +133,15 @@ const TOOLS = [
       + "the reader can undo them. Returns the pins.",
     inputSchema: { type: "object", properties: {} },
   },
+  {
+    name: "aquascope_review_model",
+    description: "Review the model result the reader dropped on the map (#564): checks made by code in "
+      + "aquascope.mesh_review (the deepest water, negative and film depths, isolated wet cells, wet and dry "
+      + "flicker, the model's own volume error, the modelled extent against floods seen by radar and in the news, "
+      + "the modelled peak against gauges inside the mesh). The findings drop as numbered pins, coloured by "
+      + "severity, in the action log where the reader can undo them. Returns the findings.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 export function webmcpAvailable() {
@@ -182,6 +191,16 @@ export function registerWebMcpTools({ actions }) {
             if (!done) return textResult({ error: "The scout could not run; the line under the bar says why." });
             return textResult({ mode: done.mode, by: done.by, pins: done.picks.map((f) => ({ rank: f.rank,
               title: f.title, reason: f.reason, lat: f.lat, lon: f.lon, source: f.source })) });
+          }
+          if (spec.name === "aquascope_review_model") {  // page-side: mesh-review.js (#564)
+            if (!actions.reviewModel || !actions.hasModel || !actions.hasModel()) {
+              return textResult({ error: "No model result is on the map: the reader drops one first." });
+            }
+            const done = await actions.reviewModel();
+            if (!done) return textResult({ error: "The review could not run; the line under the bar says why." });
+            return textResult({ by: done.by, summary: done.summary, findings: done.findings.map((f) => ({ rank: f.rank,
+              severity: f.severity, check: f.label, title: f.title, reason: f.reason, lat: f.lat, lon: f.lon,
+              value: f.value, unit: f.unit, source: f.source })) });
           }
           if (spec.name === "aquascope_show_on_map") {
             if (args.source && args.station_id) {
