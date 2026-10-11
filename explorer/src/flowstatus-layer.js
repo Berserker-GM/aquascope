@@ -91,6 +91,7 @@ function schedule() {
 
 function sync() {
   const on = Boolean(state.flowNormal && state.riversOn && ready());
+  state.flowNormalShown = on;   // the classes are on the lines (not before the first issue is published)
   setRiverColouring(on ? "flow" : null);
   refreshStatusOpacity();   // the basins step back while the rivers carry the classes
   if (on) schedule();

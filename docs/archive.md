@@ -263,7 +263,7 @@ its own normal for the month (#559), the NOAA National Water Model map for the w
 
 - **The climatology, once** (`flow-climatology.yml`, run by hand): GEOGLOWS publishes flow duration curves for every
   reach (`s3://geoglows-v2/retrospective/fdc.zarr`, `daily_monthly`), the percentiles of daily flow in each calendar
-  month. Checked against the daily record of a Rhine reach, they are the percentiles of 1950 to 2019 (linear
+  month. Checked against the daily records of four reaches (three months each), they are the percentiles of 1950 to 2019 (linear
   interpolation) to within 1e-7. The job keeps the 10th, 25th, 75th and 90th of each month and writes only under
   `flowstatus/climatology/`. Those reaches are spread over 23,085 of the store's 27,356 chunks (250 reaches each,
   every month and probability together, 0.8 MB compressed), so the build streams about 18.5 GB. Measured on a

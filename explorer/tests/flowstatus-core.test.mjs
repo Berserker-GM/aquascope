@@ -8,7 +8,7 @@ import {
   rowSummary, sharesLine,
 } from "../src/flowstatus-core.js";
 import { STATUS_CLASSES } from "../src/now-core.js";
-import { riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverThemeKind } from "../src/river-core.js";
+import { FS_WIDER, riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverThemeKind, riverWidth, riverWidthFlow } from "../src/river-core.js";
 
 // The same bytes aquascope.flowstatus.encode writes for ids [5, 127, 128, 16384, 820425136, 2147483647] and
 // classes [1, 3, 2, 4, 5, 3] (tests/test_flowstatus.py), before gzip.
@@ -65,8 +65,15 @@ test("the colours are the river status layer's five, grey where there is no clas
   // the casing only under a classed reach, and never where the line itself has no width
   const cw = riverCasingWidth(1.6);
   assert.equal(cw[0], "interpolate");
-  assert.deepEqual(cw[4].slice(-4), [10, 4.7, 12, 5.6]);
+  assert.deepEqual(cw[4].slice(-4), [10, 5.5, 12, 6.4]);    // the classed line's width plus the casing's
   assert.equal(cw[4][4], 0);
+  // a classed reach is drawn wider than the plain network, an unclassed one keeps its width
+  const wf = riverWidthFlow(), w = riverWidth();
+  assert.equal(wf[0], "interpolate");
+  assert.equal(wf[4][0], "case");
+  assert.deepEqual(wf[4][3], w[4]);
+  assert.deepEqual(wf[4][2].slice(-2), [12, Number((4 + FS_WIDER).toFixed(2))]);
+  assert.equal(wf[4][2][4], 0);                             // still nothing where the network draws nothing
   const co = riverCasingOpacity();
   assert.equal(co[4][0], "case");
   assert.equal(co[4][3], 0);

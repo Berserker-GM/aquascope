@@ -10,7 +10,7 @@ import { currentBasemap, ensureShapeImages, fitBoundsTo, map, waitingForIdle } f
 import {
   FLOW_FPS, FLOW_STEPS, RIVERS_ATTRIBUTION, STREAMS_PMTILES, cumulativeKm, damsGeoJSON, flowDash, flowOpacity,
   highlightColor, highlightOpacity, highlightWidth, lineBounds, lineUpTo, networkStates, networkSummary, riverOpacity,
-  riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverTheme, riverThemeKind, riverWidth,
+  riverCasingOpacity, riverCasingWidth, riverOpacityFlow, riverTheme, riverThemeKind, riverWidth, riverWidthFlow,
 } from "./river-core.js?v=__BUILD__";
 import { FS_UNCLASSED_OPACITY, flowColorExpr } from "./flowstatus-core.js?v=__BUILD__";
 
@@ -51,9 +51,9 @@ function netPaint() {
   const dim = lit.size > 1 ? 0.5 : 1;
   if (colouring === "flow") {
     return { color: flowColorExpr(riverThemeKind(currentBasemap() || state.basemap)),
-      opacity: riverOpacityFlow(FS_UNCLASSED_OPACITY, dim) };
+      opacity: riverOpacityFlow(FS_UNCLASSED_OPACITY, dim), width: riverWidthFlow() };
   }
-  return { color: theme().line, opacity: riverOpacity(dim) };
+  return { color: theme().line, opacity: riverOpacity(dim), width: riverWidth() };
 }
 
 /** Colour the network by flow against normal ("flow") or plainly (null). */
@@ -64,6 +64,7 @@ export function setRiverColouring(mode) {
   const p = netPaint();
   map.setPaintProperty("river-net-line", "line-color", p.color);
   map.setPaintProperty("river-net-line", "line-opacity", p.opacity);
+  map.setPaintProperty("river-net-line", "line-width", p.width);
 }
 
 /**
@@ -99,7 +100,7 @@ export function ensureRiverLayers() {
       line("river-fs-casing", { "line-color": th.casing, "line-opacity": riverCasingOpacity(),
         "line-width": riverCasingWidth() });
       const p = netPaint();
-      line("river-net-line", { "line-color": p.color, "line-opacity": p.opacity, "line-width": riverWidth() });
+      line("river-net-line", { "line-color": p.color, "line-opacity": p.opacity, "line-width": p.width });
       line("river-flow", { "line-color": th.flow, "line-opacity": flowOpacity(), "line-width": riverWidth(),
         "line-dasharray": flowDash(0), ...FLOW_STILL });
       line("river-hl-casing", { "line-color": th.casing, "line-opacity": highlightOpacity(0.85),
@@ -166,6 +167,7 @@ function restyle() {
   const p = netPaint();
   paint("river-net-line", "line-color", p.color);
   paint("river-net-line", "line-opacity", p.opacity);
+  paint("river-net-line", "line-width", p.width);
   paint("river-flow", "line-color", th.flow);
   paint("river-fs-casing", "line-color", th.casing);
   for (const [prop, v] of Object.entries(FLOW_STILL)) paint("river-flow", prop, v);

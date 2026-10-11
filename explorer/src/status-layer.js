@@ -195,10 +195,10 @@ function draw(objectUrl) {
 // the rivers and the gauges are what you came for and a basin is the whole screen.
 // While the rivers carry the same classes (Flow vs normal, #559) the basins step back, or a brown river is lost in
 // a brown basin.
-const UNDER_RIVERS = 0.4;
+const UNDER_RIVERS = 0.3;
 
 function opacityByZoom() {
-  const o = (state.opacity.status ?? DEFAULT_OPACITY) * (state.flowNormal && state.riversOn ? UNDER_RIVERS : 1);
+  const o = (state.opacity.status ?? DEFAULT_OPACITY) * (state.flowNormalShown ? UNDER_RIVERS : 1);
   return ["interpolate", ["linear"], ["zoom"], 3, o, 6, o * 0.55, 9, o * 0.3];
 }
 

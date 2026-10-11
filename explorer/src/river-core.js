@@ -95,8 +95,16 @@ export const RIVER_THEMES = {
 };
 // Under a classed reach, a casing in the basemap's own background (#559): the class colours are the river status
 // layer's, so without it a brown river vanishes into a brown basin, and a pale one into the land.
+// A classed reach is also drawn `FS_WIDER` px wider than the plain network: at a region's zoom the order-5 to 8
+// rivers are a pixel or so wide, too thin to carry a colour (seen in the review screenshots at zoom 5).
+export const FS_WIDER = 0.8;
+const wider = (v, extra = 0) => (v > 0 ? Number((v + FS_WIDER + extra).toFixed(2)) : 0);
+export function riverWidthFlow() {
+  const fs = [">", ["coalesce", ["feature-state", "fs"], 0], 0];
+  return byZoom(WIDTH, (stops) => ["case", fs, byOrder(stops, (v) => wider(v)), byOrder(stops)]);
+}
 export function riverCasingWidth(extra = 1.6) {
-  return byZoom(WIDTH, (stops) => byOrder(stops, (v) => (v > 0 ? Number((v + extra).toFixed(2)) : 0)));
+  return byZoom(WIDTH, (stops) => byOrder(stops, (v) => wider(v, extra)));
 }
 export function riverCasingOpacity(scale = 0.9) {
   const fs = [">", ["coalesce", ["feature-state", "fs"], 0], 0];
