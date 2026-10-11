@@ -7,6 +7,15 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Every scheduled job reports its health** (#593, with #449; part of the 1.0 milestone).
+  - `aquascope.archive.health_jobs`: one record per job under `health/jobs/<job>.json` in the Archive (last run, last success, last failure, duration, row or file counts read from the job's own manifest, the data's date, failed runs in a row and the recent runs, from which the green streak of scheduled runs is counted), plus `health/jobs/index.json` with every job and its expected cadence. The cadence of every job is in one table, `JOBS`, and travels with the index. `python -m aquascope.archive.health_jobs status` prints the published index.
+  - Each scheduled workflow (harvest, forecast archive, flood warnings with scout and flow against normal, model skill, bulletin, water balance, showcase, repair, and the CAMELS, Explorer live and Pyodide checks; the place-context mirror when dispatched) ends with a step that runs whether the job passed or not, writes only under `health/jobs/`, never publishes a smoke run's record and never turns the job red. A failed scheduled run opens or comments on one `job-health` issue per job, and the next good run closes it, as the harvest already did for collectors. A scheduled run counts as failed when it did not publish, so a harvest that ran and published nothing (#449) is now red and filed.
+  - In the Explorer: a layer whose job is late says so in its legend row ("3 d old", with the expected cadence in its tooltip), and **Tools > Data status** lists every job: on time, late, last run failed, or when dispatched.
+
+### Changed
+- `harvest.yml` fails a scheduled run that did not publish, and says in the workflow why the observation step is allowed to stop early (#449).
+
 ## [0.27.0] - 2026-10-12
 
 ### Added

@@ -48,17 +48,20 @@ function jobsOf(index) {
 }
 
 /**
- * The legend's notes: { rowId: text } for each map layer whose job's data is older than expected, as
- * "data 3 d old, expected daily". A row fed by a job that is on time gets nothing.
+ * The legend's notes: { rowId: { text, title } } for each map layer whose job's data is older than expected.
+ * The row is narrow, so the text is the age ("3 d old"); the title says the rest ("Older than expected: the
+ * Forecast archive last updated it 3 d ago; it runs daily."). A row fed by a job that is on time gets nothing.
  */
 export function legendNotes(index, now = Date.now()) {
   const notes = {};
   for (const e of jobsOf(index)) {
     const { state, ageHours } = jobState(e, now);
     if (state !== "stale") continue;
-    const old = ageHours === null ? "no update recorded" : `data ${ageWords(ageHours)} old`;
-    const text = `${old}, expected ${e.cadence || "more often"}`;
-    for (const row of e.layers || []) notes[row] = notes[row] ? `${notes[row]}; ${text}` : text;
+    const age = ageWords(ageHours);
+    const text = age ? `${age} old` : "not updated";
+    const when = age ? `last updated it ${age} ago` : "has no successful run recorded";
+    const title = `Older than expected: the ${e.label || e.job} ${when}; it runs ${e.cadence || "on a schedule"}.`;
+    for (const row of e.layers || []) notes[row] = notes[row] ? { text, title: `${notes[row].title} ${title}` } : { text, title };
   }
   return notes;
 }

@@ -43,10 +43,14 @@ test("only a layer whose job is late gets a legend note, with the expected caden
     entry("mirror-context", { okHours: 5000, limit: null, layers: ["floods-past"] }),
     entry("bulletin", { okHours: 2000, limit: 868 }),
   ] };
-  assert.deepEqual(legendNotes(index, NOW), {
-    "forecast-points": "data 3 d old, expected daily",
-    "water-balance": "data 38 d old, expected monthly (the 9th)",
-  });
+  const notes = legendNotes(index, NOW);
+  assert.deepEqual(Object.keys(notes), ["forecast-points", "water-balance"]);
+  assert.deepEqual(notes["forecast-points"], { text: "3 d old",
+    title: "Older than expected: the forecast-archive last updated it 3 d ago; it runs daily." });
+  assert.equal(notes["water-balance"].text, "38 d old");
+  assert.match(notes["water-balance"].title, /runs monthly \(the 9th\)/);
+  assert.equal(legendNotes({ jobs: [entry("x", { okHours: null, last: "failure", layers: ["gauges"] })] }, NOW).gauges.text,
+    "not updated");
   assert.deepEqual(legendNotes(null, NOW), {});
   assert.deepEqual(legendNotes({ jobs: "nope" }, NOW), {});
 });
