@@ -246,3 +246,29 @@ def test_long_series_is_thinned(tmp_path, monkeypatch):
     s = res["series"]
     assert s["every"] == 2 and s["flooding"] == [0.0, 3.0] and s["times"] == ["2024-06-01T00:10:00",
                                                                              "2024-06-01T00:30:00"]
+
+
+def test_damaged_files_give_a_plain_error(tmp_path):
+    """Coordinates that are not numbers are skipped and counted; a results file whose property tables have the
+    wrong shape is a SwmmError, so the MCP tool answers ok false instead of raising."""
+    inp = tmp_path / "odd.inp"
+    inp.write_text(INP.replace("J2      10.010   50.000", "J2      abc      50.000"))
+    net = read_swmm_inp(inp)
+    assert net.nodes[1]["x"] is None and any("not numbers" in n for n in net.notes)
+    # a header that says each node has zero properties: the type column is missing
+    head = struct.pack("<7i", MAGIC, 52004, 0, 0, 1, 0, 0)
+    ids = _name_block(["J1"])
+    props = struct.pack("<i", 0) + struct.pack("<i", 0) + struct.pack("<i", 0)
+    tail = struct.pack("<6i", len(head), len(head) + len(ids), len(head) + len(ids) + len(props), 0, 0, MAGIC)
+    bad = tmp_path / "props.out"
+    bad.write_bytes(head + ids + props + b"\x00" * 16 + tail)
+    res = swmm_summary(out=bad)
+    assert res["ok"] is False and "not a complete SWMM results file" in res["error"]
+
+
+def test_link_place_is_the_middle_of_its_line(files):
+    pytest.importorskip("pyproj")
+    inp, out = files
+    res = swmm_summary(inp, out, top=3)
+    c1 = next(r for r in res["flows"]["links"] if r["id"] == "C1")
+    assert c1["lon"] == pytest.approx(10.005) and c1["lat"] == pytest.approx(50.0)

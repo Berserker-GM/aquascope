@@ -314,11 +314,21 @@ def read_swmm_inp(path: str | Path, *, crs: str | int | None = None) -> SwmmNetw
         if r[0].upper() == "UNITS" and len(r) > 1:
             map_units = r[1].lower()
 
-    coords = {r[0]: (float(r[1]), float(r[2])) for r in sec.get("COORDINATES", []) if len(r) >= 3}
+    # A row whose coordinates are not numbers is skipped and counted, not a crash.
+    coords: dict[str, tuple[float, float]] = {}
     vertices: dict[str, list[tuple[float, float]]] = {}
-    for r in sec.get("VERTICES", []):
-        if len(r) >= 3:
-            vertices.setdefault(r[0], []).append((float(r[1]), float(r[2])))
+    unreadable = 0
+    for section, into in (("COORDINATES", None), ("VERTICES", vertices)):
+        for r in sec.get(section, []):
+            if len(r) < 3:
+                continue
+            x, y = _float(r[1]), _float(r[2])
+            if x is None or y is None or not (np.isfinite(x) and np.isfinite(y)):
+                unreadable += 1
+            elif into is None:
+                coords[r[0]] = (x, y)
+            else:
+                into.setdefault(r[0], []).append((x, y))
 
     nodes: list[dict[str, Any]] = []
     for name, kind in _NODE_SECTIONS.items():
@@ -341,6 +351,8 @@ def read_swmm_inp(path: str | Path, *, crs: str | int | None = None) -> SwmmNetw
 
     net = SwmmNetwork(name=p.name, title=title, options=options, map_units=map_units, nodes=nodes, links=links,
                       subcatchments=len(sec.get("SUBCATCHMENTS", [])))
+    if unreadable:
+        net.notes.append(f"Coordinate rows that are not numbers, skipped: {unreadable}.")
     missing = sum(1 for n in nodes if n["x"] is None)
     if missing:
         net.notes.append(f"Nodes without coordinates in [COORDINATES]: {missing} of {len(nodes)}.")
@@ -369,12 +381,16 @@ def read_swmm_inp(path: str | Path, *, crs: str | int | None = None) -> SwmmNetw
     k = 0
     for n in nodes:
         if n["x"] is not None:
-            n["lon"], n["lat"] = round(float(lon[k]), 7), round(float(lat[k]), 7)
+            if np.isfinite(lon[k]) and np.isfinite(lat[k]):
+                n["lon"], n["lat"] = round(float(lon[k]), 7), round(float(lat[k]), 7)
             k += 1
     for lk in links:
         if lk["xy"]:
             m = len(lk["xy"])
-            lk["lonlat"] = [[round(float(a), 7), round(float(b), 7)] for a, b in zip(lon[k:k + m], lat[k:k + m])]
+            pts = [[round(float(a), 7), round(float(b), 7)] for a, b in zip(lon[k:k + m], lat[k:k + m])
+                   if np.isfinite(a) and np.isfinite(b)]
+            if len(pts) >= 2:
+                lk["lonlat"] = pts
             k += m
     return net
 
@@ -393,12 +409,13 @@ class SwmmOutput:
         self._fh = open(self.path, "rb")  # noqa: SIM115 - closed by close()
         try:
             self._read_header()
-        except (struct.error, UnicodeDecodeError) as exc:
-            self.close()
-            raise SwmmError(f"{self.path.name} is not a complete SWMM results file ({exc}).") from exc
         except SwmmError:
             self.close()
             raise
+        except (struct.error, UnicodeDecodeError, ValueError, IndexError, OSError) as exc:
+            # A header that points past the end, or property tables of the wrong shape: a damaged file.
+            self.close()
+            raise SwmmError(f"{self.path.name} is not a complete SWMM results file ({exc}).") from exc
 
     def __enter__(self) -> SwmmOutput:
         return self
@@ -586,8 +603,10 @@ def _where(net: SwmmNetwork | None, kind: str) -> dict[str, dict[str, Any]]:
         if kind == "node" and it.get("lon") is not None:
             out[it["id"]] = {"lon": it["lon"], "lat": it["lat"]}
         elif kind == "link" and it.get("lonlat"):
-            mid = it["lonlat"][len(it["lonlat"]) // 2]
-            out[it["id"]] = {"lon": mid[0], "lat": mid[1]}
+            # the middle of the line: its middle vertex, or halfway along its middle segment
+            pts = it["lonlat"]
+            a, b = pts[(len(pts) - 1) // 2], pts[len(pts) // 2]
+            out[it["id"]] = {"lon": round((a[0] + b[0]) / 2, 7), "lat": round((a[1] + b[1]) / 2, 7)}
     return out
 
 
