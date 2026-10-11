@@ -368,7 +368,7 @@ Switch to MCMC with `degree>1` for polynomial models, or pass `prior_precision` 
 
 ## 💻 CLI
 
-AquaScope ships a 44-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
+AquaScope ships a 45-command CLI (`agri`, `basins`, `caravan`, `eval`, `evidence`, `groundwater`, `gym`, `layers`, `playbooks` and `river` carry subcommands) for the most common workflows:
 
 ```bash
 # Find stations, then collect data
@@ -392,6 +392,7 @@ aquascope export --to hec-ssp --station usgs/01134500   # inputs for HEC-HMS/RAS
 aquascope gym run --basin uk_ea/013054a3-670e-49ee-afda-e0865a449197   # HydroGym: calibrate GR4J on a real basin as a gym episode
 aquascope layers frames precip --start 2024-05-01 --end 2024-05-20   # a time-lapse of a dated map layer: dates and tile URLs
 aquascope map "trace the Nile to the sea" --resolve   # plain words to the Explorer's map actions (keyless rules)
+aquascope mesh my_run.p01.hdf                     # a HEC-RAS 2D or UGRID mesh result: cells, times, largest depth and speed
 aquascope layers scout --bbox -10 35 30 60           # what stands out on the map, each with its reason (the Explorer's Scout)
 aquascope groundwater surface --mode change      # the head surface of the Archive's wells and its change, masked where wells are sparse
 aquascope modflow model.hds --grid model.dis.grb --crs EPSG:27700   # your MODFLOW heads on the map: cells in lon/lat, per layer and time

@@ -116,6 +116,7 @@ nav:
     - The Archive (open gauge catalog): archive.md
     - Caravan export (large-sample datasets): caravan.md
     - Engineering exports (HEC, SWMM, MODFLOW, FEWS, Raven): engineering_exports.md
+    - Model results on a mesh (HEC-RAS 2D, UGRID): mesh.md
     - Use the Archive from R, QGIS, DuckDB: readers.md
     - MODFLOW heads on the map: modflow.md
     - The Explorer (click any gauge): explorer.md

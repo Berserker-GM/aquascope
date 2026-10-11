@@ -1180,6 +1180,47 @@ def cmd_map(args: argparse.Namespace) -> None:
         print(f"\n  {res['credit']}")
 
 
+def cmd_mesh(args: argparse.Namespace) -> None:
+    """`aquascope mesh FILE`: what a HEC-RAS 2D plan or UGRID mesh result holds (#555), the same summary the
+    MCP tool mesh_summary gives and the Explorer draws on the globe."""
+    from aquascope.io.mesh import mesh_summary
+
+    res = mesh_summary(args.file, crs=args.crs)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        if "EPSG" in res["error"]:
+            print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+        sys.exit(1)
+    fmt = {"hec-ras": "HEC-RAS 2D plan", "ugrid": "UGRID mesh"}.get(res["format"], res["format"])
+    print(f"  {res['name']}: {fmt}, {res['model']}")
+    print(f"  {res['title']}")
+    areas = ", ".join(f"{a['name']} ({a['cells']:,})" for a in res["areas"])
+    print(f"  {res['cells']:,} cells: {areas}")
+    print(f"  Coordinate system: {res['crs']['label']} ({'from the file' if res['crs']['from'] == 'file' else 'given'})")
+    w, s_, e, n = res["bbox"]
+    print(f"  Extent: {w:.4f} to {e:.4f} E, {s_:.4f} to {n:.4f} N")
+    if res["time_steps"]:
+        print(f"  {res['time_steps']} time steps, {res['start']} to {res['end']}")
+    label = "depth" if res["variable"] == "depth" else "water surface"
+    mx = res.get("max")
+    if mx:
+        unit = f" {mx['unit']}" if mx.get("unit") else ""
+        print(f"  Largest {label}: {mx['value']}{unit} at {mx['lat']}, {mx['lon']} (cell {mx['cell']})")
+    if res.get("wet_cells") is not None:
+        print(f"  Cells wet at some time: {res['wet_cells']:,} of {res['cells']:,}")
+    sp = res.get("max_speed")
+    if sp:
+        unit = f" {sp['unit']}" if sp.get("unit") else ""
+        print(f"  Largest speed: {sp['value']}{unit} at {sp['lat']}, {sp['lon']} (cell {sp['cell']})")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+
+
 def cmd_basins(args: argparse.Namespace) -> None:
     """`aquascope basins`: catchments from BasinATLAS in the Archive (at LAT LON | upstream HYBAS_ID | build GDB)."""
     from aquascope.archive import basins
@@ -4395,6 +4436,12 @@ def main() -> None:
     p_map.add_argument("--api-key", default=None)
     p_map.add_argument("--today", default=None, help="Read dates as if today were YYYY-MM-DD")
     p_map.add_argument("--json", action="store_true")
+    # ── model results on a mesh (#555) ──────────────────────────────
+    p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
+                            "times, the largest depth and speed")
+    p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file")
+    p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
+    p_mesh.add_argument("--json", action="store_true")
     # ── basins ───────────────────────────────────────────────────────
     p_bul = sub.add_parser("bulletin", help="The month's state of the rivers: every Archive gauge against normal, "
                            "HydroSOS classes")
@@ -5217,6 +5264,7 @@ def main() -> None:
         "basins": cmd_basins,
         "layers": cmd_layers,
         "map": cmd_map,
+        "mesh": cmd_mesh,
         "river": cmd_river,
         "evidence": cmd_evidence,
         "now": cmd_now,

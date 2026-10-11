@@ -756,6 +756,18 @@ def explain_view(bbox: list[float], date: str | None = None, layers: list[str] |
     return _explain(bbox, date, layers)
 
 
+def mesh_summary(path: str, crs: str | None = None) -> dict[str, Any]:
+    """What a model result on a mesh holds (#555): a HEC-RAS 2D plan HDF5 file (*.p01.hdf) or a UGRID NetCDF
+    file (D-Flow FM, ADH, ADCIRC and others) on this machine. Returns the format, the model, the coordinate
+    system (from the file, or crs as an EPSG code when the file states none), the extent in degrees, the cells
+    per 2D area, the model's own time steps, the units, and the largest depth (or water surface, for a file
+    without bed levels) and the largest speed with the cell and place where each happens. Every number is
+    computed from the file by aquascope.io.mesh; ok is false with a plain error for a file it cannot read."""
+    from aquascope.io.mesh import mesh_summary as _summary
+
+    return _summary(path, crs=crs)
+
+
 def archive_health() -> dict[str, Any]:
     """Status of the last catalog harvest per source (health.json from the Archive)."""
     import httpx
@@ -1495,6 +1507,7 @@ def build_server():
     server.tool()(map_command)
     server.tool()(map_scout)
     server.tool()(explain_view)
+    server.tool()(mesh_summary)
     server.tool()(list_analyses)
     server.tool()(analyse_table)
     server.tool()(station_view)
