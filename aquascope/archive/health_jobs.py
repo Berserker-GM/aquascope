@@ -409,18 +409,34 @@ def published_url(path: str, repo_id: str = DEFAULT_REPO) -> str:
     return f"https://huggingface.co/datasets/{repo_id}/resolve/main/{path}"
 
 
+class ReadError(OSError):
+    """A published record could not be read for a reason other than its absence (a timeout, a 5xx)."""
+
+
 def _fetch_json(url: str, timeout: float = 30) -> dict[str, Any] | None:
+    """The JSON at ``url``; None when it is not there (404) or is not a JSON object. Any other failure raises
+    :class:`ReadError`, so a passing Hub hiccup is never mistaken for "no record yet" (which would publish a fresh
+    record over the job's history)."""
     try:
         with urllib.request.urlopen(url, timeout=timeout) as resp:  # noqa: S310 - a fixed https host
-            doc = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        logger.info("could not read %s: %s", url, exc)
+            raw = resp.read()
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            return None
+        raise ReadError(f"{url}: HTTP {exc.code}") from exc
+    except (urllib.error.URLError, OSError) as exc:
+        raise ReadError(f"{url}: {exc}") from exc
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except ValueError as exc:
+        logger.info("%s is not JSON: %s", url, exc)
         return None
     return doc if isinstance(doc, dict) else None
 
 
 def read_published(key: str, repo_id: str = DEFAULT_REPO) -> dict[str, Any] | None:
-    """The published ``health/jobs/<key>.json``, or None before the job has published one."""
+    """The published ``health/jobs/<key>.json``, or None before the job has published one. Raises
+    :class:`ReadError` when the Hub could not be read."""
     return _fetch_json(published_url(f"{FOLDER}/{key}.json", repo_id))
 
 
@@ -588,9 +604,21 @@ def report(args: argparse.Namespace) -> int:
         print(f"[{args.job}] skipped, nothing recorded")
         return 0
     online = _truthy(args.publish) or _truthy(args.issue)
-    previous = read_published(args.job, args.repo) if online else None
+    unread: list[str] = []
+
+    def published(key: str) -> dict[str, Any] | None:
+        if not online:
+            return None
+        try:
+            return read_published(key, args.repo)
+        except ReadError as exc:
+            unread.append(key)
+            print(f"::warning::[{args.job}] could not read the published record of {key}: {exc}")
+            return None
+
+    previous = published(args.job)
     record = make_record(run, previous)
-    others = {k: (read_published(k, args.repo) if online else None) for k in JOBS if k != args.job}
+    others = {k: published(k) for k in JOBS if k != args.job}
     index = build_index({**others, args.job: record})
     path = write(args.out, record, index)
     last = record["last_run"]
@@ -599,6 +627,11 @@ def report(args: argparse.Namespace) -> int:
     if _truthy(args.publish):
         if run.smoke:
             print(f"[{args.job}] a smoke run's record is never published")
+        elif unread:
+            # Publishing now would replace a record we could not read (its history, its last success) or blank
+            # another job's row in the index. The next run publishes; this one stays in the job summary.
+            print(f"::warning::[{args.job}] the health record was not published: the published records of "
+                  f"{', '.join(unread)} could not be read")
         else:
             try:
                 print(f"[{args.job}] published: {publish(args.out, args.job, repo_id=args.repo)}")
@@ -659,7 +692,11 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     if a.cmd == "report":
         return report(a)
-    index = read_published_index(a.repo)
+    try:
+        index = read_published_index(a.repo)
+    except ReadError as exc:
+        print(f"could not read the published index: {exc}", file=sys.stderr)
+        return 1
     if a.json:
         print(json.dumps([{**assess(e), "label": e.get("label")} for e in (index or {}).get("jobs", [])], indent=1))
     else:

@@ -333,3 +333,74 @@ def test_the_harvest_fails_a_scheduled_run_that_published_nothing():
     step = text[text.index("Fail when a scheduled run published nothing"):]
     assert "steps.publish.outcome != 'success'" in step.split("\n")[1]
     assert "github.event_name == 'schedule'" in step.split("\n")[1]
+
+
+# ── reading the published records: absent is not the same as unreadable ────────────────────────────────────
+
+
+def _urlopen(code=None, body=b"{}"):
+    import io
+    import urllib.error
+
+    def fake(url, timeout=None):
+        if code:
+            raise urllib.error.HTTPError(url, code, "x", {}, io.BytesIO(b""))
+        return io.BytesIO(body)
+
+    return fake
+
+
+def test_a_missing_record_is_none_and_an_unreadable_hub_raises(monkeypatch):
+    monkeypatch.setattr(hj.urllib.request, "urlopen", _urlopen(404))
+    assert hj.read_published("harvest") is None
+    monkeypatch.setattr(hj.urllib.request, "urlopen", _urlopen(503))
+    with pytest.raises(hj.ReadError):
+        hj.read_published("harvest")
+    monkeypatch.setattr(hj.urllib.request, "urlopen", _urlopen(body=b"not json"))
+    assert hj.read_published("harvest") is None
+
+
+def _gh_calls(monkeypatch) -> list[list[str]]:
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **kw):
+        calls.append(list(cmd))
+        return subprocess.CompletedProcess(cmd, 0, stdout="[]" if cmd[1:3] == ["issue", "list"] else "", stderr="")
+
+    monkeypatch.setattr(hj.subprocess, "run", fake_run)
+    return calls
+
+
+def _report(tmp_path, *extra):
+    return hj.main(["report", "forecast-archive", "--out", str(tmp_path), "--status", "success", "--event",
+                    "schedule", "--require", "publish=failure", "--publish", "true", "--issue", "true",
+                    "--gh-repo", "o/r", *extra])
+
+
+def test_a_scheduled_run_that_failed_opens_its_issue_through_the_command_line(tmp_path, monkeypatch):
+    calls = _gh_calls(monkeypatch)
+    published = []
+    monkeypatch.setattr(hj, "read_published", lambda key, repo=hj.DEFAULT_REPO: None)
+    monkeypatch.setattr(hj, "publish", lambda out, key, **kw: published.append(key) or "commit")
+    assert _report(tmp_path) == 0
+    created = [c for c in calls if c[1:3] == ["issue", "create"]]
+    assert len(created) == 1 and hj.LABEL in created[0] and hj.issue_title("forecast-archive") in created[0]
+    assert published == ["forecast-archive"]
+
+
+def test_a_hub_hiccup_never_publishes_over_the_record_but_still_files_the_issue(tmp_path, monkeypatch, capsys):
+    calls = _gh_calls(monkeypatch)
+    published = []
+
+    def flaky(key, repo=hj.DEFAULT_REPO):
+        if key == "forecast-archive":
+            raise hj.ReadError("HTTP 503")
+        return None
+
+    monkeypatch.setattr(hj, "read_published", flaky)
+    monkeypatch.setattr(hj, "publish", lambda out, key, **kw: published.append(key) or "commit")
+    assert _report(tmp_path) == 0
+    assert published == []
+    assert "could not be read" in capsys.readouterr().out
+    assert [c for c in calls if c[1:3] == ["issue", "create"]]
+    assert (tmp_path / "health" / "jobs" / "forecast-archive.json").exists()
