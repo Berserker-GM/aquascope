@@ -13,15 +13,17 @@ No API key required (open data, unauthenticated).
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from aquascope.collectors.base import BaseCollector
+from aquascope.collectors.base import BaseCollector, CollectorError
 from aquascope.schemas.station import Station, in_bbox
 from aquascope.schemas.water_data import (
     DataSource,
     GeoLocation,
+    Quality,
     StreamflowReading,
     WaterLevelReading,
     WaterQualitySample,
@@ -50,6 +52,8 @@ MAPPED_OBSERVED_PROPERTY_MEASURE_CODE = {
     "rainfall": "rainfall",
     "gw": "groundwaterLevel"
 }
+#: The observed-property token of a measure id, between hyphens after the station part.
+_MEASURE_PROPERTY = re.compile(r"-(" + "|".join(MAPPED_OBSERVED_PROPERTY_MEASURE_CODE) + r")-")
 COLLECTION_PERIOD_VALUES = {
     "15min": 900,
     "daily": 86400
@@ -76,6 +80,56 @@ def _parse_iso_date(value: str | None) -> date | None:
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+def _map_uk_ea_quality(item: dict) -> tuple[Quality, str | None]:
+    """Map UK EA daily reading quality fields to harmonized Quality enum.
+
+    Parameters
+    ----------
+    item : dict
+        Raw reading item returned by the UK EA API. May contain ``quality``,
+        ``completeness``, ``valid``, ``invalid``, and ``missing`` (sub-daily counts).
+
+    Returns
+    -------
+    tuple[Quality, str | None]
+        A tuple of (harmonized Quality enum, raw quality string).
+    """
+    quality_val = _first_str(item.get("quality"))
+    completeness_val = _first_str(item.get("completeness"))
+    valid_val = _first_str(item.get("valid"))
+    invalid_val = _first_str(item.get("invalid"))
+    missing_val = _first_str(item.get("missing"))
+
+    raw_parts = []
+    if quality_val and quality_val != "N/A":
+        raw_parts.append(f"quality={quality_val}")
+    if completeness_val and completeness_val != "N/A":
+        raw_parts.append(f"completeness={completeness_val}")
+    if valid_val is not None and valid_val != "N/A":
+        raw_parts.append(f"valid={valid_val}")
+    if invalid_val is not None and invalid_val != "N/A":
+        raw_parts.append(f"invalid={invalid_val}")
+    if missing_val is not None and missing_val != "N/A":
+        raw_parts.append(f"missing={missing_val}")
+
+    quality_raw = " | ".join(raw_parts) if raw_parts else None
+
+    if not quality_val or quality_val == "N/A":
+        return Quality.UNKNOWN, quality_raw
+
+    q_lower = quality_val.strip().lower()
+    if q_lower == "good":
+        return Quality.APPROVED, quality_raw
+    if q_lower == "unchecked":
+        return Quality.PROVISIONAL, quality_raw
+    if q_lower == "estimated":
+        return Quality.ESTIMATED, quality_raw
+    if q_lower == "suspect":
+        return Quality.SUSPECT, quality_raw
+
+    return Quality.UNKNOWN, quality_raw
 
 
 class UKEACollector(BaseCollector):
@@ -150,13 +204,15 @@ class UKEACollector(BaseCollector):
                 )
                 if variable and variable not in variables:
                     variables = sorted(set(variables) | {variable})
-                notation = item.get("notation") or item.get("stationGuid")
+                site_id = _first_str(item.get("stationGuid"))
+                notation = _first_str(item.get("notation")) or site_id
                 if not notation:
                     continue
                 stations.append(
                     Station(
                         source="uk_ea",
                         station_id=str(notation),
+                        site_id=site_id or str(notation),
                         name=_first_str(item.get("label")),
                         latitude=lat,
                         longitude=lon,
@@ -344,7 +400,7 @@ class UKEACollector(BaseCollector):
                 limit=limit,
                 max_items=max_items,
             )
-            if station_meta is None:
+            if not station_meta:
                 return []
 
             if collection:
@@ -355,7 +411,7 @@ class UKEACollector(BaseCollector):
                 params["maxeq-date"] = max_date
 
             for station in station_meta:
-                station_id = station.get("stationGuid", None)
+                station_id = _first_str(station.get("stationGuid"))
                 if not station_id:
                     logger.warning("Station metadata missing stationGuid: %s", station)
                     continue
@@ -368,9 +424,6 @@ class UKEACollector(BaseCollector):
                     limit=limit,
                     max_items=max_items,
                 )
-                if paginated_items is None:
-                    return []
-
                 all_items.extend(paginated_items)
 
             return all_items
@@ -400,9 +453,6 @@ class UKEACollector(BaseCollector):
             limit=limit,
             max_items=max_items,
         )
-        if paginated_items is None:
-            return []
-
         all_items.extend(paginated_items)
         if measure:
             all_items[0]["observedProperty"] = observed_property_metadata
@@ -417,7 +467,7 @@ class UKEACollector(BaseCollector):
         station_meta: dict | None,
         limit: int,
         max_items: int | None = None,
-    ) -> list[dict] | None:
+    ) -> list[dict]:
         """Fetch and normalise paginated reading items for the requested query."""
         all_items: list[dict] = []
         offset = 0
@@ -426,9 +476,21 @@ class UKEACollector(BaseCollector):
             params["_offset"] = offset
             try:
                 data = client.get_json(path, params=params)
+            except CollectorError:
+                raise
             except Exception as exc:
-                logger.error("UKEA fetch failed: %s", exc)
-                return None
+                logger.warning("UKEA fetch failed: %s", exc)
+                target_url = (
+                    path
+                    if path.startswith(("http://", "https://"))
+                    else f"{getattr(client, 'base_url', UKEA_BASE).rstrip('/')}/{path.lstrip('/')}"
+                )
+                raise CollectorError(
+                    f"UKEA fetch failed for {target_url}: {exc}",
+                    source="uk_ea",
+                    url=target_url,
+                    cause=exc,
+                ) from exc
 
             page_items = data.get("items", [])
             if not page_items:
@@ -499,6 +561,7 @@ class UKEACollector(BaseCollector):
         for item in raw:
             try:
                 station_suid, value, reading_datetime, remark = UKEACollector._extract_reading_data(item)
+                quality, quality_raw = _map_uk_ea_quality(item)
                 unit = MAPPED_OBSERVED_PROPERTY_UNITS.get(observed_property, None)
                 if not unit:
                     raise ValueError("Incomplete raw data reading")
@@ -525,6 +588,8 @@ class UKEACollector(BaseCollector):
                         catchment_area_km2=catchment_area_km2,
                         unit=unit,
                         remark=remark,
+                        quality=quality,
+                        quality_raw=quality_raw,
                     )
                 )
             except (ValueError, KeyError, TypeError) as exc:
@@ -552,6 +617,7 @@ class UKEACollector(BaseCollector):
         for item in raw:
             try:
                 station_suid, value, sample_datetime, remark = UKEACollector._extract_reading_data(item)
+                quality, quality_raw = _map_uk_ea_quality(item)
                 unit = MAPPED_OBSERVED_PROPERTY_UNITS.get(observed_property, None)
                 if not unit:
                     raise ValueError("Incomplete raw data reading")
@@ -577,6 +643,8 @@ class UKEACollector(BaseCollector):
                         unit=unit,
                         river=river,
                         remark=remark,
+                        quality=quality,
+                        quality_raw=quality_raw,
                     )
                 )
             except (ValueError, KeyError, TypeError) as exc:
@@ -605,6 +673,7 @@ class UKEACollector(BaseCollector):
         for item in raw:
             try:
                 station_suid, value, reading_datetime, remark = UKEACollector._extract_reading_data(item)
+                quality, quality_raw = _map_uk_ea_quality(item)
                 unit = MAPPED_OBSERVED_PROPERTY_UNITS.get(observed_property, None)
                 if not unit:
                     raise ValueError("Incomplete raw data reading")
@@ -626,6 +695,8 @@ class UKEACollector(BaseCollector):
                         water_level=float(value),
                         unit=unit,
                         remark=remark,
+                        quality=quality,
+                        quality_raw=quality_raw,
                     )
                 )
             except (ValueError, KeyError, TypeError) as exc:
@@ -663,7 +734,10 @@ class UKEACollector(BaseCollector):
 
         try:
             data = self.client.get_json("id/stations.json", params=params)
-        except Exception as exc:
+        except (RuntimeError, ValueError) as exc:
+            # Station metadata enriches reading records with station name, river,
+            # and coordinates, but is optional for reading queries: if the metadata
+            # endpoint fails, warn and continue so readings can still be returned.
             logger.warning("Failed to fetch UKEA station metadata: %s", exc)
             return None
 
@@ -695,7 +769,11 @@ class UKEACollector(BaseCollector):
         if not measure:
             return None
 
-        # Since the SUID is based on GUID style identifiers, the SUID is always the first 36 characters of the measure ID.
+        # The SUID is a GUID, the first 36 characters of the measure ID. A sub-site keeps its suffix
+        # ("<suid>_w1"): the station part runs up to the observed-property token.
+        match = _MEASURE_PROPERTY.search(measure, 36)
+        if match:
+            return measure[:match.start()]
         return measure[:36]
 
     @staticmethod
@@ -717,9 +795,14 @@ class UKEACollector(BaseCollector):
         if not measure:
             return None
 
-        # The observedProperty can be extracted from the measure's id. It appears after the station SUID.
-        measure_without_suid = measure[37:]
-        observed_property = measure_without_suid.split("-", 1)[0]
+        # The observedProperty sits after the station part of the id: "<suid>-flow-m-86400-m3s-qualified".
+        # The station part is a 36-character SUID, sometimes with a sub-site suffix ("<suid>_w1",
+        # "<suid>_2879_w2TH", "<suid>_TL31_181"), so find the first known property token after the SUID
+        # rather than cutting at a fixed offset, which read "w1" and rejected those sites' measures.
+        match = _MEASURE_PROPERTY.search(measure, 36)
+        if match:
+            return match.group(1)
+        observed_property = measure[37:].split("-", 1)[0]
         return observed_property or None
 
     @staticmethod
@@ -941,4 +1024,3 @@ class UKEACollector(BaseCollector):
                 return GeoLocation(latitude=float(lat), longitude=float(long))
             except (ValueError, TypeError):
                 return None
-
