@@ -33,6 +33,7 @@ All notable changes to AquaScope are documented here.
   - The film check's share of wet cells under 1% read "0%"; it now reads, for example, "0.13%".
 - `test_a_second_scenario_reuses_the_calibration_and_agrees` allows one display step (0.01) between the two runs' percentages; the bound of exactly 0.01 failed on floating point about half the time on CI.
 - Record the verified v0.27.0 Zenodo DOI (`10.5281/zenodo.23301359`) in release citations, Explorer BibTeX and generated study reports; retain the concept DOI for the project as a whole.
+- **`uk_ea` attribution** (#473): use the Environment Agency Hydrological Open Data attribution statement from [data.gov.uk](https://www.data.gov.uk/dataset/98a4d46e-23e7-4430-883c-9e5f14645e8f/hydrological-open-data) (OGL v3.0 requires the provider-specified wording).
 
 ## [0.27.0] - 2026-10-12
 
