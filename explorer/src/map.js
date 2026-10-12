@@ -27,10 +27,9 @@ const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-") || id
 // WebGL is what the map actually needs; test it directly instead of blaming it
 // for every slow style load (the old code said "WebGL is off" after a 12 s
 // timeout, which was often just a slow network). Only asked once the map has
-// failed (#591): the test makes a second WebGL context, which on a device that
-// draws in software took one to two seconds of the page's start, and the map's
-// own constructor already throws when there is no WebGL. The test's context is
-// let go at once.
+// failed (#591): the test made a throwaway second WebGL context at every start,
+// and the map's own constructor already throws when there is no WebGL. The
+// test's context is let go at once.
 export function webglAvailable() {
   try {
     const c = document.createElement("canvas");

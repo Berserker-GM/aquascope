@@ -93,8 +93,8 @@ function showPlaceName(lat, lon, label) {
   const line = $("pt-place");
   if (label) {
     $("pt-title").textContent = label.name;
-    const whence = label.from === "search" ? "name from OpenStreetMap" : label.water
-      ? "the nearest named water in OpenStreetMap" : "the nearest place in OpenStreetMap";
+    const whence = `${label.from === "search" ? "name" : label.water ? "the nearest named water" : "the nearest place"}` +
+      " from OpenStreetMap (ODbL), via Photon";
     if (line) {
       line.textContent = [label.detail, whence].filter(Boolean).join(" · ");
       line.title = PLACE_CREDIT;
