@@ -7,6 +7,9 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **Windows repair patch application** (#432, #607): write generated unified-diff patch files with LF line endings on all platforms, and test CRLF-formatted repair proposals to prevent Windows `git apply --check` failures.
+
 ### Added
 - **What 1.0 promises** (#588, part of the 1.0 milestone). The public surface is now written down and tested.
   - [`docs/stability.md`](docs/stability.md): the four public surfaces (Python names, CLI commands and flags, MCP tools and arguments, the Archive's paths and columns), what counts as breaking and what does not (a corrected number is not), how a deprecated name keeps working and warns (`AquaScopeDeprecationWarning`, a `FutureWarning`; a stderr line on the CLI; a `"deprecated"` key in an MCP result) until the next major release and for at least six months, and what experimental means.
