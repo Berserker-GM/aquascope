@@ -26,11 +26,18 @@ const isOurLayer = (id) => OUR_LAYERS.includes(id) || id.startsWith("ov-") || id
 
 // WebGL is what the map actually needs; test it directly instead of blaming it
 // for every slow style load (the old code said "WebGL is off" after a 12 s
-// timeout, which was often just a slow network).
+// timeout, which was often just a slow network). Only asked once the map has
+// failed (#591): the test makes a second WebGL context, which on a device that
+// draws in software took one to two seconds of the page's start, and the map's
+// own constructor already throws when there is no WebGL. The test's context is
+// let go at once.
 export function webglAvailable() {
   try {
     const c = document.createElement("canvas");
-    return Boolean(c.getContext("webgl2") || c.getContext("webgl") || c.getContext("experimental-webgl"));
+    const gl = c.getContext("webgl2") || c.getContext("webgl") || c.getContext("experimental-webgl");
+    const lose = gl && gl.getExtension("WEBGL_lose_context");
+    if (lose) lose.loseContext();
+    return Boolean(gl);
   } catch {
     return false;
   }
@@ -161,7 +168,7 @@ export function styleFor(basemapId, date) {
 }
 
 export function initMap(initialView, { basemap = "light", date = null, globe = false } = {}) {
-  if (!webglAvailable()) {
+  if (typeof globalThis.WebGLRenderingContext === "undefined") {
     trace("map: no webgl");
     return Promise.resolve({ ok: false, reason: "webgl" });
   }
@@ -177,7 +184,9 @@ export function initMap(initialView, { basemap = "light", date = null, globe = f
   } catch (err) {
     console.warn("map unavailable:", err && err.message);
     map = null;
-    return Promise.resolve({ ok: false, reason: "init" });
+    const webgl = webglAvailable();
+    if (!webgl) trace("map: no webgl");
+    return Promise.resolve({ ok: false, reason: webgl ? "init" : "webgl" });
   }
   appliedBasemap = basemap;
   // Coverage is global and sparse, so the world view is a globe: it drops
