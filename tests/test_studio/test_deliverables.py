@@ -616,6 +616,7 @@ def test_notebook_is_valid_nbformat(ws) -> None:
 
 
 def test_build_adds_the_documents_and_the_zip_lists_them(ws) -> None:
+    ws = Workspace.from_json(ws.to_json())  # a copy: the fixture is shared by the module, and order varies
     before = len(ws.artifacts)
     added = bundle.build(ws)
     assert [a.id for a in added] == ["report-md", "report-html", "report-docx", "memo-docx", "memo-html",
@@ -640,6 +641,26 @@ def test_build_adds_the_documents_and_the_zip_lists_them(ws) -> None:
     assert len(ws.artifacts) == before + 10
 
 
+def test_the_bundle_carries_engineering_inputs_for_the_main_record(ws, tmp_path, monkeypatch) -> None:
+    from aquascope.io import engineering as eng
+
+    monkeypatch.setattr(eng, "hecdss_available", lambda: False)  # the same files on every platform
+    data = bundle.bundle_bytes(ws)
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        names = set(zf.namelist())
+        readme = zf.read("README.txt").decode()
+        rvt = zf.read("engineering/raven/3400TH.rvt").decode()
+    for tool in ("hec-hms", "hec-ras", "hec-ssp", "dss", "swmm", "modflow6", "fews", "raven"):
+        assert f"engineering/{tool}/README.txt" in names, tool
+    assert "engineering/hec-ssp/b17c_settings.txt" in names
+    assert ":ObservationData HYDROGRAPH 1 m3/s" in rvt and "1990-01-01 00:00:00.0 1.0" in rvt
+    assert "engineering/" in readme and "from UK EA 3400TH" in readme
+    bundle.export(ws, tmp_path / "eng")
+    assert (tmp_path / "eng" / "engineering" / "fews" / "3400TH.xml").exists()
+    empty = Workspace(site=dict(SITE))
+    assert bundle.engineering_files(empty) == ({}, None)
+
+
 def test_build_formats_subset(ws) -> None:
     w = Workspace.from_dict(ws.to_dict())
     added = bundle.build(w, formats=["xlsx", "ipynb"])
@@ -647,6 +668,7 @@ def test_build_formats_subset(ws) -> None:
 
 
 def test_export_writes_every_artifact(ws, tmp_path) -> None:
+    ws = Workspace.from_json(ws.to_json())  # a copy, so the shared fixture never holds the built documents
     bundle.build(ws)
     paths = bundle.export(ws, tmp_path / "out")
     assert set(paths) == {a.id for a in ws.artifacts}

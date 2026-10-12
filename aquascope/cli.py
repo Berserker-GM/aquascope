@@ -951,6 +951,440 @@ def cmd_mcp(args: argparse.Namespace) -> None:
     mcp_main(transport=args.transport)
 
 
+def _print_river_status(res: dict) -> None:
+    """`aquascope layers status`: one month of the world river status map (#544)."""
+    rng = res.get("valid_range") or {}
+    if res.get("live_error"):
+        print(f"  Could not list the bucket ({res['live_error']}); showing what it held on {res.get('checked')}.")
+    if res.get("available"):
+        print(f"  World river status, {res['month']}: {res['url']}")
+    else:
+        print(f"  {res.get('error', 'no map')}")
+    if rng:
+        gaps = f"; no map for {', '.join(res['missing'])}" if res.get("missing") else ""
+        print(f"  {rng['months']} months, {rng['first']} to {rng['latest']}{gaps}.")
+    if res.get("headline"):
+        from aquascope.map_layers import MIN_COVER
+
+        print(f"\n  {res['headline']}.")
+        for r in res.get("regions") or []:
+            if r["cover"] >= MIN_COVER:
+                print(f"    {r['name']:<28} {round(100 * r['below']):>3}% below  {round(100 * r['above']):>3}% above")
+        print(f"  {res['regions_note']}\n")
+    for c in res.get("legend") or []:
+        print(f"  {c['hex']}  {c['label']:<18} {c['range']}")
+    if res.get("method"):
+        print(f"\n  {res['method']}")
+        print(f"  {res['attribution']} ({res['licence']})")
+
+
+def _layers_scout(args: argparse.Namespace) -> None:
+    """`aquascope layers scout`: what stands out on the map, by the Explorer's Scout rules (#563)."""
+    from aquascope import map_scout
+
+    view = {"bbox": list(args.bbox)} if args.bbox else None
+    if args.published:
+        doc = map_scout.published()
+        if not doc:
+            print("  No scout file is published yet; the daily flood-warnings workflow writes scout/latest.json.")
+            sys.exit(1)
+        res = map_scout.from_published(doc, view, max_pins=args.pins)
+        res["mode"] = "daily"
+    else:
+        res = map_scout.scan(view, args.month, max_pins=args.pins, places=not args.no_places)
+        res["mode"] = "live"
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    when = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in (res.get("inputs") or {}).items() if v)
+    print(f"  Scout ({'the published daily file' if res['mode'] == 'daily' else 'scanned now'}; {when})\n")
+    for f in res["picks"]:
+        print(f"  {f['rank']:>2}. {f['title']}  [{f['lat']:.2f}, {f['lon']:.2f}]")
+        print(f"      {f['reason']}")
+        print(f"      Source: {f['source']}")
+    for note in res.get("notes") or []:
+        print(f"  Note: {note}")
+    if not res["picks"]:
+        print("  Nothing stands out in this view.")
+    print("\n  Rules, no model: every number formatted by aquascope.map_scout. Not a warning.")
+
+
+def _cmd_layers_explain(args: argparse.Namespace) -> None:
+    """`aquascope layers explain W S E N`: what is on the Explorer's map in a view, as facts and notes (#562)."""
+    from aquascope.map_explain import LAYERS, explain_view
+
+    # "status floods_ahead" or "status,floods_ahead": both read the same.
+    layers = [x for item in args.layers or [] for x in item.split(",") if x] or list(LAYERS)
+    bad = [x for x in layers if x not in LAYERS]
+    if bad:
+        print(f"  Unknown layer {', '.join(bad)}: choose from {', '.join(LAYERS)}")
+        sys.exit(2)
+    llm = None
+    if args.llm:
+        llm = {"provider": args.provider, "model": args.model, "api_key": args.api_key, "base_url": None}
+    try:
+        res = explain_view(args.bbox, args.date, layers, name_places=not args.no_places, llm=llm)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    w, s, e, n = res["view"]["bbox"]
+    print(f"  The view {w:g}, {s:g} to {e:g}, {n:g} on {res['view']['date']}: {len(res['facts'])} facts, "
+          f"{len(res['notes'])} notes ({res['by']}).\n")
+    for i, note in enumerate(res["notes"], 1):
+        where = note["place"] or f"{note['lat']:.3f}, {note['lon']:.3f}"
+        print(f"  {i}. {note['title']} ({where})")
+        print(f"     {note['text']}")
+        print(f"     Source: {note['source']}")
+    if args.facts:
+        print("\n  Facts:")
+        for f in res["facts"]:
+            p = f.get("place")
+            at = f" at {p['lat']:.3f}, {p['lon']:.3f}" if p else ""
+            print(f"  {f['id']:>4}  {f['label']}: {f['shown']}{(' ' + f['when']) if f.get('when') else ''}{at}")
+    for line in res.get("skipped") or []:
+        print(f"  ({line})")
+    for line in res.get("refused") or []:
+        print(f"  refused: {line}")
+    for line in res.get("errors") or []:
+        print(f"  could not read {line}")
+    if res.get("credits"):
+        print("\n  " + "\n  ".join(res["credits"]))
+
+
+def _print_flood_depth(res: dict) -> None:
+    """`aquascope layers depth`: the depth map chosen by the forecast, its tiles and what it found."""
+    if res.get("error"):
+        print(f"  {res['error']}")
+        return
+    print(f"  {res['summary']}")
+    for t in res.get("tiles") or []:
+        print(f"  {t['url']}")
+        print(f"    window {t['window']}   {t['gdal']}")
+    for r in (res.get("forecast_reaches") or [])[:20]:
+        print(f"  reach {r['river_id']}  {r['forecast_class']}-year flow, {r['depth_return_period']}-year map  "
+              f"({r['lat']:.3f}, {r['lon']:.3f})")
+    if res.get("forecast_reaches_n", 0) > 20:
+        print(f"  ... and {res['forecast_reaches_n'] - 20} more")
+    if res.get("not"):
+        print(f"\n  {res['not']}")
+    print(f"  {res['attribution']} ({res['licence']})")
+
+
+def cmd_layers(args: argparse.Namespace) -> None:
+    """`aquascope layers`: the dated map layers and their valid dates, or the frames of a time-lapse (#522)."""
+    from aquascope.map_time import dated_layers, layer_frames
+
+    if args.layers_cmd == "depth":
+        from aquascope.flood_depth import flood_depth_overlay
+
+        res = flood_depth_overlay(args.river_id, bbox=args.bbox, return_period=args.rp, day=args.day,
+                                  radius_km=args.radius_km, sample=not args.no_sample, local=args.local)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            _print_flood_depth(res)
+        if res.get("error"):
+            sys.exit(1)
+        return
+    if args.layers_cmd == "status":
+        from aquascope.map_layers import river_status_month, river_status_summary
+
+        if args.summary:
+            res = river_status_summary(args.month, live=not args.offline)
+        else:
+            res = river_status_month(args.month, live=not args.offline)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        _print_river_status(res)
+        if not res.get("available"):
+            sys.exit(1)
+        return
+    if args.layers_cmd == "scout":
+        _layers_scout(args)
+        return
+    if args.layers_cmd == "explain":
+        _cmd_layers_explain(args)
+        return
+    if args.layers_cmd == "frames":
+        res = layer_frames(args.layer, args.start, args.end, step=args.step, max_frames=args.max_frames)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        if res.get("error"):
+            print(f"  {res['error']}")
+            sys.exit(1)
+        print(f"  {res['label']}, every {res['step']}, {len(res['frames'])} frames"
+              + (" (capped)" if res.get("truncated") else "")
+              + (f", {res['skipped']} dates it cannot show" if res.get("skipped") else ""))
+        if res.get("note"):
+            print(f"  {res['note']}")
+        for f in res["frames"]:
+            print(f"  {f['date']}  {f['tiles']}")
+        print(f"\n  {res['attribution']} ({res['licence']})")
+        return
+    res = dated_layers(live=args.live)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return
+    if res.get("live_error"):
+        print(f"  Could not read GIBS ({res['live_error']}); showing the ranges recorded on {res['checked']}.")
+    for lay in res["layers"]:
+        until = lay.get("latest") or lay.get("until") or "now"
+        gaps = f", {len(lay['gaps'])} gaps" if lay.get("gaps") else ""
+        print(f"  {lay['id']:<8} {lay['label']:<28} {lay['cadence']:<6} {lay['since']} to {until}{gaps}")
+    print(f"\n  Steps: {', '.join(res['steps'])}. {res['note']}")
+
+
+def cmd_map(args: argparse.Namespace) -> None:
+    """`aquascope map "<request>"`: a plain-English request about the Explorer's map, read into map actions (#561)."""
+    from aquascope import map_commands as mc
+
+    text = " ".join(args.request)
+    if args.llm:
+        try:
+            res = mc.model_command(text, provider=args.provider, model=args.model, api_key=args.api_key, today=args.today)
+        except (RuntimeError, ValueError) as exc:
+            print(f"  {exc}")
+            sys.exit(1)
+        res["by"] = res.pop("model")
+    else:
+        res = mc.parse_command(text, today=args.today)
+        res["by"] = "rules"
+    if args.resolve and res.get("actions"):
+        resolved = mc.resolve_actions(res["actions"])
+        res.update(actions=resolved["actions"], said=resolved["said"], notes=resolved["notes"],
+                   credit=resolved["credit"])
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return
+    if res.get("control"):
+        print(f"  {res['control'].replace('_', ' ')}: the Explorer's action log does this")
+        return
+    if not res.get("actions"):
+        unknown = ", ".join(res.get("unknown") or [])
+        print("  Not understood by the rules" + (f" (unknown words: {unknown})" if unknown else "")
+              + ". Try --llm with your own key, or rephrase.")
+        for e in res.get("errors") or []:
+            print(f"  {e}")
+        sys.exit(1)
+    print(f"  Understood by {res['by']}:")
+    for said, action in zip(res["said"], res["actions"]):
+        print(f"  - {said:<44} {json.dumps(action, ensure_ascii=False)}")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+    if res.get("credit"):
+        print(f"\n  {res['credit']}")
+
+
+def cmd_whatif(args: argparse.Namespace) -> None:
+    """`aquascope whatif`: a scenario for a reach's basin, carried down the river (#565)."""
+    from aquascope import whatif_map as wm
+
+    # The answer speaks for the run: the fit notes (a GEV per parameter set, the requests) stay out of it.
+    for name in ("aquascope", "httpx"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+    text = " ".join(args.scenario or []).strip()
+    numbers = {"dp_pct": args.rain, "dt_c": args.warming, "dpet_pct": args.evaporation, "demand_cms": args.demand}
+    by = "the numbers given"
+    if text and not any(v is not None for v in numbers.values()):
+        if args.llm:
+            try:
+                read = wm.model_scenario(text, provider=args.provider, model=args.model, api_key=args.api_key)
+            except (RuntimeError, ValueError) as exc:
+                print(f"  {exc}")
+                sys.exit(1)
+            by = read["model"]
+            for e in read.get("errors") or []:
+                print(f"  {e}")
+            if not read["scenario"]:
+                sys.exit(1)
+        else:
+            read = wm.parse_scenario(text)
+            by = "rules"
+            if not read["matched"]:
+                unknown = "; ".join(read.get("unknown") or [])
+                print(f"  Not understood by the rules{f' ({unknown})' if unknown else ''}. Try --llm with your own "
+                      "key, or give --rain, --warming, --demand.")
+                sys.exit(1)
+        numbers = read["scenario"]
+    if args.river is None and (args.lat is None or args.lon is None):
+        print("  Give --river ID, or --lat and --lon (with --source and --station for a gauge).")
+        sys.exit(1)
+    res = wm.whatif(args.river, lat=args.lat, lon=args.lon, source=args.source, station_id=args.station,
+                    area_km2=args.area, flood_rp=args.rp, members=args.members, confluences=args.confluences,
+                    **numbers)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    if not res.get("ok"):
+        print(f"  {res.get('error')}")
+        sys.exit(1)
+    o, m = res["outlet"], res["model"]
+    print(f"  What if: {res['scenario']['label']} (read by {by})")
+    print(f"  Basin: {res['basin']['area_km2']:,.0f} km2 draining to river reach {o['river_id']}; GR4J calibrated on "
+          f"{'the gauge' if m['calibrated_on'] == 'gauge' else 'GEOGLOWS v2 simulated flow (modelled)'}, "
+          f"validation KGE {(m.get('validation') or {}).get('kge') or float('nan'):.2f} ({m.get('skill_grade')})")
+    print(f"\n  {'At the outlet':<40}{'before':>10}{'after':>10}{'change':>9}  range")
+
+    def fmt(v: float | None) -> str:
+        return "n/a" if v is None else f"{v:,.2f}"
+
+    for key in ("mean", "low", "flood"):
+        row = o[key]
+        rng = row.get("range")
+        ch = row.get("change_pct")
+        print(f"  {row['label']:<40}{fmt(row.get('before')):>10}{fmt(row.get('after')):>10}"
+              f"{'n/a' if ch is None else f'{ch:+.1f}%':>9}  {f'{rng[0]:+.1f} to {rng[1]:+.1f}%' if rng else ''}")
+    print(f"\n  Downstream ({res['downstream']['n_reaches']} reaches, stopped: {res['downstream']['stopped']}):")
+    for r in res["reaches"]:
+        if r is res["reaches"][0] or r.get("confluence") or r is res["reaches"][-1]:
+            tag = f"after confluence {r['confluence']['n']}" if r.get("confluence") else (
+                "the outlet of the basin" if r is res["reaches"][0] else "where the walk stops")
+            print(f"  - reach {r['river_id']}  {r['area_km2']:>11,.0f} km2  share {r['share']:.0%}  mean "
+                  f"{r['mean_change_pct']:+.1f}%  Q95 {r['q95_change_pct']:+.1f}%  flood "
+                  f"{r['flood_change_pct'] if r['flood_change_pct'] is None else round(r['flood_change_pct'], 1)}%"
+                  f"  ({tag})")
+    print(f"\n  {res['verdict']}")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+    print(f"  simplification: {res['simplification']}")
+    print(f"\n  {res['attribution']}")
+
+
+def cmd_mesh(args: argparse.Namespace) -> None:
+    """`aquascope mesh FILE`: what a HEC-RAS 2D plan or UGRID mesh result holds (#555), the same summary the
+    MCP tool mesh_summary gives and the Explorer draws on the globe."""
+    from aquascope.io.mesh import mesh_summary
+
+    if args.file == "review" and args.review_file:
+        _mesh_review(args)
+        return
+    res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
+        sys.exit(1)
+    fmt = {"hec-ras": "HEC-RAS 2D plan", "ugrid": "UGRID mesh"}.get(res["format"], res["format"])
+    print(f"  {res['name']}: {fmt}, {res['model']}")
+    print(f"  {res['title']}")
+    areas = ", ".join(f"{a['name']} ({a['cells']:,})" for a in res["areas"])
+    print(f"  {res['cells']:,} cells: {areas}")
+    print(f"  Coordinate system: {res['crs']['label']} ({'from the file' if res['crs']['from'] == 'file' else 'given'})")
+    w, s_, e, n = res["bbox"]
+    print(f"  Extent: {w:.4f} to {e:.4f} E, {s_:.4f} to {n:.4f} N")
+    if res["time_steps"]:
+        print(f"  {res['time_steps']} time steps, {res['start']} to {res['end']}")
+    label = "depth" if res["variable"] == "depth" else "water surface"
+    mx = res.get("max")
+    if mx:
+        unit = f" {mx['unit']}" if mx.get("unit") else ""
+        print(f"  Largest {label}: {mx['value']}{unit} at {mx['lat']}, {mx['lon']} (cell {mx['cell']})")
+    if res.get("wet_cells") is not None:
+        print(f"  Cells wet at some time: {res['wet_cells']:,} of {res['cells']:,}")
+    sp = res.get("max_speed")
+    if sp:
+        unit = f" {sp['unit']}" if sp.get("unit") else ""
+        print(f"  Largest speed: {sp['value']}{unit} at {sp['lat']}, {sp['lon']} (cell {sp['cell']})")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+
+
+def cmd_swmm(args: argparse.Namespace) -> None:
+    """`aquascope swmm FILE [FILE]`: what an EPA SWMM model (.inp) and its results (.out) hold (#560), the same
+    summary the MCP tool swmm_summary gives."""
+    from aquascope.io.swmm import swmm_summary
+
+    inp = next((f for f in args.files if f.lower().endswith(".inp")), None)
+    out = next((f for f in args.files if not f.lower().endswith(".inp")), None)
+    res = swmm_summary(inp, out, crs=args.crs, top=args.top, element=args.element)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        sys.exit(1)
+    net = res.get("network")
+    if net:
+        kinds = ", ".join(f"{v} {k}" for k, v in net["node_types"].items())
+        lkinds = ", ".join(f"{v} {k}" for k, v in net["link_types"].items())
+        print(f"  {net['file']}: {net['title'] or 'SWMM model'} ({net['flow_units']})")
+        print(f"  {net['nodes']} nodes ({kinds}); {net['links']} links ({lkinds}); {net['subcatchments']} subcatchments")
+        if net.get("crs"):
+            w, s_, e, n = net["bbox"]
+            print(f"  Coordinate system: {net['crs']['label']}; extent {w:.4f} to {e:.4f} E, {s_:.4f} to {n:.4f} N")
+    r = res.get("results")
+    if r:
+        print(f"  {r['file']}: SWMM {r['swmm_version']}, {r['periods']} report steps of {r['report_step_s']} s, "
+              f"{r['start']} to {r['end']}")
+        fl = res.get("flooding")
+        if fl is not None:
+            print(f"  Nodes flooded: {fl['nodes_flooded']} of {r['nodes']}")
+            for row in fl["nodes"]:
+                where = f" at {row['lat']}, {row['lon']}" if row.get("lat") is not None else ""
+                print(f"    {row['id']} ({row['type']}): peak {row['peak']} {fl['unit']} at {row['peak_time']}, "
+                      f"{row['hours_flooded']} h, {row['volume_m3']} m3{where}")
+        fw = res.get("flows")
+        if fw is not None and fw["links"]:
+            print("  Largest flows:")
+            for row in fw["links"]:
+                print(f"    {row['id']} ({row['type']}): {row['peak']} {fw['unit']} at {row['peak_time']}, "
+                      f"fullest {row['peak_capacity']}")
+    if res.get("series"):
+        s = res["series"]
+        print(f"  {s['kind'].title()} {s['id']}: {len(s['times'])} values; use --json for the series")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
+
+
+def _mesh_hint(error: str) -> None:
+    """The flag that fixes a mesh file's error, when one does."""
+    if "EPSG" in error:
+        print("  Pass it with --crs, for example --crs 32633 for UTM zone 33N.")
+    elif "not the mesh they sit on" in error:
+        print("  Pass the geometry file with --geometry, for example --geometry Model.g01.hdf.")
+
+
+def _mesh_review(args: argparse.Namespace) -> None:
+    """`aquascope mesh review FILE` (#564): the checks the Explorer's "Review these results" runs."""
+    from aquascope.mesh_review import review_file
+
+    res = review_file(args.review_file, crs=args.crs, context=not args.offline, top=args.top, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
+        sys.exit(1)
+    m = res["mesh"]
+    print(f"  {m['name']}: {m['cells']:,} cells, {m['steps']} time steps")
+    print(f"  {res['summary']}")
+    print()
+    for c in res["checks"]:
+        print(f"  {c['status']:<8} {c['label']}: {c['line']}")
+    if res["findings"]:
+        print()
+    for f in res["findings"]:
+        print(f"  {f['rank']:>2}. [{f['severity']}] {f['title']}  ({f['lat']:.5f}, {f['lon']:.5f})")
+        print(f"      {f['reason']}")
+        print(f"      Source: {f['source']}")
+    for e in res.get("errors") or []:
+        print(f"  note: {e}")
+
+
 def cmd_basins(args: argparse.Namespace) -> None:
     """`aquascope basins`: catchments from BasinATLAS in the Archive (at LAT LON | upstream HYBAS_ID | build GDB)."""
     from aquascope.archive import basins
@@ -1128,6 +1562,716 @@ def cmd_assess(args: argparse.Namespace) -> None:
         print(json.dumps(res, indent=2, ensure_ascii=False))
         return
     print(_format_assessment(res, radius_km=args.radius_km))
+
+
+# ── river (GEOGLOWS v2 reaches) ──────────────────────────────────────────────
+
+
+def _river_target(args: argparse.Namespace) -> tuple[int | None, dict | None]:
+    """The river_id the user gave, or the one ``--at LAT LON`` snaps to (with the snap, to report it)."""
+    from aquascope import rivers
+
+    if getattr(args, "at", None):
+        snap = rivers.snap_to_river(args.at[0], args.at[1], max_distance_m=args.max_distance)
+        print(f"  {snap['message']}")
+        if not snap["snapped"]:
+            sys.exit(1)
+        return int(snap["river_id"]), snap
+    if args.river_id is None:
+        print("  Give a RIVER_ID, or --at LAT LON to snap to the nearest reach.")
+        sys.exit(2)
+    return int(args.river_id), None
+
+
+# ── evidence (the model-skill ladder, #518) ────────────────────────────────
+
+
+def _print_skill(res: dict) -> None:
+    where = f"{res.get('source')}/{res.get('station_id')}" if res.get("source") else f"{res.get('lat')}, {res.get('lon')}"
+    print(f"  Model skill at {where}, gauge record {res.get('obs_start')} to {res.get('obs_end')}")
+    if res.get("error"):
+        print(f"  {res['error']}")
+        return
+    print(f"  {'model':<12} {'grade':>5} {'KGE':>6} {'r':>6} {'alpha':>6} {'beta':>6} {'NSE':>6} {'PBIAS':>7} "
+          f"{'Q2 err':>7} {'Q10 err':>8} {'Q100 err':>9}")
+
+    def f(x, d=2, pct=False):
+        if x is None:
+            return "-"
+        return f"{x:+.0f} %" if pct else f"{x:.{d}f}"
+
+    for r in res.get("models") or []:
+        if r.get("kge") is None:
+            print(f"  {r.get('label', r.get('model')):<12} {'-':>5}  {r.get('why') or ''}")
+            continue
+        print(f"  {r['label']:<12} {r.get('grade') or '-':>5} {f(r.get('kge')):>6} {f(r.get('r')):>6} "
+              f"{f(r.get('alpha')):>6} {f(r.get('beta')):>6} {f(r.get('nse')):>6} {f(r.get('pbias'), 1):>7} "
+              f"{f(r.get('q2_error_pct'), pct=True):>7} {f(r.get('q10_error_pct'), pct=True):>8} "
+              f"{f(r.get('q100_error_pct'), pct=True):>9}")
+    print(f"  {res.get('sentence')}")
+    for n in res.get("notes") or []:
+        print(f"  {n}")
+    print("  Grades: A KGE >= 0.75, B >= 0.5, C > -0.41 (the mean-flow benchmark), else D; one letter lower when "
+          "the 100-year flow is off by more than 50 %.")
+
+
+def cmd_evidence(args: argparse.Namespace) -> None:
+    """`aquascope evidence skill|near|build|publish`: every global model scored at a gauge (#518)."""
+    if args.evidence_cmd == "skill":
+        from aquascope import evidence
+
+        series = None
+        if args.csv:
+            import pandas as pd
+
+            df = pd.read_csv(args.csv)
+            series = pd.Series(pd.to_numeric(df.iloc[:, 1], errors="coerce").to_numpy(float),
+                               index=pd.to_datetime(df.iloc[:, 0]))
+        at = args.at or (None, None)
+        res = evidence.model_skill(args.source, args.station_id, series=series, lat=at[0], lon=at[1],
+                                   area_km2=args.area, models=args.models, years=args.years or None)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+            return
+        _print_skill(res)
+        return
+    if args.evidence_cmd == "near":
+        from aquascope import evidence
+
+        res = evidence.lean_on(args.lat, args.lon, radius_km=args.radius_km)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+            return
+        print(f"  {res['sentence']}")
+        return
+    from aquascope.archive import skill
+
+    if args.evidence_cmd == "build":
+        argv = ["build", "--archive", args.archive, "--out", args.out, "--max-gauges", str(args.max_gauges),
+                "--nwm-years", str(args.nwm_years), "--nwm-max-columns", str(args.nwm_max_columns),
+                "--grrr-max-chunks", str(args.grrr_max_chunks), "--workers", str(args.workers)]
+        if args.smoke:
+            argv.append("--smoke")
+        sys.exit(skill.main(argv))
+    sys.exit(skill.main(["publish", "--out", args.out, "--repo", args.repo]))
+
+
+def cmd_bulletin(args: argparse.Namespace) -> None:
+    """`aquascope bulletin [YYYY-MM]`: the month's state of the rivers, HydroSOS style (#523)."""
+    from aquascope import bulletin
+
+    try:
+        res = bulletin.status_bulletin(args.month, args.sources, archive=args.archive, rebuild=args.rebuild,
+                                       top_up=args.top_up, workers=args.workers)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.out:
+        written = bulletin.write_bulletin(res, args.out, figure=not args.no_map)
+        if not args.json:
+            for what, path in written.items():
+                print(f"  {what:<8} -> {path}")
+    if args.json:
+        print(json.dumps(res if args.gauges else {k: v for k, v in res.items() if k != "gauges"}, indent=2,
+                         ensure_ascii=False, default=str))
+        return
+    where = "published" if res.get("origin") == "published" else "built from the Archive's discharge records"
+    print(f"  {res['title']}, {res['label']} ({where})")
+    print(f"  {res['summary']}")
+    cov = res["coverage"]
+    if cov["classed"]:
+        print()
+        print(f"  {'Country':<16} {'Gauges':>6}  {'Much below':>10} {'Below':>6} {'Normal':>6} {'Above':>6} "
+              f"{'Much above':>10}  Median pct")
+        order = ("much_below", "below", "normal", "above", "much_above")
+        for c in res["countries"]:
+            k = [c["counts"][x] for x in order]
+            print(f"  {c['name'][:16]:<16} {c['n']:>6}  {k[0]:>10} {k[1]:>6} {k[2]:>6} {k[3]:>6} {k[4]:>10}  "
+                  f"{c['median_percentile']:.0f} ({c['median_label']})")
+    left = {k: v for k, v in cov["excluded"].items() if v}
+    if left:
+        print()
+        print("  Left out: " + "; ".join(f"{v:,} with {cov['excluded_text'][k]}" for k, v in left.items()) + ".")
+    if not args.out:
+        print("  Write the HTML, Markdown, map and status table with --out DIR.")
+
+
+def cmd_warnings(args: argparse.Namespace) -> None:
+    """`aquascope warnings [--bbox W S E N]`: Floods ahead, the reaches expected to reach their 2-year flow (#546)."""
+    from aquascope.archive import warnings
+
+    try:
+        res = warnings.flood_warnings(args.bbox, min_rp=args.min_rp, limit=args.limit, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+    counts = ", ".join(f"{v:,} at {k}-year" for k, v in res["counts"].items() if v)
+    if counts:
+        print(f"  {counts}")
+    if res["reaches"]:
+        print()
+        print(f"  {'River id':>10}  {'Lat':>7} {'Lon':>8}  {'Class':>6}  {'Peak m3/s':>10}  {'2-yr m3/s':>10}  "
+              f"{'Peak day':<10}  Members")
+        for r in res["reaches"]:
+            print(f"  {r['river_id']:>10}  {r['lat']:>7.2f} {r['lon']:>8.2f}  {str(r['rp']) + '-yr':>6}  "
+                  f"{r['peak_cms'] or 0:>10,.0f}  {r['q2'] or 0:>10,.0f}  {r['peak_date']:<10}  {r['share']:.0%}")
+        if res.get("truncated"):
+            print(f"  ... the first {len(res['reaches'])} shown; --limit N for more")
+    print()
+    print(f"  {res.get('not') or ''}")
+
+
+def cmd_waterbalance(args: argparse.Namespace) -> None:
+    """`aquascope waterbalance [--basin ID | --at LAT LON] [--month YYYY-MM]`: subbasins by monthly water balance
+    (#557): rain, evaporation, runoff and the closure error P - ET - Q, against the 1991-2020 normal."""
+    from aquascope.waterbalance import LABELS, water_balance
+
+    lat, lon = (args.at if args.at else (None, None))
+    try:
+        res = water_balance(args.basin, lat, lon, args.month, months=args.months, bbox=args.bbox,
+                            variable=args.variable, limit=args.limit, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+
+    def mm(x: object) -> str:
+        return "" if x is None else f"{x:,.0f}"
+
+    if res.get("series"):
+        print(f"  Subbasin {res['hybas_id']}, {res['area_km2'] or 0:,.0f} km2. mm per month:")
+        print()
+        print(f"  {'Month':<8} {'Rain':>6} {'Evap':>6} {'Runoff':>7} {'P-ET-Q':>7}   {'Rain vs normal':>14}")
+        for r in res["series"]:
+            print(f"  {r['month']:<8} {mm(r['p_mm']):>6} {mm(r['et_mm']):>6} {mm(r['q_mm']):>7} "
+                  f"{mm(r['closure_mm']):>7}   {mm(r['p_anom']):>14}")
+        if res.get("runoff_withheld_because"):
+            print(f"  No runoff here: {res['runoff_withheld_because']}.")
+        elif res.get("runoff_ok") is False:
+            print("  No runoff here: GEOGLOWS has no outlet reach for this subbasin or one upstream of it.")
+    elif res.get("furthest_from_normal"):
+        v = res["variable"]
+        print()
+        print(f"  Furthest from normal in {LABELS[v]} (mm):")
+        for r in res["furthest_from_normal"]:
+            print(f"  {r['hybas_id']:>12}  {mm(r[f'{v}_mm']):>6}  {r[f'{v}_anom']:+,.0f}")
+    print()
+    print(f"  {res.get('closure') or ''}")
+
+
+def cmd_flowstatus(args: argparse.Namespace) -> None:
+    """`aquascope flowstatus [--bbox W S E N] [--river-id ID]`: every big reach's flow against normal (#559)."""
+    from aquascope import flowstatus
+
+    try:
+        res = flowstatus.flow_vs_normal(args.bbox, river_id=args.river_id, local=args.local)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['sentence']}")
+    if not res.get("available"):
+        return
+    total = sum(res["counts"].values())
+    print()
+    for c in flowstatus.CLASSES:
+        k = res["counts"].get(c["id"], 0)
+        share = f"{k / total:.0%}" if total else "-"
+        print(f"  {c['label']:<18} {k:>9,}  {share:>4}   {c['range']}")
+    reach = res.get("reach")
+    if reach:
+        print()
+        label = next((c["label"] for c in flowstatus.CLASSES if c["id"] == reach.get("class")), None)
+        flow = f", {reach['flow_cms']:,.4g} m3/s today" if reach.get("flow_cms") is not None else ""
+        print(f"  Reach {reach['river_id']}: {label or 'not classed'}{flow}")
+        if reach.get("p25") is not None:
+            print(f"  Normal for month {res.get('month')}: {reach['p25']:,.4g} to {reach['p75']:,.4g} m3/s "
+                  f"(10th {reach['p10']:,.4g}, 90th {reach['p90']:,.4g})")
+        if reach.get("why"):
+            print(f"  {reach['why']}")
+    print()
+    print(f"  {res.get('not') or ''}")
+
+
+def cmd_now(args: argparse.Namespace) -> None:
+    """`aquascope now LAT LON | --station SOURCE/ID | --river-id ID`: today against normal and the next 15 days."""
+    from aquascope import nownext
+
+    coords = list(args.coords or [])
+    if coords and len(coords) != 2:
+        print("  Give LAT LON, --station SOURCE/ID or --river-id ID.")
+        sys.exit(2)
+    lat, lon = (coords[0], coords[1]) if coords else (None, None)
+    if lat is None and not args.station and args.river_id is None:
+        print("  Give LAT LON, --station SOURCE/ID or --river-id ID.")
+        sys.exit(2)
+    if getattr(args, "plume", False):
+        _now_plume(args, lat, lon)
+        return
+    try:
+        res = nownext.now(lat, lon, station=args.station, river_id=args.river_id, days=args.days, date=args.date,
+                          with_forecast=not args.status_only, correct=not args.raw, history=not args.quick)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    fc = res.get("forecast") or {}
+    if args.csv and fc:
+        _now_csv(fc, args.csv)
+        print(f"  forecast -> {args.csv}")
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    st = res.get("status") or {}
+    if res.get("station"):
+        s = res["station"]
+        print(f"  {s.get('name') or s['station_id']} ({s['source']}/{s['station_id']}), {s.get('variable')}")
+    if st:
+        print(f"  {st.get('sentence') or st.get('error')}")
+        if st.get("top_up"):
+            print(f"    {st['top_up']}")
+    if not fc:
+        return
+    if fc.get("snap"):
+        print(f"  {fc['snap'].get('message')}")
+    if not st and (fc.get("status") or {}).get("sentence"):
+        print(f"  {fc['status']['sentence']}")
+    rows = _now_table(fc)
+    if rows:
+        corrected = any(r[2] is not None for r in rows)
+        head = f"  {'day':<10}  {'GEOGLOWS mean [25-75 %]':>28}" + (f"  {'corrected':>10}" if corrected else "")
+        print(head + f"  {'GloFAS mean':>11}   (m3/s, modelled)")
+        for day, g, c, gl in rows:
+            band = f"{g[0]:,.4g} [{g[1]:,.4g}-{g[2]:,.4g}]" if g and g[0] is not None else "-"
+            line = f"  {day:<10}  {band:>28}"
+            if corrected:
+                line += f"  {c:>10,.4g}" if c is not None else f"  {'-':>10}"
+            line += f"  {gl:>11,.4g}" if gl is not None else f"  {'-':>11}"
+            print(line)
+    thr = fc.get("gauge_thresholds") if (fc.get("correction") or {}).get("forecast") else fc.get("thresholds")
+    if thr and thr.get("q"):
+        pairs = ", ".join(f"{t:g}-yr {q:,.4g}" for t, q in zip(thr["return_periods"], thr["q"]) if q is not None)
+        print(f"  Thresholds from {thr.get('source')}, {thr.get('method')}: {pairs}")
+    print(f"  {fc.get('sentence')}")
+    corr = fc.get("correction") or {}
+    if corr.get("skill_line"):
+        print(f"  {corr['skill_line']}")
+        if corr.get("skill_detail"):
+            print(f"    {corr['skill_detail']}")
+    elif corr.get("error"):
+        print(f"  No correction: {corr['error']}")
+    if (fc.get("reach_check") or {}).get("note"):
+        print(f"  {fc['reach_check']['note']}")
+    for g in ("geoglows", "glofas"):
+        if (fc.get(g) or {}).get("error"):
+            print(f"  {g}: {fc[g]['error']}")
+    print("  Data: GEOGLOWS v2 (CC BY 4.0); GloFAS v4 via Open-Meteo (CC BY 4.0).")
+
+
+def cmd_watch(args: argparse.Namespace) -> None:
+    """`aquascope watch ID... --since DATE`: what changed at watched gauges, reaches and areas."""
+    from aquascope import watch
+
+    thresholds: dict[str, str] = {}
+    for spec in args.threshold or []:
+        key, sep, value = spec.rpartition("=")
+        if not sep or not key:
+            print(f"  --threshold takes ID=VALUE or ID=10y, not {spec!r}")
+            sys.exit(2)
+        thresholds[key] = value
+    items = []
+    for ident in args.ids:
+        try:
+            item = watch.parse_item(ident)
+        except ValueError as exc:
+            print(f"  {exc}")
+            sys.exit(2)
+        if item["id"] in thresholds or ident in thresholds:
+            item["threshold"] = thresholds.get(item["id"], thresholds.get(ident))
+        items.append(item)
+    try:
+        res = watch.watch_digest(items, args.since, forecast="off" if args.no_forecast else args.forecast,
+                                 floods=not args.no_floods, refresh=not args.no_refresh)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(f"  {res['summary']}")
+    for item in res["items"]:
+        mark = "*" if item.get("alerts") else ("+" if item.get("changed") else " ")
+        print(f"  {mark} {item.get('name')} ({item['id']})")
+        print(f"      {item.get('line')}")
+        for note in item.get("notes") or []:
+            print(f"      ({note})")
+    for note in res.get("notes") or []:
+        print(f"  {note}")
+    for err in res.get("errors") or []:
+        print(f"  Skipped {err['item']}: {err['error']}")
+    print("  Forecasts are model output (GEOGLOWS v2, CC BY 4.0). Flood events: Groundsource (CC BY 4.0).")
+
+
+def _now_plume(args: argparse.Namespace, lat: float | None, lon: float | None) -> None:
+    """`aquascope now --plume`: the reach's ensemble plume and its threshold classes (#556)."""
+    from aquascope import nownext
+
+    if args.station:
+        print("  --plume is for a river reach: give LAT LON or --river-id ID.")
+        sys.exit(2)
+    try:
+        res = nownext.plume(args.river_id, lat=lat, lon=lon, days=args.days, history=True)
+    except ValueError as exc:
+        print(f"  {exc}")
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    if res.get("error"):
+        print(f"  {res['error']}")
+        return
+    print(f"  River reach {res['river_id']}, GEOGLOWS run of {res.get('issued')} ({res.get('n_members')} members, "
+          "modelled)")
+    print(f"  {'day':<10}  {'median':>9}  {'middle half':>19}  {'full range':>19}  class")
+    for i, day in enumerate(res["date"]):
+        def cell(k: str, i: int = i) -> str:
+            v = (res.get(k) or [None] * (i + 1))[i]
+            return "-" if v is None else f"{v:,.4g}"
+
+        rp = res["class_daily"][i]
+        print(f"  {day:<10}  {cell('median'):>9}  {cell('p25') + ' - ' + cell('p75'):>19}  "
+              f"{cell('min') + ' - ' + cell('max'):>19}  {f'{rp}-yr' if rp else '-'}")
+    thr = res.get("thresholds") or {}
+    if thr.get("q"):
+        pairs = ", ".join(f"{t}-yr {q:,.4g}" for t, q in zip(thr["return_periods"], thr["q"]))
+        print(f"  Thresholds from {thr.get('source')}: {pairs}")
+    else:
+        print("  No return-period flows for this reach, so no classes.")
+    print(f"  {res.get('sentence')}")
+    if res.get("members_line"):
+        print(f"  {res['members_line']}")
+    print(f"  {res.get('attribution')}. Model output, not an official warning.")
+
+
+def _now_table(fc: dict) -> list[tuple]:
+    g, gl = fc.get("geoglows") or {}, fc.get("glofas") or {}
+    c = (fc.get("correction") or {}).get("forecast") or {}
+    days = sorted(set(g.get("date") or []) | set(gl.get("date") or []))
+
+    def at(part: dict, key: str, day: str):
+        dates = part.get("date") or []
+        vals = part.get(key) or []
+        return vals[dates.index(day)] if day in dates and dates.index(day) < len(vals) else None
+
+    return [(d, (at(g, "mean", d), at(g, "p25", d), at(g, "p75", d)), at(c, "mean", d), at(gl, "mean", d))
+            for d in days]
+
+
+def _now_csv(fc: dict, path: str) -> None:
+    from aquascope.nownext import STAT_KEYS
+
+    c = (fc.get("correction") or {}).get("forecast") or {}
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("model,date," + ",".join(STAT_KEYS) + ",corrected\n")
+        for model in ("geoglows", "glofas"):
+            part = fc.get(model) or {}
+            for i, day in enumerate(part.get("date") or []):
+                vals = [part.get(k)[i] if isinstance(part.get(k), list) else None for k in STAT_KEYS]
+                corrected = (c.get("mean") or [None] * (i + 1))[i] if model == "geoglows" and c else None
+                fh.write(",".join([model, day, *("" if v is None else f"{v:g}" for v in [*vals, corrected])]) + "\n")
+
+
+def cmd_river(args: argparse.Namespace) -> None:
+    """`aquascope river snap|record|area|trace|dams|upstream|downstream`: GEOGLOWS v2 river reaches, keyless
+    (the modelled record is CC BY); the dams come from the Archive's Global Dam Watch mirror (CC BY 4.0)."""
+    from aquascope import rivers
+
+    if args.river_cmd == "snap":
+        res = rivers.snap_to_river(args.lat, args.lon, max_distance_m=args.max_distance,
+                                   prefer="nearest" if args.nearest else "main", area_km2=args.area)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        print(f"  {res['message']}")
+        if res["snapped"]:
+            print(f"  river_id {res['river_id']} at {res['snap_lat']:.5f}, {res['snap_lon']:.5f}")
+        return
+    rid, snap = _river_target(args)
+    # Where the snapped reach is: it lets the area and the trace read the right processing unit first.
+    near = {"lat": snap["snap_lat"], "lon": snap["snap_lon"]} if snap else {}
+    if args.river_cmd == "record":
+        store: dict = {}
+        res = rivers.reach_record(rid, years=args.years, store=store)
+        if args.csv and store.get("series") is not None:
+            series = store["series"]
+            with open(args.csv, "w", encoding="utf-8") as fh:
+                fh.write("date,discharge_m3_per_s_modelled\n")
+                fh.writelines(f"{t.date().isoformat()},{v:g}\n" for t, v in series.items())
+            print(f"  {len(series):,} simulated days -> {args.csv}")
+        if args.json:
+            res.pop("series", None)
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+            return
+        if res.get("error"):
+            print(f"  {res['error']}")
+            sys.exit(1)
+        st = res["stats"]
+        print(f"  River reach {rid}: MODELLED daily discharge, {res['start']} to {res['end']} ({res['years']:g} years)")
+        print(f"  mean {st['mean']:,.3g} m3/s, max {st['max']:,.4g} m3/s; Q95 {res['fdc']['q95']:,.3g}, "
+              f"Q50 {res['fdc']['q50']:,.3g}, Q10 {res['fdc']['q10']:,.3g}")
+        ffa = res.get("ffa") or {}
+        gev, lp3 = (ffa.get("fits") or {}).get("gev_lmoments") or {}, (ffa.get("fits") or {}).get("lp3") or {}
+        if gev.get("q"):
+            print(f"  Return periods from {ffa['n_years']} annual maxima (m3/s):")
+            for k, t in enumerate(ffa["return_periods"]):
+                ci = (lp3.get("ci") or [[None, None]] * len(ffa["return_periods"]))[k]
+                band = f" (LP3 {lp3['q'][k]:,.4g}, 90 % CI {ci[0]:,.4g} to {ci[1]:,.4g})" if lp3.get("q") else ""
+                print(f"    {t:>5g}-yr  GEV {gev['q'][k]:,.4g}{band}")
+        print(f"  {res['notes'][0]}")
+        print(f"  {res['attribution']}")
+        return
+    if args.river_cmd == "area":
+        res = rivers.upstream_area(rid, **near)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        print(f"  River reach {rid}: {res['upstream_area_km2']:,.1f} km2 drain to it, "
+              f"{res['n_reaches_upstream']:,} reaches upstream (GEOGLOWS unit {res['vpu']}).")
+        print(f"  {res['note']}")
+        return
+    if args.river_cmd == "dams":
+        res = rivers.upstream_dams(rid, with_flow=not args.no_flow, **near)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+            return
+        print(f"  River reach {rid}: {res['summary']}")
+        for d in res.get("dams") or []:
+            cap = f"{d['capacity_mcm']:,.1f} million m3" if d.get("capacity_mcm") else "storage unknown"
+            print(f"    {d.get('name') or 'unnamed':<28} {cap:<24} {d.get('purpose') or ''}")
+        if res.get("note"):
+            print(f"  {res['note']}")
+        print(f"  {res['source']['attribution']}")
+        return
+    if args.river_cmd == "trace":
+        res = rivers.trace_downstream(rid, gauge_km=args.gauge_km, dam_km=args.dam_km, **near)
+        if args.geojson:
+            feature = {"type": "Feature", "geometry": res.get("geometry"),
+                       "properties": {"river_id": rid, "length_km": res.get("length_km"),
+                                      "licence": res.get("geometry_licence")}}
+            with open(args.geojson, "w", encoding="utf-8") as fh:
+                json.dump({"type": "FeatureCollection", "features": [feature]}, fh)
+            print(f"  path -> {args.geojson} (TDX-Hydro geometry, CC BY-SA 4.0)")
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+            return
+        print(f"  {res['message']}")
+        if res.get("upstream_area_km2") is not None:
+            print(f"  {res['upstream_area_km2']:,.0f} km2 drain to the first reach.")
+        for g in res.get("gauges") or []:
+            print(f"    km {g['along_km']:>7,.1f}  {g['source']}/{g['station_id']}  {g.get('name') or ''}")
+        countries = res.get("countries_info") or {}
+        if countries.get("summary"):
+            print(f"  {countries['summary']}")
+        dams_info = res.get("dams_info") or {}
+        if dams_info.get("summary"):
+            print(f"  {dams_info['summary']}")
+        for d in res.get("dams") or []:
+            cap = f"  {d['capacity_mcm']:,.1f} million m3" if d.get("capacity_mcm") else ""
+            use = f"  {d['purpose']}" if d.get("purpose") else ""
+            print(f"    km {d['along_km']:>7,.1f}  {d.get('name') or 'unnamed'}{cap}{use}")
+        up = res.get("upstream_dams") or {}
+        if up.get("summary"):
+            print(f"  Upstream: {up['summary']}")
+        for note in res.get("notes") or []:
+            print(f"  {note}")
+        return
+    if args.river_cmd in ("upstream", "downstream"):
+        fn = rivers.upstream_ids if args.river_cmd == "upstream" else rivers.downstream_ids
+        res = fn(rid, max_n=args.max, **near)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+            return
+        print(f"  {res['message']}")
+        ids = res["ids"]
+        shown = ids if len(ids) <= 12 else [*ids[:6], "...", *ids[-6:]]
+        print("  " + " ".join(str(x) for x in shown))
+        return
+
+
+# ── context (place context layers, #520) ────────────────────────────────────
+
+_CONTEXT_LABELS = {
+    "flood_history": "Flood history", "surface_water": "Surface water", "flood_hazard": "Flood hazard",
+    "dams": "Dams", "rain_gauge": "Rain gauge", "actual_et": "Actual ET", "soil": "Soil",
+}
+
+
+def _format_context(res: dict[str, Any]) -> str:
+    if res.get("bbox"):
+        w, s, e, n = res["bbox"]
+        lines = [f"Context of the box {w:g}, {s:g} to {e:g}, {n:g} (west, south to east, north)"]
+    else:
+        lines = [f"Context of {res['lat']:.4f}, {res['lon']:.4f}"]
+    for name, layer in res["layers"].items():
+        lines.append(f"  {_CONTEXT_LABELS.get(name, name):<14}  {layer.get('summary') or ''}")
+    lines.append("")
+    lines.append("Data: " + "; ".join(res.get("attribution") or []))
+    return "\n".join(lines)
+
+
+def cmd_context(args: argparse.Namespace) -> None:
+    """`aquascope context LAT LON` (or `--bbox`): flood history, surface water, flood hazard, dams, rain gauge,
+    actual ET and soil at a place, from open global data, each line with its source (thin face)."""
+    from aquascope import context
+
+    if args.floods_past or args.month or args.start or args.end:
+        cmd_floods_past(args)
+        return
+    layers = args.layers or None
+    try:
+        if args.bbox:
+            res = context.area_context(*_parse_bbox(args.bbox), layers=layers)
+        elif args.lat is not None and args.lon is not None:
+            res = context.place_context(args.lat, args.lon, layers=layers)
+        else:
+            logger.error("give LAT LON, or --bbox=west,south,east,north")
+            sys.exit(2)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(_format_context(res))
+
+
+def _format_floods_past(res: dict[str, Any]) -> str:
+    lines = [res.get("summary") or ""]
+    if res.get("available") is False:
+        return "\n".join(lines)
+    news, radar = res.get("news") or {}, res.get("radar") or {}
+    for label, part, key in (("Most news", news, "news"), ("Most radar", radar, "radar")):
+        spots = part.get("hotspots") or []
+        if spots and res.get("bbox") is None:
+            lines.append(f"{label}:")
+            for h in spots:
+                lines.append(f"  {h['lat']:7.2f}, {h['lon']:8.2f}   news {h['news']:>7,}   radar {h['radar']:>12,}")
+    if news.get("events"):
+        lines.append("News events (latest first):")
+        for e in news["events"]:
+            dates = e["start"] if not e.get("end") or e["end"] == e["start"] else f"{e['start']} to {e['end']}"
+            area = f"  {e['area_km2']:,.0f} km2" if e.get("area_km2") else ""
+            lines.append(f"  {dates}{area}")
+        more = (news.get("events_found") or 0) - len(news["events"])
+        if more > 0:
+            lines.append(f"  and {more:,} more")
+    if res.get("bbox") is not None and radar.get("by_month"):
+        lines.append("Radar detections by month: " + ", ".join(f"{m} {n:,}" for m, n in radar["by_month"].items()))
+    lines.append("")
+    lines.append("Data: " + (res.get("attribution") or ""))
+    return "\n".join(lines)
+
+
+def cmd_floods_past(args: argparse.Namespace) -> None:
+    """`aquascope context --floods-past [--month YYYY-MM | --from --to] [--bbox]`: flood events in the news and
+    floods seen by radar, per month, worldwide or in a box (#547, thin face over aquascope.context.floods_past)."""
+    from aquascope.context.floods_past import flood_events_month
+
+    try:
+        res = flood_events_month(args.month, start=args.start, end=args.end,
+                                 bbox=_parse_bbox(args.bbox), limit=args.limit)
+    except ValueError as exc:
+        logger.error("%s", exc)
+        sys.exit(2)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        return
+    print(_format_floods_past(res))
+
+
+# ── export (engineering tools, #519) ─────────────────────────────────────────
+
+
+#: The ``--to`` choices, kept literal so the parser stays import-light (a test pins it to engineering.TOOLS).
+EXPORT_TOOLS = ("hec-hms", "hec-ras", "hec-ssp", "dss", "swmm", "modflow6", "fews", "raven")
+
+
+def _export_series_from_file(path: str, column: str | None):
+    """A CSV's first datetime-like column as the index and ``column`` (or the first numeric one) as values."""
+    import pandas as pd
+
+    df = pd.read_csv(path)
+    if df.shape[1] < 2:
+        raise ValueError(f"{path}: need a date column and a value column")
+    when = pd.to_datetime(df.iloc[:, 0], errors="coerce", utc=False)
+    if column:
+        if column not in df.columns:
+            raise ValueError(f"{path}: no column {column!r}; columns are {list(df.columns)}")
+        values = df[column]
+    else:
+        numeric = [c for c in df.columns[1:] if pd.api.types.is_numeric_dtype(df[c])]
+        if not numeric:
+            raise ValueError(f"{path}: no numeric value column")
+        values = df[numeric[0]]
+    s = pd.Series(pd.to_numeric(values, errors="coerce").to_numpy(), index=pd.DatetimeIndex(when))
+    return s[s.index.notna()]
+
+
+def cmd_export(args: argparse.Namespace) -> None:
+    """`aquascope export --to TOOL`: a gauge's record (or a CSV) as inputs for an engineering tool (thin face)."""
+    from aquascope.io import engineering as eng
+
+    opts = {"regional_skew": args.regional_skew, "regional_skew_mse": args.regional_skew_mse,
+            "year_start_month": args.year_start_month, "subbasin_id": args.subbasin_id,
+            "cellid": tuple(args.cell) if args.cell else (1, 1, 1), "cond": args.cond, "rbot": args.rbot,
+            "period": args.period, "engine": args.engine, "dss_binary": False if args.no_dss else None}
+    try:
+        if args.station:
+            source, _, station_id = args.station.partition("/")
+            if not station_id:
+                raise ValueError("give --station as source/station_id, for example usgs/01646500")
+            res = eng.export_station(source, station_id, args.to, years=args.years, variable=args.variable,
+                                     **opts)
+        elif args.file:
+            s = _export_series_from_file(args.file, args.column)
+            res = eng.export_series(s, args.to, variable=args.variable or "discharge", unit=args.unit,
+                                    location=args.location or Path(args.file).stem, name=args.location, **opts)
+        else:
+            raise ValueError("give --station source/station_id or --file a CSV")
+    except (ValueError, KeyError) as exc:
+        logger.error("%s", exc)
+        sys.exit(2)
+    if "error" in res:
+        logger.error("%s", res["error"])
+        sys.exit(1)
+    files = eng.files_from(res)
+    if args.zip:
+        out = Path(args.out_dir if args.out_dir.endswith(".zip") else f"{args.out_dir}.zip")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(eng.zip_bytes(files))
+        written = [str(out)]
+    else:
+        written = eng.write_files(files, args.out_dir)
+    if args.json:
+        print(json.dumps({"written": written, "notes": res["notes"], "tool": res["tool"]}, indent=2))
+        return
+    print(f"{res['label']}: {len(files)} file(s)")
+    for w in written:
+        print(f"  {w}")
+    for n in res["notes"]:
+        print(f"- {n}")
 
 
 # ── area-study (Study this area) ─────────────────────────────────────────────
@@ -2816,8 +3960,78 @@ def cmd_agri(args: argparse.Namespace) -> None:
         cmd_agri_productivity(args)
 
 
+def cmd_modflow(args: argparse.Namespace) -> None:
+    """`aquascope modflow`: a MODFLOW head file on the map (#558)."""
+    from aquascope.groundwater.surface import modflow_geojson, modflow_summary, read_modflow_heads
+
+    cell = args.cell_size
+    res = read_modflow_heads(args.hds, args.grid, origin=args.origin, rotation=args.rotation, crs=args.crs,
+                             cell_size=(cell[0] if cell and len(cell) == 1 else cell), start_date=args.start_date,
+                             time_units=args.time_units, sidecars=args.sidecar)
+    out = modflow_summary(res, args.time, args.layer)
+    if args.geojson and not res.get("error"):
+        Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
+    if args.json:
+        print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
+    elif res.get("error"):
+        print(f"  {res['error']}")
+    else:
+        print(f"  {out['summary']}")
+        g = out["grid"]
+        print(f"  grid from {g['from']}, origin {g['origin'][0]:g}, {g['origin'][1]:g}, rotation {g['rotation']:g}")
+        print(f"  extent {out['bbox']} (lon/lat)")
+        f = out["frame"]
+        when = f["date"] or f"t = {f['time']:g} {out['time_units']}"
+        lo = "no head" if f["min"] is None else f"{f['min']:g} to {f['max']:g}"
+        print(f"  layer {f['layer']}, {when}: heads {lo} on {f['cells_with_head']:,} cells")
+        for note in out.get("notes") or []:
+            print(f"  {note}")
+        if args.geojson:
+            print(f"  wrote {args.geojson}")
+    if res.get("error"):
+        sys.exit(1)
+
+
+def _print_groundwater_surface(res: dict) -> None:
+    """`aquascope groundwater surface`: what was drawn, the mask rule, and the wells."""
+    if res.get("error"):
+        print(f"  {res['error']}")
+        return
+    print(f"  {res['summary']}")
+    for note in res.get("notes") or []:
+        print(f"  {note}")
+    if res.get("range"):
+        lo, hi = res["range"]
+        print(f"  colour range {lo:g} to {hi:g} m" + (f"; contours every {res['contours']['step']:g} m"
+                                                    if (res.get("contours") or {}).get("step") else ""))
+    print(f"  {res['rule']}")
+    for w in sorted(res.get("wells") or [], key=lambda w: w["value"])[:12]:
+        print(f"  {w['value']:>9.2f} m  {w.get('name') or w['id']}  ({w['lat']:.3f}, {w['lon']:.3f})  {w['how']}")
+    print(f"\n  {res['not']}")
+    print(f"  {res['grace']}")
+    print(f"  {res['attribution']} ({res['licence']})")
+
+
 def cmd_groundwater(args: argparse.Namespace) -> None:
     """Run groundwater analysis."""
+    if getattr(args, "action", None) == "surface":
+        from aquascope.groundwater.surface import groundwater_surface, surface_geojson, surface_summary
+
+        res = groundwater_surface(args.bbox, month=args.month, mode=args.mode, compare=args.compare)
+        if args.geojson and res.get("grid"):
+            Path(args.geojson).write_text(json.dumps(surface_geojson(res)), encoding="utf-8")
+            print(f"  wrote {args.geojson}")
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False, default=str))
+        else:
+            _print_groundwater_surface(surface_summary(res) | {"contours": res.get("contours")})
+        if res.get("error"):
+            sys.exit(1)
+        return
+    if not args.analysis or not args.file:
+        print("aquascope groundwater: --analysis and --file are needed (or use 'aquascope groundwater surface')",
+              file=sys.stderr)
+        sys.exit(2)
     import numpy as np
     import pandas as pd
 
@@ -3398,7 +4612,252 @@ def main() -> None:
     p_ingest.add_argument("--out", "-o", default=None, help="Output stem (default: <file>_clean)")
 
     # ── mcp ──────────────────────────────────────────────────────────
+    # ── layers (#522) ────────────────────────────────────────────────
+    p_layers = sub.add_parser("layers", help="The dated map layers and their valid dates, or a time-lapse's frames")
+    layers_sub = p_layers.add_subparsers(dest="layers_cmd", required=True)
+    p_llist = layers_sub.add_parser("list", help="List the dated layers, their cadence and first and last day")
+    p_llist.add_argument("--live", action="store_true", help="Read the exact intervals (gaps included) from GIBS")
+    p_llist.add_argument("--json", action="store_true")
+    p_lframes = layers_sub.add_parser("frames", help="The dates and tile URLs of a time-lapse of one layer")
+    p_lframes.add_argument("layer", help="daily, precip, soil, snow, lst or storage")
+    p_lframes.add_argument("--start", required=True, help="YYYY-MM-DD")
+    p_lframes.add_argument("--end", required=True, help="YYYY-MM-DD")
+    p_lframes.add_argument("--step", choices=["day", "week", "month"], default="day")
+    p_lframes.add_argument("--max-frames", type=int, default=60)
+    p_lframes.add_argument("--json", action="store_true")
+    p_lstatus = layers_sub.add_parser("status", help="The world river status map for a month (GEOGLOWS HydroSOS, "
+                                      "1990 on): its URL, legend, licence and the months that exist")
+    p_lstatus.add_argument("month", nargs="?", default=None, help="YYYY-MM (default: the newest month)")
+    p_lstatus.add_argument("--offline", action="store_true", help="Do not list the bucket; use the recorded range")
+    p_lstatus.add_argument("--summary", action="store_true",
+                           help="Read the month's map and say in one line where the rivers are low or high, "
+                                "with each named region's share below and above normal")
+    p_lstatus.add_argument("--json", action="store_true")
+    p_lscout = layers_sub.add_parser("scout", help="What stands out on the map: the largest areas much above or "
+                                     "below normal, the strongest floods ahead and past, gauges at extremes, and "
+                                     "gauges no model matches, each with its reason and source (the Explorer's Scout)")
+    p_lscout.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_lscout.add_argument("--month", default=None, help="YYYY-MM for the status and Floods past layers (default: newest)")
+    p_lscout.add_argument("--pins", type=int, default=10, help="How many findings (default 10)")
+    p_lscout.add_argument("--published", action="store_true",
+                          help="Read the daily scout file (with its record checks) instead of scanning now")
+    p_lscout.add_argument("--no-places", action="store_true", help="Do not name places with the gazetteer (Photon)")
+    p_lscout.add_argument("--json", action="store_true")
+    p_lexplain = layers_sub.add_parser("explain", help="Explain a view of the Explorer's map: facts read by code from "
+                                       "the river status, Floods ahead, Floods past and the gauges, and 3 to 5 notes")
+    p_lexplain.add_argument("bbox", nargs=4, type=float, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_lexplain.add_argument("--date", default=None, help="The map date, YYYY-MM-DD (default: today)")
+    p_lexplain.add_argument("--layers", nargs="+", default=None,
+                            help="Among status, floods_ahead, floods_past, gauges (default: all four)")
+    p_lexplain.add_argument("--facts", action="store_true", help="List every fact, not only the notes")
+    p_lexplain.add_argument("--no-places", action="store_true", help="Do not name places with the gazetteer")
+    p_lexplain.add_argument("--llm", action="store_true", help="Word the notes with your own model (claim-locked)")
+    p_lexplain.add_argument("--provider", choices=provider_ids(), default=None)
+    p_lexplain.add_argument("--model", default=None)
+    p_lexplain.add_argument("--api-key", default=None)
+    p_lexplain.add_argument("--json", action="store_true")
+    p_ldepth = layers_sub.add_parser("depth", help="Flood depth where floods are forecast: the JRC depth map around a "
+                                     "Floods ahead reach, or over a box (#554)")
+    p_ldepth.add_argument("river_id", nargs="?", default=None, help="A GEOGLOWS reach in today's Floods ahead")
+    p_ldepth.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=None,
+                          help="A box instead (up to 2 x 2 degrees)")
+    p_ldepth.add_argument("--rp", type=int, default=None, help="Return period: 10, 20, 50, 75, 100, 200 or 500 "
+                          "(default: the one the forecast reaches, or 100 for a box)")
+    p_ldepth.add_argument("--day", default=None, help="A day of the forecast (YYYY-MM-DD) instead of its peak")
+    p_ldepth.add_argument("--radius-km", type=float, default=None, help="How far around the reach (default by order)")
+    p_ldepth.add_argument("--no-sample", action="store_true", help="Do not read the depth, only say where it is")
+    p_ldepth.add_argument("--local", default=None, help="A local Floods ahead run folder instead of the Archive")
+    p_ldepth.add_argument("--json", action="store_true")
+    # ── map (#561) ───────────────────────────────────────────────────
+    p_map = sub.add_parser("map", help="Read a plain-English request about the Explorer's map into map actions "
+                           "(the keyless phrase grammar, or --llm with your own key)")
+    p_map.add_argument("request", nargs="+", help='For example: "trace the Nile to the sea"')
+    p_map.add_argument("--resolve", action="store_true", help="Look place names up in the gazetteer (Photon, OSM)")
+    p_map.add_argument("--llm", action="store_true", help="Ask your own model instead of the rules")
+    p_map.add_argument("--provider", choices=provider_ids(), default=None)
+    p_map.add_argument("--model", default=None)
+    p_map.add_argument("--api-key", default=None)
+    p_map.add_argument("--today", default=None, help="Read dates as if today were YYYY-MM-DD")
+    p_map.add_argument("--json", action="store_true")
+    # ── what if, on the map (#565) ───────────────────────────────────
+    p_wi = sub.add_parser("whatif", help="A what-if scenario for a river reach's basin (GR4J) and its change carried "
+                          "down the river: the Explorer's What if on the map")
+    p_wi.add_argument("scenario", nargs="*", help='In words, for example: "20%% less rain and 2 degrees warmer"')
+    p_wi.add_argument("--river", default=None, help="A GEOGLOWS v2 river_id (or give --lat and --lon to snap)")
+    p_wi.add_argument("--lat", type=float, default=None)
+    p_wi.add_argument("--lon", type=float, default=None)
+    p_wi.add_argument("--source", default=None, help="With --station: calibrate on this gauge instead of GEOGLOWS")
+    p_wi.add_argument("--station", default=None)
+    p_wi.add_argument("--area", type=float, default=None, help="The gauge's catchment area, km2")
+    p_wi.add_argument("--rain", type=float, default=None, help="Rain change in %% (-20 is 20%% less)")
+    p_wi.add_argument("--warming", type=float, default=None, help="Warming in degrees C")
+    p_wi.add_argument("--evaporation", type=float, default=None, help="Evaporation change in %% (default 3%% a degree)")
+    p_wi.add_argument("--demand", type=float, default=None, help="Water taken from the river, m3/s")
+    p_wi.add_argument("--rp", type=float, default=10.0, help="The flood's return period, years (default 10)")
+    p_wi.add_argument("--confluences", type=int, default=3, help="How many major confluences to carry the change past")
+    p_wi.add_argument("--members", type=int, default=24, help="Parameter sets tried for the range (0: no range)")
+    p_wi.add_argument("--llm", action="store_true", help="Read the words with your own model instead of the rules")
+    p_wi.add_argument("--provider", choices=provider_ids(), default=None)
+    p_wi.add_argument("--model", default=None)
+    p_wi.add_argument("--api-key", default=None)
+    p_wi.add_argument("--json", action="store_true")
+    # ── model results on a mesh (#555) ──────────────────────────────
+    p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
+                            "times, the largest depth and speed")
+    p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file; or 'review' then the "
+                        "file, to check the run (#564)")
+    p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
+                        help="With 'review': the model result to check")
+    p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
+    p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
+                        help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
+                             "results but not the mesh (a *.p01.timeseries.hdf)")
+    p_mesh.add_argument("--offline", action="store_true",
+                        help="With 'review': only the checks on the file (no observed floods, no gauges)")
+    p_mesh.add_argument("--top", type=int, default=5, help="With 'review': how many of the deepest places to list")
+    p_mesh.add_argument("--json", action="store_true")
+    # ── EPA SWMM models and results (#560) ──────────────────────────
+    p_swmm = sub.add_parser("swmm", help="What an EPA SWMM model (.inp) and its results (.out) hold: the network, "
+                            "the flooding nodes, the largest flows")
+    p_swmm.add_argument("files", nargs="+", help="A SWMM .inp file, its .out results file, or both")
+    p_swmm.add_argument("--crs", default=None, help="The model's coordinate system (EPSG code) to place it on the globe")
+    p_swmm.add_argument("--top", type=int, default=5, help="How many flooding nodes and links to list")
+    p_swmm.add_argument("--element", default=None, help="A node or link id: add its time series (with --json)")
+    p_swmm.add_argument("--json", action="store_true")
     # ── basins ───────────────────────────────────────────────────────
+    p_bul = sub.add_parser("bulletin", help="The month's state of the rivers: every Archive gauge against normal, "
+                           "HydroSOS classes")
+    p_bul.add_argument("month", nargs="?", default=None, help="YYYY-MM (default: the latest published, else the last full month)")
+    p_bul.add_argument("--sources", nargs="+", default=None, help="Only these sources (usgs, uk_ea, ...)")
+    p_bul.add_argument("--archive", default=None, help="A local copy of the Archive dataset instead of the Hub")
+    p_bul.add_argument("--rebuild", action="store_true", help="Build it even when a bulletin is published")
+    p_bul.add_argument("--top-up", type=int, default=0, help="Ask the agencies for up to N gauges' missing days")
+    p_bul.add_argument("--workers", type=int, default=4)
+    p_bul.add_argument("--out", default=None, help="Write bulletins/<month>/ (HTML, Markdown, map, status) here")
+    p_bul.add_argument("--no-map", action="store_true", help="Leave the map out (no matplotlib needed)")
+    p_bul.add_argument("--gauges", action="store_true", help="With --json, include every classed gauge")
+    p_bul.add_argument("--json", action="store_true")
+    p_warn = sub.add_parser("warnings", help="Floods ahead: river reaches the GEOGLOWS forecast expects to reach "
+                            "their 2-year flow in the next 15 days (model output, not an official warning)")
+    p_warn.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_warn.add_argument("--min-rp", type=int, default=2, help="Only reaches at or above this return period (years)")
+    p_warn.add_argument("--limit", type=int, default=20, help="Reaches listed (highest class first)")
+    p_warn.add_argument("--local", default=None, help="Read an issue written by python -m aquascope.archive.warnings")
+    p_warn.add_argument("--json", action="store_true")
+    p_wb = sub.add_parser("waterbalance", help="Subbasins by monthly water balance: rain, evaporation, runoff and "
+                          "the closure error P - ET - Q (ERA5, GEOGLOWS v2; modelled)")
+    p_wb.add_argument("--basin", type=int, default=None, metavar="HYBAS_ID", help="A HydroBASINS level-4 subbasin")
+    p_wb.add_argument("--at", nargs=2, type=float, default=None, metavar=("LAT", "LON"),
+                      help="The subbasin holding this point")
+    p_wb.add_argument("--month", default=None, help="YYYY-MM (default the newest)")
+    p_wb.add_argument("--months", type=int, default=24, help="Months listed for a subbasin (24)")
+    p_wb.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_wb.add_argument("--variable", default="p", choices=["p", "et", "q", "closure"],
+                      help="Without a subbasin: rank the month's subbasins by their anomaly in this")
+    p_wb.add_argument("--limit", type=int, default=20)
+    p_wb.add_argument("--local", default=None, help="Read a folder written by python -m aquascope.waterbalance")
+    p_wb.add_argument("--json", action="store_true")
+    p_fs = sub.add_parser("flowstatus", help="Flow against normal: every big river reach's forecast flow today "
+                          "against its normal for the month (GEOGLOWS, modelled)")
+    p_fs.add_argument("--bbox", nargs=4, type=float, default=None, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
+    p_fs.add_argument("--river-id", type=int, default=None, help="One GEOGLOWS reach: its flow, class and normal")
+    p_fs.add_argument("--local", default=None, help="Read folders written by python -m aquascope.flowstatus")
+    p_fs.add_argument("--json", action="store_true")
+    p_now = sub.add_parser("now", help="Today against normal and the next 15 days (GEOGLOWS, GloFAS), corrected to a gauge")
+    p_now.add_argument("coords", nargs="*", type=float, metavar="LAT LON", help="A point, snapped to its river reach")
+    p_now.add_argument("--station", default=None, metavar="SOURCE/ID", help="A gauge: its status, and the forecast "
+                       "corrected to its record")
+    p_now.add_argument("--river-id", type=int, default=None, help="A GEOGLOWS river reach")
+    p_now.add_argument("--days", type=int, default=15, help="Forecast days (15)")
+    p_now.add_argument("--date", default=None, help="The status on another day (YYYY-MM-DD)")
+    p_now.add_argument("--raw", action="store_true", help="Do not correct the forecast to the gauge")
+    p_now.add_argument("--status-only", action="store_true", help="Only today against normal, no forecast")
+    p_now.add_argument("--quick", action="store_true",
+                       help="Only the two forecasts: no thresholds or correction (skips the simulated record)")
+    p_now.add_argument("--plume", action="store_true",
+                       help="The FEWS view of the reach: the 51-member plume day by day, its return-period classes "
+                       "and the members past each")
+    p_now.add_argument("--csv", default=None, help="Write the forecast to this CSV")
+    p_now.add_argument("--json", action="store_true")
+    p_watch = sub.add_parser("watch", help="What changed at watched gauges, reaches and areas since a date")
+    p_watch.add_argument("ids", nargs="+", metavar="ID",
+                         help="source/station_id, river:<reach id> or area:west,south,east,north")
+    p_watch.add_argument("--since", default=None, help="Last look, YYYY-MM-DD (default: a week ago)")
+    p_watch.add_argument("--threshold", action="append", metavar="ID=VALUE",
+                         help="Per item: a value (usgs/USGS-01646500=300) or a return period (=10y); repeatable. "
+                         "Without one, forecasts are checked against the 2-year flow")
+    p_watch.add_argument("--forecast", choices=["auto", "archive", "live", "off"], default="auto",
+                         help="Where the forecast comes from (auto: the forecast archive, else GEOGLOWS now)")
+    p_watch.add_argument("--no-forecast", action="store_true", help="Skip the forecast")
+    p_watch.add_argument("--no-floods", action="store_true", help="Skip flood events in the news")
+    p_watch.add_argument("--no-refresh", action="store_true", help="Do not ask the agency for its newest days")
+    p_watch.add_argument("--json", action="store_true")
+    p_river = sub.add_parser("river", help="River reaches (GEOGLOWS v2): snap a point, the modelled record, the trace")
+    river_sub = p_river.add_subparsers(dest="river_cmd", required=True)
+    p_rsnap = river_sub.add_parser("snap", help="The river reach a point stands for (the main channel within the "
+                                   "tolerance), or 'no stream within N m'")
+    p_rsnap.add_argument("lat", type=float)
+    p_rsnap.add_argument("lon", type=float)
+    p_rsnap.add_argument("--max-distance", type=float, default=1000.0, help="Snap tolerance in metres (1000)")
+    p_rsnap.add_argument("--nearest", action="store_true",
+                         help="Take the nearest line rather than the main channel within the tolerance")
+    p_rsnap.add_argument("--area", type=float, default=None,
+                         help="A gauge's catchment area in km2: take the reach whose upstream area matches it")
+    p_rsnap.add_argument("--json", action="store_true")
+    for name, helptext in (("record", "86 years of simulated daily flow for a reach, analysed like a gauge"),
+                           ("area", "The area draining to a reach"),
+                           ("trace", "Follow a reach to its outlet: length, path, gauges, dams and countries"),
+                           ("dams", "Dams upstream of a reach (Global Dam Watch) and the degree of regulation"),
+                           ("upstream", "The river_ids of every reach that drains to a reach"),
+                           ("downstream", "The river_ids from a reach to its outlet")):
+        p_r = river_sub.add_parser(name, help=helptext)
+        p_r.add_argument("river_id", nargs="?", type=int, default=None)
+        p_r.add_argument("--at", nargs=2, type=float, metavar=("LAT", "LON"), help="Snap this point first")
+        p_r.add_argument("--max-distance", type=float, default=1000.0, help="Snap tolerance in metres (1000)")
+        p_r.add_argument("--json", action="store_true")
+        if name == "record":
+            p_r.add_argument("--years", type=int, default=None, help="Only the last N years")
+            p_r.add_argument("--csv", default=None, help="Write the daily simulated series to this CSV")
+        if name == "trace":
+            p_r.add_argument("--gauge-km", type=float, default=2.0, help="List gauges this close to the path (2)")
+            p_r.add_argument("--dam-km", type=float, default=2.0, help="List dams this close to the path (2)")
+            p_r.add_argument("--geojson", default=None, help="Write the path to this GeoJSON file")
+        if name in ("upstream", "downstream"):
+            p_r.add_argument("--max", type=int, default=20_000 if name == "upstream" else 5_000,
+                             help="At most this many ids (upstream keeps the largest drainage areas)")
+        if name == "dams":
+            p_r.add_argument("--no-flow", action="store_true",
+                             help="Skip the mean-flow request (one ~10 s GEOGLOWS call) and the degree of regulation")
+
+    p_ev = sub.add_parser("evidence", help="Model skill at a gauge: GEOGLOWS, GloFAS, NWM and GRRR graded A to D")
+    ev_sub = p_ev.add_subparsers(dest="evidence_cmd", required=True)
+    p_evs = ev_sub.add_parser("skill", help="Score every global model against one gauge's record")
+    p_evs.add_argument("source", nargs="?", default=None, help="Station source (usgs, uk_ea, ...)")
+    p_evs.add_argument("station_id", nargs="?", default=None)
+    p_evs.add_argument("--at", nargs=2, type=float, metavar=("LAT", "LON"), help="The gauge position (with --csv)")
+    p_evs.add_argument("--csv", default=None, help="Your own daily discharge record: date,value in m3/s")
+    p_evs.add_argument("--area", type=float, default=None, help="The gauge's catchment area in km2")
+    p_evs.add_argument("--models", nargs="+", choices=["geoglows", "glofas", "nwm", "grrr"], default=None)
+    p_evs.add_argument("--years", type=int, default=30, help="Score the last N years of the record (30; 0 = all)")
+    p_evs.add_argument("--json", action="store_true")
+    p_evn = ev_sub.add_parser("near", help="Which model to lean on near a site, from the published skill")
+    p_evn.add_argument("lat", type=float)
+    p_evn.add_argument("lon", type=float)
+    p_evn.add_argument("--radius-km", type=float, default=150.0)
+    p_evn.add_argument("--json", action="store_true")
+    p_evb = ev_sub.add_parser("build", help="The monthly skill table for the Archive gauges (CI)")
+    p_evb.add_argument("--archive", required=True, help="A local copy of the dataset")
+    p_evb.add_argument("--out", required=True)
+    p_evb.add_argument("--max-gauges", type=int, default=4000)
+    p_evb.add_argument("--nwm-years", type=int, default=10)
+    p_evb.add_argument("--nwm-max-columns", type=int, default=24)
+    p_evb.add_argument("--grrr-max-chunks", type=int, default=2000)
+    p_evb.add_argument("--workers", type=int, default=8)
+    p_evb.add_argument("--smoke", action="store_true", help="Six gauges, never published")
+    p_evp = ev_sub.add_parser("publish", help="Upload the skill table to the Archive (skill/ only)")
+    p_evp.add_argument("--out", required=True)
+    p_evp.add_argument("--repo", default="Rekin226/aquascope-gauges")
+
     p_basins = sub.add_parser("basins", help="Catchments from BasinATLAS (HydroATLAS, CC BY 4.0) in the Archive")
     basins_sub = p_basins.add_subparsers(dest="basins_cmd", required=True)
     p_bat = basins_sub.add_parser("at", help="Describe the catchment upstream of a point")
@@ -3469,6 +4928,30 @@ def main() -> None:
     p_assess.add_argument("--radius-km", type=float, default=50.0, help="How far a gauge may be to count (default 50)")
     p_assess.add_argument("--return-period", type=float, default=None, help="The T (years) the question asks for")
     p_assess.add_argument("--json", action="store_true")
+
+    p_ctx = sub.add_parser(
+        "context",
+        help="Flood history, surface water, flood hazard, dams, rain gauge, actual ET and soil at a place",
+    )
+    p_ctx.add_argument("lat", type=float, nargs="?", default=None)
+    p_ctx.add_argument("lon", type=float, nargs="?", default=None,
+                       help="Longitude (a negative value is fine as a positional)")
+    p_ctx.add_argument("--bbox", default=None,
+                       help="west,south,east,north instead of a point (write --bbox=-77,38,-76,39 when it starts "
+                            "with a minus)")
+    p_ctx.add_argument("--layers", default=None,
+                       help="Comma-separated: flood_history, surface_water, flood_hazard, dams, rain_gauge, "
+                            "actual_et, soil (default all)")
+    p_ctx.add_argument("--floods-past", action="store_true",
+                       help="Floods past (#547): flood events in the news and floods seen by radar by month, "
+                            "worldwide or in --bbox; the latest 12 months on record unless --month or --from/--to")
+    p_ctx.add_argument("--month", default=None, help="With --floods-past: one month, YYYY-MM")
+    p_ctx.add_argument("--from", dest="start", default=None, help="With --floods-past: first month, YYYY-MM")
+    p_ctx.add_argument("--to", dest="end", default=None,
+                       help="With --floods-past: last month, YYYY-MM (at most 60 months)")
+    p_ctx.add_argument("--limit", type=int, default=20,
+                       help="With --floods-past: news events listed for a small box (default 20)")
+    p_ctx.add_argument("--json", action="store_true")
 
     p_area = sub.add_parser(
         "area-study", help="Study the gauges of an area together: per-site floods, trend field, regional growth curve"
@@ -3961,14 +5444,25 @@ def main() -> None:
     p_alerts.add_argument("--param-col", default="parameter", help="Column containing parameter names")
 
     # ── groundwater ──────────────────────────────────────────────────
-    p_gw = sub.add_parser("groundwater", help="Run groundwater analysis (trend, recession, recharge, Theis)")
+    p_gw = sub.add_parser("groundwater", help="Run groundwater analysis (trend, recession, recharge, Theis), or "
+                          "'groundwater surface': the head surface from the Archive's wells (#558)")
+    p_gw.add_argument("action", nargs="?", choices=["surface"], default=None,
+                      help="surface: a groundwater-level surface and its change from the Archive's wells")
     p_gw.add_argument(
         "--analysis",
-        required=True,
+        default=None,
         choices=["trend", "recession", "seasonal", "hydrograph", "recharge-wtf", "theis"],
-        help="Analysis type",
+        help="Analysis type (needed without 'surface')",
     )
-    p_gw.add_argument("--file", required=True, help="Path to well level data (CSV with DatetimeIndex)")
+    p_gw.add_argument("--file", default=None, help="Path to well level data (CSV with DatetimeIndex)")
+    p_gw.add_argument("--bbox", nargs=4, type=float, metavar=("W", "S", "E", "N"), default=None,
+                      help="surface: the box (default every well)")
+    p_gw.add_argument("--month", default=None, help="surface: the month, YYYY-MM (default the newest well covered)")
+    p_gw.add_argument("--mode", choices=["level", "change"], default="level",
+                      help="surface: the head (level) or its change against --compare (default 12 months earlier)")
+    p_gw.add_argument("--compare", default=None, help="surface: the earlier month for --mode change, YYYY-MM")
+    p_gw.add_argument("--geojson", default=None, help="surface: write the drawn cells, contours and wells here")
+    p_gw.add_argument("--json", action="store_true", help="surface: print the whole result as JSON")
     p_gw.add_argument(
         "--specific-yield", type=float, default=0.15, help="Specific yield for WTF recharge (default: 0.15)"
     )
@@ -3977,6 +5471,26 @@ def main() -> None:
     p_gw.add_argument("--pumping-rate", type=float, default=None, help="Pumping rate m³/day (Theis)")
     p_gw.add_argument("--distance", type=float, default=None, help="Distance from well in metres (Theis)")
     p_gw.add_argument("--output", default=None, help="Save results to JSON")
+
+    # ── modflow (#558) ───────────────────────────────────────────────
+    p_mf = sub.add_parser("modflow", help="Read MODFLOW heads (.hds) onto a map: cells in lon/lat, heads per "
+                          "layer and time, as a summary or GeoJSON (#558)")
+    p_mf.add_argument("hds", help="The binary head (or drawdown) file, MODFLOW-2005 or MODFLOW 6")
+    p_mf.add_argument("--grid", default=None, help="Its grid: .dis, .disv (text) or .dis.grb/.disv.grb (MODFLOW 6)")
+    p_mf.add_argument("--sidecar", action="append", default=None,
+                      help="Another file that says where or when (a .nam with FloPy's georeference, a .tdis)")
+    p_mf.add_argument("--origin", nargs=2, type=float, metavar=("X", "Y"), default=None,
+                      help="The grid's lower-left corner in --crs (overrides the grid file)")
+    p_mf.add_argument("--rotation", type=float, default=None, help="Degrees counter-clockwise (overrides the grid)")
+    p_mf.add_argument("--crs", default=None, help="The model's CRS, e.g. EPSG:27700 (needed if the files have none)")
+    p_mf.add_argument("--cell-size", nargs="+", type=float, default=None,
+                      help="Without --grid: the cell width (and height) of a regular grid")
+    p_mf.add_argument("--start-date", default=None, help="Model time 0 as YYYY-MM-DD, to give times as dates")
+    p_mf.add_argument("--time-units", default=None, help="days (default), hours, minutes, seconds or years")
+    p_mf.add_argument("--time", type=int, default=-1, help="Which time step (index, default the last)")
+    p_mf.add_argument("--layer", type=int, default=None, help="Which layer (1-based, default the first)")
+    p_mf.add_argument("--geojson", default=None, help="Write that time and layer's cells with their head here")
+    p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────
     p_climate = sub.add_parser("climate", help="Climate projections and indices")
@@ -3994,6 +5508,34 @@ def main() -> None:
     p_climate.add_argument("--output", default=None, help="Save results to JSON")
 
     # ── hydro ─────────────────────────────────────────────────────────
+    p_export = sub.add_parser(
+        "export", help="Inputs for HEC-HMS, HEC-RAS, HEC-SSP, HEC-DSS, SWMM, MODFLOW 6, Delft-FEWS or Raven (#519)"
+    )
+    p_export.add_argument("--to", required=True, choices=[*EXPORT_TOOLS, "all"], help="The tool to write inputs for")
+    p_export.add_argument("--station", default=None, help="A gauge as source/station_id, e.g. usgs/01646500")
+    p_export.add_argument("--file", default=None, help="Or a CSV: a date column, then the values")
+    p_export.add_argument("--column", default=None, help="The value column of --file (default: first numeric)")
+    p_export.add_argument("--variable", default=None,
+                          help="discharge (default), water_level, groundwater_level or precipitation")
+    p_export.add_argument("--unit", default=None, help="Unit of --file values (default m3/s, m or mm)")
+    p_export.add_argument("--location", default=None, help="Identifier for --file in the outputs")
+    p_export.add_argument("--years", type=int, default=None, help="Only the last N years of the gauge record")
+    p_export.add_argument("-o", "--out-dir", default="aquascope-export", help="Folder to write (default aquascope-export)")
+    p_export.add_argument("--zip", action="store_true", help="Write one zip (OUT_DIR.zip) instead of a folder")
+    p_export.add_argument("--no-dss", action="store_true", help="Write the DSS CSV even where hecdss loads")
+    p_export.add_argument("--regional-skew", type=float, default=None, help="HEC-SSP: weight the skew with this")
+    p_export.add_argument("--regional-skew-mse", type=float, default=None, help="HEC-SSP: MSE of the regional skew")
+    p_export.add_argument("--year-start-month", type=int, default=10, help="HEC-SSP: first month of the water year")
+    p_export.add_argument("--subbasin-id", type=int, default=1, help="Raven: the subbasin at the gauge")
+    p_export.add_argument("--cell", type=int, nargs=3, metavar=("LAYER", "ROW", "COL"), default=None,
+                          help="MODFLOW 6: the river or well cell (default 1 1 1)")
+    p_export.add_argument("--cond", type=float, default=None, help="MODFLOW 6 RIV: riverbed conductance")
+    p_export.add_argument("--rbot", type=float, default=None, help="MODFLOW 6 RIV: riverbed bottom elevation")
+    p_export.add_argument("--period", default=None, help="MODFLOW 6: resample first, e.g. MS for monthly")
+    p_export.add_argument("--engine", choices=["text", "flopy"], default="text",
+                          help="MODFLOW 6: write as text (default) or through FloPy")
+    p_export.add_argument("--json", action="store_true", help="Print the written paths and notes as JSON")
+
     p_hydro = sub.add_parser("hydro", help="Run hydrological analysis (FDC, baseflow, recession, flood-freq)")
     p_hydro.add_argument(
         "--analysis",
@@ -4021,7 +5563,21 @@ def main() -> None:
         "harvest": cmd_harvest,
         "mcp": cmd_mcp,
         "basins": cmd_basins,
+        "layers": cmd_layers,
+        "map": cmd_map,
+        "mesh": cmd_mesh,
+        "whatif": cmd_whatif,
+        "swmm": cmd_swmm,
+        "river": cmd_river,
+        "evidence": cmd_evidence,
+        "now": cmd_now,
+        "bulletin": cmd_bulletin,
+        "warnings": cmd_warnings,
+        "waterbalance": cmd_waterbalance,
+        "flowstatus": cmd_flowstatus,
+        "watch": cmd_watch,
         "assess": cmd_assess,
+        "context": cmd_context,
         "area-study": cmd_area_study,
         "gym": cmd_gym,
         "caravan": cmd_caravan,
@@ -4038,10 +5594,12 @@ def main() -> None:
         "forecast": cmd_forecast,
         "plot": cmd_plot,
         "hydro": cmd_hydro,
+        "export": cmd_export,
         "alerts": cmd_alerts,
         "dashboard": cmd_dashboard,
         "agri": cmd_agri,
         "groundwater": cmd_groundwater,
+        "modflow": cmd_modflow,
         "climate": cmd_climate,
         "completion": cmd_completion,
     }
