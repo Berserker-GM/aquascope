@@ -7,9 +7,10 @@ each cell over the run.
 
 The same reader (`aquascope.io.mesh`) is behind every face:
 
-- **Explorer**: drop the file on the map, or **Tools**, **Open model results**. The mesh is
-  drawn on the globe, the time bar steps through the model's own times, and a click on a
-  cell opens its card. The file stays in your browser ([explorer.md](explorer.md#your-model-results-on-the-globe-the-crayfish-view)).
+- **Explorer**: drop the file on the map, or **Tools**, **Open model results**, which also
+  offers a sample HEC-RAS 2D run (a HydroShare result, CC BY 4.0, from the Archive's copy in
+  `samples/hec-ras/`). The mesh is drawn on the globe, the time bar steps through the
+  model's own times, and a click on a cell opens its card. The file stays in your browser ([explorer.md](explorer.md#your-model-results-on-the-globe-the-crayfish-view)).
 - **CLI**: `aquascope mesh FILE [--crs EPSG] [--geometry G01_HDF] [--json]`.
 - **MCP**: `mesh_summary(path, crs, geometry)`.
 - **Python**: `read_ras_plan`, `read_ugrid` or `read_mesh`, and `mesh_summary`.

@@ -32,6 +32,7 @@ import { initFloodsAhead } from "./src/floods-ahead.js?v=__BUILD__";  // Floods 
 import { initFlowStatus } from "./src/flowstatus-layer.js?v=__BUILD__";  // Flow vs normal on the rivers (#559)
 import { initFloodDepth } from "./src/flood-depth.js?v=__BUILD__";  // flood depth where floods are forecast (#554)
 import { initMeshView } from "./src/mesh-view.js?v=__BUILD__";  // your model results on the globe (#555)
+import { initModelSamples } from "./src/model-samples.js?v=__BUILD__";  // Open model results: your files or a sample (#591)
 import { initMeshReview } from "./src/mesh-review.js?v=__BUILD__";  // review my model results (#564)
 import { initSearch } from "./src/search.js?v=__BUILD__";
 import { initShell, initTabs, selectTab, setStatusEl, showSurface } from "./src/shell.js?v=__BUILD__";
@@ -200,6 +201,7 @@ function bringMapOnline(url) {
   initFloodsPast();
   initGroundwater();
   initWaterBalance();
+  initModelSamples();
   initMeshView();
   initMeshReview();
   initMapActions();   // after every layer it can switch (#561)

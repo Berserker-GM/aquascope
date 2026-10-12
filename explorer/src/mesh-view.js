@@ -1,5 +1,6 @@
 // Your model results on the globe (#555): the Crayfish view, in the page. Drop a HEC-RAS 2D plan file or a
-// UGRID NetCDF mesh result on the map (or Tools, "Open model results") and the mesh is drawn on the globe:
+// UGRID NetCDF mesh result on the map (or Tools, "Open model results", which also opens a sample: model-samples.js)
+// and the mesh is drawn on the globe:
 // the largest depth in each cell by default, in blues, with velocity arrows at a readable density, optional
 // particle traces, and the time bar switched to the model's own times to step and play through the run.
 // A click on a cell opens the map card with the depth, the velocity and the time series there.
@@ -16,7 +17,7 @@ import { cardOpen, closeCard, openCard, updateCard } from "./map-card.js?v=__BUI
 import { openLegendRow, refreshLegend, registerLegendRow } from "./map-legend.js?v=__BUILD__";
 import { modelClockOn, releaseModelClock, setModelStep, useModelClock } from "./time-ui.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
-import { isModflowDrop } from "./groundwater-core.js?v=__BUILD__";
+import { MODFLOW_ACCEPT, isModflowDrop } from "./groundwater-core.js?v=__BUILD__";
 import {
   ACCEPT, advect, arrowSize, bearing, binOf, buildIndex, canvasFrame, cellAt, cellFacts, checkFile, colorAt, friendlyError, legendLine, pickModelFiles,
   metresPer, modelShort, modelTime, packedBins, paintPixels, particleTimeScale, rampCss, rangeWords, rasterizeIds, scaleFor,
@@ -39,8 +40,8 @@ let workerReady = null;
 let reqId = 0;
 const waiting = new Map();
 
-let mesh = null;        // { meta, arrays, index, scale, frame }
-let pending = null;     // { file, geometry } while a file waits for its coordinate system
+let mesh = null;        // { meta, arrays, index, scale, frame, sample }
+let pending = null;     // { file, geometry, sample } while a file waits for its coordinate system
 let view = "max";       // "max" (largest over the run) or "step"
 let step = 0;           // the model step on show, and the step the arrows come from in the max view
 let frame = null;       // { step, value, u, v } of `step`
@@ -132,21 +133,27 @@ function showStatus({ text = "", busy = false, error = false, askCrs = false, ke
         `<p class="ms-hint">The code of the projection the model was built in: RAS Mapper's projection, or the ` +
         `grid's EPSG code. <a href="https://epsg.io/" target="_blank" rel="noopener">Find a code</a></p>`
       : "") +
-    (error && !askCrs ? '<div class="ms-row"><button type="button" class="btn small" data-act="pick">Choose another file</button></div>' : "") +
+    (error && !askCrs ? '<div class="ms-row"><button type="button" class="btn small" data-act="pick">Choose another file</button>' +
+      (actions.openModelChooser ? '<button type="button" class="btn small" data-act="samples">Try a sample model</button>' : "") + "</div>" : "") +
     (busy ? `<p class="ms-hint">${escapeHtml(CREDIT)}</p>` : "");
   if (askCrs) setTimeout(() => { const box = el.querySelector("input[name=epsg]"); if (box) box.focus(); }, 0);
 }
 
 // ── opening a file ──────────────────────────────────────────────────────────
 
-/** Open what a drop or a pick brought: a model result, with its HEC-RAS geometry file when one came along. */
-export function openModelFiles(files) {
+/** The status card under the map, for the samples' fetching (model-samples.js) as for a file being read. */
+export const showModelStatus = (opts) => showStatus(opts);
+
+/** Open what a drop or a pick brought: a model result, with its HEC-RAS geometry file when one came along, or
+ * MODFLOW files, which go to the heads reader (groundwater-view.js, #558). `sample` is the credit of a sample. */
+export function openModelFiles(files, { sample = null } = {}) {
+  if (isModflowDrop(files) && actions.openModflowFiles) { void actions.openModflowFiles([...files], { sample }); return; }
   const got = pickModelFiles(files);
   if (got.why) { showStatus({ text: got.why, error: true }); announce(got.why); return; }
-  openModelFile(got.file, null, got.geometry);
+  openModelFile(got.file, null, got.geometry, { sample });
 }
 
-export async function openModelFile(file, crs = null, geometry = null) {
+export async function openModelFile(file, crs = null, geometry = null, { sample = null } = {}) {
   const why = checkFile(file);
   if (why) { showStatus({ text: why, error: true }); announce(why); return; }
   if (!state.mapOk || !map) { showStatus({ text: "The map could not start in this browser, so a model cannot be drawn.", error: true }); return; }
@@ -158,7 +165,7 @@ export async function openModelFile(file, crs = null, geometry = null) {
   } catch (err) {
     const msg = err.mesh ? friendlyError(err.message, file.name) : String(err.message || err);
     if (/EPSG/.test(msg)) {
-      pending = { file, geometry };
+      pending = { file, geometry, sample };
       showStatus({ text: msg, error: true, askCrs: true });
     } else {
       showStatus({ text: err.mesh ? msg : `Could not read ${file.name}: ${msg}`, error: true });
@@ -168,7 +175,7 @@ export async function openModelFile(file, crs = null, geometry = null) {
   }
   clearMesh({ keepStatus: true, keepWorker: true });   // the worker has already put the new file in its place
   const { meta, arrays } = res;
-  mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable) };
+  mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable), sample };
   dbg.mesh = { name: meta.name, size_bytes: meta.size_bytes, cells: meta.cells, steps: meta.times.length,
     read_ms: meta.read_ms, heap_mb: meta.heap_mb };   // for the timing checks in the PR
   view = "max";
@@ -205,7 +212,8 @@ function zoomTo(duration) {
   map.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: pad, maxZoom: 15, duration });
 }
 
-function pickFile() {
+/** The file picker of Tools, Open model results: a model result, or MODFLOW files. */
+export function pickFile() {
   const input = $("mesh-file");
   if (input) { input.value = ""; input.click(); }
 }
@@ -600,7 +608,9 @@ function keyHtml() {
     `<p class="mv-actions">${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
     `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
-    `stays in your browser</p>` + reviewSection(meta.name);
+    `stays in your browser</p>` +
+    (mesh.sample ? `<p class="fd-src">${escapeHtml(mesh.sample.credit)} <a href="${escapeHtml(mesh.sample.link)}" ` +
+      `target="_blank" rel="noopener">Source</a></p>` : "") + reviewSection(meta.name);
 }
 
 // "NAD83 / Pennsylvania North (ftUS) (EPSG:2271)" -> "EPSG:2271"
@@ -671,12 +681,13 @@ function hasFiles(e) {
 export function initMeshView() {
   const input = $("mesh-file");
   if (input) {
-    input.accept = ACCEPT;
+    input.accept = `${ACCEPT},${MODFLOW_ACCEPT}`;   // MODFLOW picks go to the heads reader, like a drop
     input.multiple = true;   // a stripped plan file and its geometry file, picked together
     input.addEventListener("change", () => { if (input.files && input.files.length) openModelFiles(input.files); });
   }
+  // Tools, Open model results: the chooser (your files, or a sample) is model-samples.js; without it, the picker.
   const btn = $("btn-mesh");
-  if (btn) btn.addEventListener("click", pickFile);
+  if (btn) btn.addEventListener("click", () => (actions.openModelChooser ? actions.openModelChooser() : pickFile()));
   const status = $("mesh-status");
   if (status) {
     status.addEventListener("click", (e) => {
@@ -684,12 +695,13 @@ export function initMeshView() {
       if (!b) return;
       if (b.dataset.act === "close") { pending = null; showStatus(); }
       else if (b.dataset.act === "pick") pickFile();
+      else if (b.dataset.act === "samples" && actions.openModelChooser) { showStatus(); actions.openModelChooser(); }
     });
     status.addEventListener("submit", (e) => {
       e.preventDefault();
       const box = status.querySelector("input[name=epsg]");
       const code = ((box && box.value) || "").trim();
-      if (pending && /^\d{4,6}$/.test(code)) openModelFile(pending.file, code, pending.geometry);
+      if (pending && /^\d{4,6}$/.test(code)) openModelFile(pending.file, code, pending.geometry, { sample: pending.sample });
     });
   }
   const wrap = document.querySelector(".map-wrap");
