@@ -49,13 +49,13 @@ export const SAMPLES = [
 
 export const sampleById = (id) => SAMPLES.find((s) => s.id === id) || null;
 
-/** "10.8 MB", "573 bytes". */
+/** "10.8 MB", "98 kB", "573 bytes": decimal units, as the docs and the Archive's pages give sizes. */
 export function sizeWords(bytes) {
   const n = Number(bytes);
   if (!Number.isFinite(n) || n < 0) return "";
-  if (n < 1024) return `${n} bytes`;
-  if (n < 1024 ** 2) return `${Math.round(n / 1024)} kB`;
-  return `${(n / 1024 ** 2).toFixed(1)} MB`;
+  if (n < 1000) return `${n} bytes`;
+  if (n < 1e6) return `${Math.round(n / 1e3)} kB`;
+  return `${(n / 1e6).toFixed(1)} MB`;
 }
 
 export const totalBytes = (files) => (files || []).reduce((a, f) => a + (Number(f.bytes) || 0), 0);

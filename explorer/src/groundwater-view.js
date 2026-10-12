@@ -605,7 +605,8 @@ function registerRow() {
       if (name === "mode-level") setMode("level");
       else if (name === "mode-change") setMode("change");
       else if (name === "grace") { actions.setOverlay("storage", true); renderLegend(); }
-      else if (name === "modflow") pickFiles();
+      // the model chooser (your files, or the Freyberg sample) when it is there; the file picker without it
+      else if (name === "modflow") (actions.openModelChooser ? actions.openModelChooser() : pickFiles());
       else if (name === "about") about();
       else if (name === "go") map.fitBounds([[GW_EXTENT[0], GW_EXTENT[1]], [GW_EXTENT[2], GW_EXTENT[3]]], { padding: 40, duration: 1400 });
     },

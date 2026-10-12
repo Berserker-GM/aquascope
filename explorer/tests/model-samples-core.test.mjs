@@ -49,19 +49,19 @@ test("the button says what it can do: open, wait, or not published yet", () => {
   const frey = sampleById("modflow-freyberg");
   const ready = sampleButton(frey, "ready");
   assert.equal(ready.disabled, false);
-  assert.match(ready.note, /10\.3 MB/);
+  assert.match(ready.note, /10\.8 MB/);
   const hec = sampleById("hec-ras-portsmouth");
   assert.match(sampleButton(hec, "missing").note, /Not published yet/);
   assert.equal(sampleButton(hec, "missing").disabled, true);
   assert.equal(sampleButton(hec, "checking").disabled, true);
   assert.match(sampleButton(hec, "offline").note, /Could not reach/);
-  assert.match(sampleButton(frey, "loading", { done: 5 * 1024 ** 2 }).note, /5\.0 MB of 10\.3 MB/);
+  assert.match(sampleButton(frey, "loading", { done: 5e6 }).note, /5\.0 MB of 10\.8 MB/);
 });
 
 test("sizes and hashes", () => {
   assert.equal(sizeWords(573), "573 bytes");
-  assert.equal(sizeWords(97882), "96 kB");
-  assert.equal(sizeWords(29906342), "28.5 MB");
+  assert.equal(sizeWords(97882), "98 kB");
+  assert.equal(sizeWords(29906342), "29.9 MB");
   assert.equal(totalBytes(SAMPLES[0].files), 573 + 97882 + 10676004);
   assert.equal(hex(new Uint8Array([0, 15, 255]).buffer), "000fff");
 });

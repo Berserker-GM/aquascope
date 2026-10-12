@@ -58,7 +58,7 @@ when the model has dates. A click on a cell gives its head. See
 [the Explorer](explorer.md#groundwater).
 
 **No model at hand?** **Tools**, **Open model results**, **MODFLOW: the Freyberg model**
-fetches FloPy's transient Freyberg example (`freyberg.nam`, `.dis` and `.hds`, 10.3 MB,
+fetches FloPy's transient Freyberg example (`freyberg.nam`, `.dis` and `.hds`, 10.8 MB,
 public domain) from FloPy's GitHub repository, pinned to one commit, and opens it like a
 drop. Its `.nam` places it.
 
