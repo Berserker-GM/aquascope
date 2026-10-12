@@ -522,13 +522,20 @@ async function statusFromRecord(m) {
 
 // ── the selection's card: a place, or the river it sits on ──────────────────
 
+// The point's name when it has one (#591): from the search, or the gazetteer's nearest water or town.
+function pointName(m) {
+  const l = state.pointLabel;
+  return l && l.lat === m.lat && l.lon === m.lon ? l : null;
+}
+
 function pointModel(p) {
   const id = `point:${p.lat},${p.lon}`;
+  const named = pointName(p);
   return {
     id, kind: "point", lat: p.lat, lon: p.lon, filled: false,
     spec: {
       id, lngLat: [p.lon, p.lat], lift: 40,
-      what: "Place", title: coords(p.lat, p.lon), sub: "",
+      what: "Place", title: named ? named.name : coords(p.lat, p.lon), sub: named ? coords(p.lat, p.lon) : "",
       status: { pending: "Finding the river here…" },
       spark: { pending: true, label: "next 15 days, modelled" },
       figure: { pending: true },
@@ -591,8 +598,12 @@ function onSnap(m, snap) {
     return;
   }
   const order = snap.strahler_order ? `, stream order ${snap.strahler_order}` : "";
+  const named = pointName(m);
+  m.reachId = snap.river_id;
+  m.order = order;
   updateCard(m.id, {
-    what: "River", title: `River reach ${snap.river_id}`, sub: `${coords(m.lat, m.lon)}${order}`,
+    what: "River", title: named ? named.name : `River reach ${snap.river_id}`,
+    sub: named ? `River reach ${snap.river_id} · ${coords(m.lat, m.lon)}${order}` : `${coords(m.lat, m.lon)}${order}`,
     lngLat: Number.isFinite(snap.snap_lat) ? [snap.snap_lon, snap.snap_lat] : m.spec.lngLat,
     status: { pending: "Reading the 15-day forecast…" },
     credit: GEOGLOWS_SHORT,
@@ -702,6 +713,13 @@ export function initMapCard() {
       if (snap && snap.lat !== undefined && (snap.lat !== model.lat || snap.lon !== model.lon)) return;
       model.snap = snap || { error: true };
       if (model.filled) onSnap(model, model.snap);
+    });
+    root.addEventListener("pointname", (e) => {
+      const d = e.detail || {};
+      if (t !== "pt" || !model || model.kind !== "point" || d.lat !== model.lat || d.lon !== model.lon || !d.label) return;
+      const sub = model.reachId ? `River reach ${model.reachId} · ${coords(model.lat, model.lon)}${model.order || ""}`
+        : coords(model.lat, model.lon);
+      updateCard(model.id, { title: d.label.name, sub });
     });
     root.addEventListener("reachchange", (e) => {
       if (!model || (t === "st") !== (model.kind === "gauge")) return;
