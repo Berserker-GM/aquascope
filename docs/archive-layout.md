@@ -56,6 +56,7 @@ published except `health/`, whose writer was merged on 2026-10-12 and publishes 
 | `waterbalance/` | live | experimental |
 | `context/` | live | experimental |
 | `health/` | from the next scheduled runs | experimental |
+| `samples/` | from the first `mirror-samples.yml` run (added 2026-10-12) | experimental |
 
 The experimental prefixes were first published in October 2026 by the 0.26.0 and 0.27.0 jobs. They follow the
 same rules for adding columns, but a path or column there may change in a minor release, with a CHANGELOG
@@ -276,6 +277,23 @@ gzipped CSV per 2-degree cell (`n00_e000` names the cell by its south-west corne
 | `context/floods/monthly/grid.parquet` | both flood sources per half-degree cell and month: `month`, `row`, `col`, `lat`, `lon`, `news`, `radar` | CC BY 4.0 (news), MIT (radar) |
 | `context/floods/monthly/index.json`, `context/floods/monthly/months/<YYYY-MM>.json.gz` | the months covered, and one compact file per month for the Explorer | as above |
 | `context/manifest.json` | per dataset: `rows`, `cells`, `folder`, `licence`, `attribution`, `source`, `built` | |
+
+## `samples/`: sample model results (experimental)
+
+Written by [`mirror-samples.yml`](https://github.com/Rekin226/aquascope/blob/main/.github/workflows/mirror-samples.yml),
+manual and one-off (`python -m aquascope.archive.samples`). An additive path (#591): the files the Explorer's
+"Try a sample model" opens when their own host does not let a browser page fetch them. Each is a byte-for-byte
+copy, checked against the SHA-256 recorded in `aquascope.archive.samples`.
+
+| File | What |
+| --- | --- |
+| `samples/hec-ras/Flood_model.p01_BC12_S6_R6.hdf` | a HEC-RAS 6.5 2D plan result (29.9 MB): compound flooding in Portsmouth, Virginia, 109 steps every 15 minutes |
+| `samples/hec-ras/manifest.json` | `id`, `title`, `about`, `files` (each `path`, `name`, `bytes`, `sha256`), `source` (`url`, `resource`, `title`, `creator`, `publisher`, `licence`, `licence_url`), `attribution`, `mirrored_at`, `made_by` |
+
+Licence: CC BY 4.0. Zandsalimi, Zanko, *GNN4CF: Dataset for Boundary-Aware Graph Neural Networks for Compound
+Flood Forecasting*, HydroShare, resource
+[32aac3af553c4e1fbb997ec58d9de9b6](https://www.hydroshare.org/resource/32aac3af553c4e1fbb997ec58d9de9b6/).
+FloPy's Freyberg example, the MODFLOW sample, is not mirrored: the Explorer reads it from GitHub (public domain).
 
 ## Changing this page
 

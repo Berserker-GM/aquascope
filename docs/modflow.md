@@ -51,10 +51,24 @@ fits on a page. The reader here is plain numpy and imports on a bare install.
 ## Use it
 
 In the Explorer: drop the `.hds` with its grid (and the `.nam` if FloPy wrote one) on the
-map, or **Groundwater** in the legend, then **Your MODFLOW heads**. The files are read in
-your browser's worker and do not leave it. Pick the layer, step through the times with the
-slider, or play the run with the time bar when the model has dates. A click on a cell
-gives its head. See [the Explorer](explorer.md#groundwater).
+map, or use **Tools**, **Open model results**, or **Groundwater** in the legend, then
+**Your MODFLOW heads**. The files are read in your browser's worker and do not leave it.
+Pick the layer, step through the times with the slider, or play the run with the time bar
+when the model has dates. A click on a cell gives its head. See
+[the Explorer](explorer.md#groundwater).
+
+**No model at hand?** **Tools**, **Open model results**, **MODFLOW: the Freyberg model**
+fetches FloPy's transient Freyberg example (`freyberg.nam`, `.dis` and `.hds`, 10.3 MB,
+public domain) from FloPy's GitHub repository, pinned to one commit, and opens it like a
+drop. Its `.nam` places it.
+
+**A model whose files do not say where it is** is never refused. The first choice is
+**Place it at the centre of the map (approximate)**: one click, north up, at its true size
+in its own length unit (metres when the files name none). The legend row and the cell card
+say "approximate placement"; the heads are the model's, the place is not. The second choice
+is the exact form (lower-left corner, rotation, CRS), also reachable later from the legend
+row with **Place it exactly**. In Python the same is
+`read_modflow_heads(..., approximate_at=[lon, lat])`.
 
 ```bash
 aquascope modflow model.hds --grid model.dis.grb --crs EPSG:27700 --origin 450000 120000

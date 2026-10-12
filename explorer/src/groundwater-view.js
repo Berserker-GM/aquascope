@@ -7,9 +7,11 @@
 //    mask. Here the result is painted: the surface in a ramp, the "too few wells" cells hatched in grey, contour
 //    lines on the head, the wells as small dots. The time bar picks the month.
 // 2. Your MODFLOW heads. Drop a .hds (with its .dis, .disv or .dis.grb, and a .nam if FloPy wrote one) on the map,
-//    or open them from the legend: the worker reads them with the same package (the files stay in your browser),
-//    and the cells are drawn on the model grid, layer and time step selectable and played with the time bar when
-//    the model has dates. A small form asks where the model sits when its files do not say.
+//    or open them from the legend or Tools, Open model results (which also has a sample): the worker reads them with
+//    the same package (the files stay in your browser), and the cells are drawn on the model grid, layer and time
+//    step selectable and played with the time bar when the model has dates. When the files do not say where the
+//    model sits, the first choice puts it at the centre of the map, approximately, in one click; the exact form
+//    (origin, rotation, CRS) is the second.
 //
 // The colours, the words and the cards are in groundwater-core.js (node tests it).
 
@@ -24,6 +26,7 @@ import { syncTimeBar } from "./time-ui.js?v=__BUILD__";
 import { writeUrl } from "./url.js?v=__BUILD__";
 import { renderCredits } from "./layer-ui.js?v=__BUILD__";
 import {
+  APPROX_LABEL, approxWords, isApproximate, readApproxChoice,
   GW_EXTENT, GW_SHORT_CREDIT, GW_SINCE, GW_SOURCE, cellsGeoJSON, fmtM, frameOf, gridCellAt, gridCorners,
   headWord, isModflowDrop, keyLines, lengthUnit, maskScale, modelOutline, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
@@ -49,10 +52,10 @@ const windows = new Map();     // month -> readings payload for Python
 let urls = { surface: null, mask: null };
 
 // Your MODFLOW heads
-let model = null;              // { meta, rings, offsets, heads, shape, t, l, name, fc }
+let model = null;              // { meta, rings, offsets, heads, shape, t, l, name, fc, files, sample }
 let modelOn = true;
 let modelBusy = false;
-let pending = null;            // dropped files waiting for the place form
+let pending = null;            // { files, sample }: dropped files waiting for the place form
 
 const vis = (on) => (on ? "visible" : "none");
 const plural = (n, word) => `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
@@ -332,14 +335,18 @@ function onModelClick(e) {
     ? `row ${Math.floor(c / g.drawn_ncol) + 1}, column ${(c % g.drawn_ncol) + 1}` : `cell ${c + 1}`;
   const { lng, lat } = e.lngLat;
   const unit = lengthUnit(model.meta), word = headWord(model.meta);
+  const approx = isApproximate(model.meta);
   openCard({
     id: `gw-model:${c}:${model.t}:${model.l}`, lngLat: [lng, lat], lift: 4,
-    what: "Your MODFLOW heads", title: Number.isFinite(h) ? `${word} ${fmtM(h)}${unit ? ` ${unit}` : ""}` : `No ${word.toLowerCase()} (inactive or dry)`,
+    what: approx ? `Your MODFLOW heads, ${APPROX_LABEL}` : "Your MODFLOW heads", title: Number.isFinite(h) ? `${word} ${fmtM(h)}${unit ? ` ${unit}` : ""}` : `No ${word.toLowerCase()} (inactive or dry)`,
     sub: `${where}, layer ${lay} · ${timeLabel(model.meta, model.t)}`,
-    status: { text: `${model.name}: ${model.meta.text.toLowerCase()} from your file, in the model's length unit.`, color: null },
+    status: { text: `${model.name}: ${model.meta.text.toLowerCase()} from ${model.sample ? "the sample" : "your file"}, in the model's length unit.`, color: null },
     figure: Number.isFinite(h) ? { value: fmtM(h), unit, label: word.toLowerCase() } : null,
-    note: g.block > 1 ? `Drawn in blocks of ${g.block} x ${g.block} cells: this is their mean.` : "",
-    credit: "Your file, read in your browser with aquascope (it did not leave this page).",
+    note: [approx ? "Approximate placement: its files do not say where it is, so it sits at the map's centre, north up. " +
+      "The heads are the model's; the place is not." : "",
+    g.block > 1 ? `Drawn in blocks of ${g.block} x ${g.block} cells: this is their mean.` : ""].filter(Boolean).join(" "),
+    credit: model.sample ? `${model.sample.credit} Read in your browser with aquascope.`
+      : "Your file, read in your browser with aquascope (it did not leave this page).",
   });
 }
 
@@ -385,7 +392,7 @@ function drawOutline() {
   map.getSource(L.modelEdge).setData(ring ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ring } } : EMPTY);
 }
 
-async function loadModel(files, place = {}) {
+async function loadModel(files, place = {}, { sample = null } = {}) {
   const sorted = sortModelFiles(files);
   if (!sorted.hds) {
     openModal("Your MODFLOW heads", "<p>Add the binary head file (<code>.hds</code>, <code>.hed</code> or <code>.bhd</code>), with its grid " +
@@ -402,14 +409,14 @@ async function loadModel(files, place = {}) {
       gridName: sorted.grid ? sorted.grid.name : null, sidecars: await Promise.all(sorted.sidecars.map(read)), place,
     });
     if (out.error) {
-      if (out.needs) { pending = files; placeForm(out, sorted); return; }
+      if (out.needs) { pending = { files, sample }; placeForm(out, sorted); return; }
       openModal("Your MODFLOW heads", `<p>${escapeHtml(out.error)}</p>`);
       return;
     }
     model = {
       meta: out, rings: out.rings, offsets: out.offsets, heads: out.heads, shape: out.shape,
       t: 0, l: 0, name: sorted.hds.name,
-      fc: cellsGeoJSON(out.rings, out.offsets),
+      fc: cellsGeoJSON(out.rings, out.offsets), files, sample,
     };
     modelOn = true;
     pending = null;
@@ -428,40 +435,83 @@ async function loadModel(files, place = {}) {
   }
 }
 
-// Where the model sits, when its files do not say: the lower-left corner, the rotation, the CRS (and the cell
-// size without a grid file). Nothing here is sent anywhere; it goes to the worker with the file.
+// Where the model sits, when its files do not say. Never a wall: the first choice is one click, the model at the
+// centre of the map, north up, at its true size, labelled as an approximate placement on the map. The second is the
+// exact form: the lower-left corner, the rotation, the CRS (and the cell size without a grid file). Nothing here is
+// sent anywhere; it goes to the worker with the file.
 function placeForm(out, sorted) {
   const needCell = !sorted.grid;
   const field = (name, label, hint, value = "") => `<label class="gw-field"><span>${label}</span>` +
     `<input name="${name}" value="${escapeHtml(String(value ?? ""))}" autocomplete="off" spellcheck="false"><small class="muted">${hint}</small></label>`;
+  const size = `${out.nrow} rows x ${out.ncol} columns, ${plural(out.layers.length, "layer")}, ${plural(out.n_times, "time step")}` +
+    `${sorted.grid ? `; grid from ${escapeHtml(out.grid_from || sorted.grid.name)}` : ""}`;
   openModal("Where is this model?", `
-    <form class="gw-form" novalidate>
-      <p>${escapeHtml(out.error)}</p>
-      <p class="muted">${escapeHtml(sorted.hds.name)}: ${out.nrow} rows x ${out.ncol} columns, ${plural(out.layers.length, "layer")},
-        ${plural(out.n_times, "time step")}${sorted.grid ? `; grid from ${escapeHtml(out.grid_from || sorted.grid.name)}` : ""}.</p>
-      <div class="gw-grid">
-        ${field("x", "Lower-left x", "in the CRS's units", out.xorigin || "")}
-        ${field("y", "Lower-left y", "", out.yorigin || "")}
-        ${field("rotation", "Rotation", "degrees, counter-clockwise", out.angrot || "")}
-        ${field("crs", "CRS", "EPSG code, e.g. 27700 or 32631")}
-        ${needCell ? field("cell", "Cell size", "one cell's width, in the CRS's units") : ""}
-        ${field("start", "Start date", "optional, YYYY-MM-DD, for the time bar")}
-      </div>
-      <p class="gw-form-err" role="alert" hidden></p>
-      <div class="gw-form-row"><button class="btn primary" type="submit">Place it on the map</button>
-        <span class="muted">The files stay in your browser.</span></div>
-    </form>`);
-  const form = $("modal-body").querySelector("form");
-  form.addEventListener("submit", (e) => {
+    <div class="gw-place">
+      <p>${escapeHtml(sorted.hds.name)}: ${size}. ${needCell ? "Without its grid file (.dis, .disv or .dis.grb) the map " +
+        "does not know its cell size." : "Its files do not say where it is on the Earth."}</p>
+      <form class="gw-form gw-approx" novalidate>
+        ${needCell ? `<div class="gw-grid">${field("cell", "Cell size", "one cell's width, in the model's length unit")}</div>` : ""}
+        <div class="gw-form-row"><button class="btn primary" type="submit">Place it at the centre of the map (approximate)</button></div>
+        <p class="muted">${escapeHtml(approxWords(out))} Good for looking at the heads; the place is not the model's,
+          and the map says so.</p>
+        <p class="gw-form-err" role="alert" hidden></p>
+      </form>
+      <details class="gw-exact">
+        <summary>Or place it exactly: origin, rotation and CRS</summary>
+        <form class="gw-form" novalidate>
+          <p class="muted">A FloPy name file (.nam) often carries these (xul, yul, rotation, proj4_str): drop it with the
+            other files and they are read for you.</p>
+          <div class="gw-grid">
+            ${field("x", "Lower-left x", "in the CRS's units", out.xorigin || "")}
+            ${field("y", "Lower-left y", "", out.yorigin || "")}
+            ${field("rotation", "Rotation", "degrees, counter-clockwise", out.angrot || "")}
+            ${field("crs", "CRS", "EPSG code, e.g. 27700 or 32631")}
+            ${needCell ? field("cell", "Cell size", "one cell's width, in the CRS's units") : ""}
+            ${field("start", "Start date", "optional, YYYY-MM-DD, for the time bar")}
+          </div>
+          <p class="gw-form-err" role="alert" hidden></p>
+          <div class="gw-form-row"><button class="btn" type="submit">Place it on the map</button></div>
+        </form>
+      </details>
+      <p class="muted">The files stay in your browser.</p>
+    </div>`);
+  const [approxForm, exactForm] = $("modal-body").querySelectorAll("form");
+  const fail = (form, text) => { const err = form.querySelector(".gw-form-err"); err.textContent = text; err.hidden = false; };
+  approxForm.addEventListener("submit", (e) => {
     e.preventDefault();
-    const v = Object.fromEntries(new FormData(form).entries());
-    const place = readPlaceForm(v, { needCell });
-    const err = form.querySelector(".gw-form-err");
-    if (place.error) { err.textContent = place.error; err.hidden = false; return; }
-    if (!place.crs) { err.textContent = "The CRS is needed to place the model."; err.hidden = false; return; }
+    const c = state.mapOk && map ? map.getCenter() : null;
+    const place = readApproxChoice(c ? [c.lng, c.lat] : null, Object.fromEntries(new FormData(approxForm).entries()), { needCell });
+    if (place.error) { fail(approxForm, place.error); return; }
     closeModal();
-    void loadModel(pending || [], place);
+    void loadModel(pending ? pending.files : [], place, { sample: pending ? pending.sample : null });
   });
+  exactForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const place = readPlaceForm(Object.fromEntries(new FormData(exactForm).entries()), { needCell });
+    if (place.error) { fail(exactForm, place.error); return; }
+    if (!place.crs) { fail(exactForm, "The CRS is needed to place the model."); return; }
+    closeModal();
+    void loadModel(pending ? pending.files : [], place, { sample: pending ? pending.sample : null });
+  });
+  setTimeout(() => { const b = approxForm.querySelector(needCell ? "input" : "button"); if (b) b.focus(); }, 0);
+}
+
+// From the legend of an approximately placed model: the same choice again, for the exact form.
+function placeExactly() {
+  const files = model.files || [];
+  const sorted = sortModelFiles(files);
+  if (!sorted.hds) return;
+  pending = { files, sample: model.sample };
+  const m = model.meta;
+  placeForm({ nrow: m.grid.nrow ?? m.grid.ncpl, ncol: m.grid.ncol ?? 1, layers: m.layers, n_times: m.times.length,
+    grid_from: m.grid.from, length_units: m.grid.length_units }, sorted);
+  const details = $("modal-body").querySelector("details.gw-exact");
+  if (details) details.open = true;
+}
+
+/** Open MODFLOW files the page holds (a pick from Tools, Open model results, or a sample it fetched). */
+export function openModflowFiles(files, { sample = null } = {}) {
+  return loadModel([...(files || [])], {}, { sample });
 }
 
 function pickFiles() {
@@ -579,10 +629,15 @@ function modelBody() {
     `</div>` +
     (n > 1 ? `<p class="gw-line">${dated ? 'Plays with the time bar. <button type="button" class="gw-link" data-act="play">Play the run</button>'
       : "No start date, so the slider steps through the model times."}</p>` : "") +
-    `<p class="gw-line muted">Colours span the whole run. ${escapeHtml(m.grid.from)}, placed by ${escapeHtml(m.grid.placed_by)}` +
-    `${/^EPSG:\d+$/.test(m.grid.crs) ? ` (${escapeHtml(m.grid.crs)})` : ""}.` +
-    `${(m.notes || []).map((x) => ` ${escapeHtml(x)}`).join("")}</p>` +
-    '<p class="gw-src">Read in your browser; the file did not leave it · <button type="button" class="gw-link" data-act="fit">Zoom to it</button> · ' +
+    (isApproximate(m)
+      ? `<p class="gw-approx-tag"><strong>Approximate placement.</strong> Its files do not say where it is, so it sits at ` +
+        `the map's centre, north up, at its true size. <button type="button" class="gw-link" data-act="place">Place it exactly</button></p>`
+      : "") +
+    `<p class="gw-line muted">Colours span the whole run. ${escapeHtml(m.grid.from)}` +
+    `${isApproximate(m) ? "" : `, placed by ${escapeHtml(m.grid.placed_by)}${/^EPSG:\d+$/.test(m.grid.crs) ? ` (${escapeHtml(m.grid.crs)})` : ""}`}.` +
+    `${(m.notes || []).filter((x) => !(isApproximate(m) && /^Placed approximately/.test(x))).map((x) => ` ${escapeHtml(x)}`).join("")}</p>` +
+    (model.sample ? `<p class="gw-src">${escapeHtml(model.sample.credit)} <a href="${escapeHtml(model.sample.link)}" target="_blank" rel="noopener">Source</a></p>` : "") +
+    `<p class="gw-src">Read in your browser; ${model.sample ? "the files stay in it" : "the file did not leave it"} · <button type="button" class="gw-link" data-act="fit">Zoom to it</button> · ` +
     '<button type="button" class="gw-link" data-act="remove">Remove</button></p>';
 }
 
@@ -591,7 +646,8 @@ function registerModelRow() {
     id: "modflow",
     title: "Your MODFLOW heads",
     mark: () => `<i class="gw-mark gw-mark-grid" style="background:${rampCss("level")}"></i>`,
-    summary: () => (modelBusy ? "reading…" : model ? timeLabel(model.meta, model.t) : ""),
+    summary: () => (modelBusy ? "reading…" : model
+      ? `${isApproximate(model.meta) ? `${APPROX_LABEL} · ` : ""}${timeLabel(model.meta, model.t)}` : ""),
     on: () => modelShown(),
     empty: () => !model && !modelBusy,
     toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); refreshLegend("modflow"); },
@@ -601,6 +657,7 @@ function registerModelRow() {
       if (name === "remove") removeModel();
       else if (name === "fit" && model) { const b = edgeOf(model.rings); map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, duration: 1000 }); }
       else if (name === "play" && model && model.meta.dates) playModel();
+      else if (name === "place" && model) placeExactly();
     },
   });
 }
@@ -676,6 +733,7 @@ export function initGroundwater() {
     toggle.addEventListener("change", (e) => setGroundwater(e.target.checked));
   }
   bindModelControls();
+  actions.openModflowFiles = openModflowFiles;   // Tools, Open model results, and its MODFLOW sample (model-samples.js)
   if (!state.mapOk || !map) return;
   initDrop();
   let t = 0;
