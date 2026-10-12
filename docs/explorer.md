@@ -31,6 +31,14 @@ modelled discharge with an indicative return-period table (clearly labelled
 as a model, not a gauge), and the nearest gauges to click next. All from
 Open-Meteo, keyless.
 
+The search box finds rivers, lakes and places by name as well as gauges (Photon
+by komoot, OpenStreetMap data, ODbL). A river named as typed comes first, the
+whole river before one of its stretches, and picking it opens the point on the
+**River** tab: "Jamuna" lands on the Jamuna River in Bangladesh. A point that
+came without a name (a click, a `#p=` link) is titled with the nearest named
+water within 5 km, else the nearest town, and the line under the title says the
+name comes from OpenStreetMap.
+
 Stations already mirrored in the [Archive](archive.md) load from it (one small
 file) instead of from the agency, so they are faster and do not add load
 upstream.
@@ -869,6 +877,11 @@ water move without a dark dash marching over every river. It steps 16 times a
 second, stops while the tab is hidden, holds still while the map
 settles (a basemap change, a frame of the time bar's play or of a GIF), and
 starts off when the system asks for reduced motion; the rail turns it either way.
+On a device that cannot draw that fast (a browser drawing WebGL without the
+graphics card, or steps arriving far later than asked) it steps twice a second
+and holds still 20 s after the last move, click, scroll or key, so the page is
+not kept busy; the Rivers row in the legend says so. The pulse of the gauges
+under Floods ahead follows the same pace.
 
 A click lights the river up on the map. As soon as the point snaps, its reach is
 ringed; then the reaches that drain to it turn a stronger blue and its way to

@@ -117,9 +117,11 @@ export async function selectPoint(lat, lon, { tab = null, push = true, fly = fal
   state.pointLabel = null;
   highlightStation(null);
   setPointMarker(lat, lon);
-  if (fly) flyToPoint(lat, lon);
 
   showSurface("panel-point", { reveal: Boolean(tab) });   // map first (#548): the card answers a click
+  // After the panel: opening it sets the map's padding, and setting the padding mid-flight stops a flight
+  // (a river picked in the search opens the panel on its River tab, #591).
+  if (fly) flyToPoint(lat, lon);
   $("pt-title").textContent = `${lat.toFixed(3)}°, ${lon.toFixed(3)}°`;
   $("pt-coords").textContent = `lat ${lat}, lon ${lon}`;
   showPlaceName(lat, lon, label);

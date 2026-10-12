@@ -57,6 +57,18 @@ export const DEFAULT_CENTER = [-38, 28];
 // padding, and once it knows about it "centre" means the middle of what you can
 // actually see: the globe is not framed half under the inspector, and flying to
 // a gauge does not land it beneath the panel either.
+// Where a card sits once it has slid in. The panel opens with a 0.2 s slide (a CSS transform), and
+// getBoundingClientRect reports the transformed box, so measured as it opens the panel was still off the map
+// and the padding stayed 0 until some later resize set it; that late setPadding stopped a flight already under
+// way (a river picked in the search, #591). The offsets ignore transforms.
+function restingRect(el) {
+  const parent = el.offsetParent;
+  if (!parent) return el.getBoundingClientRect();
+  const p = parent.getBoundingClientRect();
+  const left = p.left + parent.clientLeft + el.offsetLeft, top = p.top + parent.clientTop + el.offsetTop;
+  return { left, top, width: el.offsetWidth, height: el.offsetHeight, right: left + el.offsetWidth, bottom: top + el.offsetHeight };
+}
+
 export function panelPadding() {
   const pad = { top: 0, right: 0, bottom: 0, left: 0 };
   if (!map) return pad;
@@ -67,7 +79,7 @@ export function panelPadding() {
   for (const el of cards) {
     if (!el || el.hidden || el.offsetParent === null) continue;
     if (el.id === "panel" && document.body.classList.contains("panel-collapsed")) continue;
-    const r = el.getBoundingClientRect();
+    const r = restingRect(el);
     if (!r.width || !r.height) continue;
     // A card narrower than the map is a side panel; a full-width one is the
     // bottom sheet the narrow layout uses.
