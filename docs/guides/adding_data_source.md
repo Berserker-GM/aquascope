@@ -9,6 +9,8 @@ Different data sources offer different levels of permission for data collection,
 Here's a checklist for steps to take before adding a data source:
 
 - [ ] Find the first-party terms or licence page covering the dataset or API you are calling.
+- [ ] If a third-party platform hosts, proxies or wraps the data, check its terms as well as the publisher's.
+- [ ] Check whether the terms permit automated collection, caching, downloads and redistribution.
 - [ ] Record the licence name or identifier exactly as the publisher writes it.
 - [ ] If the provider requires an exact attribution statement, note it down verbatim. If the provider doesn't provide an exact statement but requires attribution, write a statement that is accurate and concise. If the provider doesn't require attribution, write "none stated".
 - [ ] Record the terms URL and the date you checked them in the body of a new issue or pull request.
@@ -19,7 +21,7 @@ If both collection and redistribution are permitted according to the terms, set 
 
 If collection is permitted but redistribution is not permitted, or the terms for redistribution are unclear, document the restriction and leave `redistributable=False`; the source can still be added and a collector can be built, but it is not mirrored into the Archive.
 
-If collection is not permitted, or if the terms are unclear, do not add the source. Instead, open an issue to discuss with the maintainers.
+If collection is not permitted, or it is unclear whether it is, do not add the source. Instead, open an issue to discuss with the maintainers.
 
 ## Step 1: Add the DataSource Enum
 
