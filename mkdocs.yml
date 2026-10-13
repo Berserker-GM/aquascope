@@ -120,6 +120,7 @@ nav:
     - Model results on a mesh (HEC-RAS 2D, UGRID): mesh.md
     - SWMM in the browser (assessment): assessments/swmm.md
     - A real HEC-RAS 2D run (assessment): assessments/hec-ras.md
+    - The Explorer in real browsers (assessment): assessments/browsers.md
     - Use the Archive from R, QGIS, DuckDB: readers.md
     - MODFLOW heads on the map: modflow.md
     - The Explorer (click any gauge): explorer.md
