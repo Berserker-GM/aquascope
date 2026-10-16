@@ -500,7 +500,9 @@ body.drawer-open #btn-panel { display: none; }
 .export-select { max-width: 11rem; appearance: auto; }
 /* One action in the open, the rest behind a menu. Five peer buttons above the
    tabs gave no clue which one anybody actually wanted. */
-.more { position: relative; }
+/* Keep the right-aligned menu inside the panel even when actions wrap and
+   More is the first item on a new row. Overflow is clipped by the panel. */
+.more { position: relative; margin-left: auto; }
 .more > summary { list-style: none; cursor: pointer; padding: .38rem .6rem; letter-spacing: .08em; line-height: 1; }
 .more > summary::-webkit-details-marker { display: none; }
 .more[open] > summary { background: var(--bg-soft); }

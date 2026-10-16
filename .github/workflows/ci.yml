@@ -20,6 +20,12 @@ jobs:
         with:
           node-version: 24
       - run: node --test explorer/tests/*.test.mjs
+      - name: Install the offline Explorer layout check
+        run: |
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Check station menu pointer interactions (no live services)
+        run: node --test explorer/tests/browser/*.test.mjs
 
   lint:
     runs-on: ubuntu-latest
