@@ -54,7 +54,7 @@
       <summary class="btn">Tools</summary>
       <div class="header-tools-menu">
       <button id="btn-workbench" class="btn" title="Analyse your own data with the same tools">My data</button>
-      <button id="btn-mesh" class="btn" title="See a HEC-RAS 2D plan or a UGRID mesh result on the globe. The file stays in your browser.">Open model results</button>
+      <button id="btn-mesh" class="btn" title="See a HEC-RAS 2D plan, a UGRID mesh or MODFLOW heads on the globe, yours or a sample. The files stay in your browser.">Open model results</button>
       <input id="mesh-file" type="file" accept=".hdf,.h5,.hdf5,.nc,.nc4,.cdf" hidden />
       <button id="btn-open-study" class="btn">Open saved study</button>
       <input id="open-study-file" type="file" accept=".json" hidden />
@@ -264,7 +264,7 @@
       <div id="mesh-drop" class="mesh-drop" hidden>
         <div class="md-box">
           <p class="md-title">Drop your model results</p>
-          <p>A HEC-RAS 2D plan file (.p01.hdf) or a UGRID NetCDF mesh (.nc), up to 2 GB, or MODFLOW heads (.hds with its .dis or .dis.grb). They stay in your browser.</p>
+          <p>A HEC-RAS 2D plan file (.p01.hdf) or a UGRID NetCDF mesh (.nc), up to 2 GB, or MODFLOW heads (.hds with its .dis or .dis.grb, and the .nam that places it). They stay in your browser. No model at hand? Tools, Open model results, has two samples.</p>
         </div>
       </div>
       <section id="mesh-status" class="mesh-status" role="status" aria-live="polite" hidden></section>
@@ -614,6 +614,7 @@
         <div class="head">
           <span class="badge" style="background:#455a64">Anywhere</span>
           <h2 id="pt-title">Point</h2>
+          <div id="pt-place" class="st-meta" hidden></div>
           <div class="st-meta"><span id="pt-coords"></span> · ERA5 climate + GloFAS modelled discharge, last 10 years</div>
           <div id="pt-snap" class="st-meta pt-snap" role="status" hidden></div>
           <div class="st-actions">

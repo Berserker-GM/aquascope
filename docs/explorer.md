@@ -31,6 +31,14 @@ modelled discharge with an indicative return-period table (clearly labelled
 as a model, not a gauge), and the nearest gauges to click next. All from
 Open-Meteo, keyless.
 
+The search box finds rivers, lakes and places by name as well as gauges (Photon
+by komoot, OpenStreetMap data, ODbL). A river named as typed comes first, the
+whole river before one of its stretches, and picking it opens the point on the
+**River** tab: "Jamuna" lands on the Jamuna River in Bangladesh. A point that
+came without a name (a click, a `#p=` link) is titled with the nearest named
+water within 5 km, else the nearest town, and the line under the title says the
+name comes from OpenStreetMap.
+
 Stations already mirrored in the [Archive](archive.md) load from it (one small
 file) instead of from the agency, so they are faster and do not add load
 upstream.
@@ -634,9 +642,12 @@ The same in Python: `aquascope groundwater surface [--bbox W S E N] [--month YYY
 
 Drop a MODFLOW head file (`.hds`) on the map with its grid (`.dis`, `.disv` or
 `.dis.grb`), and the `.nam` FloPy writes if it says where the model is, or open them from
-the Groundwater key. The files are read in your browser's worker by aquascope's own
+the Groundwater key or **Tools**, **Open model results** (which has FloPy's Freyberg model
+as a sample). The files are read in your browser's worker by aquascope's own
 reader (plain numpy, [checked against FloPy](modflow.md#checked-against-flopy)) and do not
-leave it. When the files do not say where the model sits, a small form asks for the
+leave it. When the files do not say where the model sits, nothing blocks: the first choice,
+one click, puts it at the centre of the map, north up, at its true size, and labels it
+"approximate placement" on the legend row and the card. The second is the exact form: the
 lower-left corner, the rotation and the CRS (and a cell size without a grid file, and a
 start date if you want the time bar to drive it).
 
@@ -869,6 +880,11 @@ water move without a dark dash marching over every river. It steps 16 times a
 second, stops while the tab is hidden, holds still while the map
 settles (a basemap change, a frame of the time bar's play or of a GIF), and
 starts off when the system asks for reduced motion; the rail turns it either way.
+On a device that cannot draw that fast (a browser drawing WebGL without the
+graphics card, or steps arriving far later than asked) it steps twice a second
+and holds still 20 s after the last move, click, scroll or key, so the page is
+not kept busy; the Rivers row in the legend says so. The pulse of the gauges
+under Floods ahead follows the same pace.
 
 A click lights the river up on the map. As soon as the point snaps, its reach is
 ringed; then the reaches that drain to it turn a stronger blue and its way to
@@ -1135,6 +1151,16 @@ Drop a HEC-RAS 2D plan file (`*.p01.hdf`) or a UGRID NetCDF mesh result (`*.nc`:
 FM, ADH, ADCIRC and others) on the map, or use **Tools**, **Open model results**, and the
 mesh is drawn on the globe, as RAS Mapper or QGIS with Crayfish would show it. Nothing is
 installed and nothing is uploaded: the file is read in your browser.
+
+**Try a sample model.** **Tools**, **Open model results** also offers two samples, fetched
+into the page and read like a dropped file, with their credit on the legend row:
+
+- **MODFLOW: the Freyberg model**, FloPy's transient example, from FloPy's GitHub repository
+  (USGS, public domain; CC0 1.0 outside the US). Its name file places it.
+- **HEC-RAS 2D: compound flooding in Portsmouth, Virginia**, one plan result of Zanko
+  Zandsalimi's GNN4CF dataset on HydroShare (CC BY 4.0), read from the Archive's copy
+  (`samples/hec-ras/`, because HydroShare's storage does not let a web page fetch it). Until
+  that copy is published, the button says so.
 
 ![A HEC-RAS 2D run on the globe, a cell's card open](img/globe/555-hecras-card.png)
 

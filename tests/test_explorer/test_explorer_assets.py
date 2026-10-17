@@ -420,9 +420,13 @@ def test_webmcp_tools_are_described_and_schema_d() -> None:
 
 
 def test_place_search_uses_a_geocoder_whose_terms_allow_autocomplete() -> None:
-    """Photon allows autocomplete; OSM's Nominatim forbids it, so it must not be called."""
-    src = (EXPLORER / "src" / "search.js").read_text(encoding="utf-8")
+    """Photon allows autocomplete; OSM's Nominatim forbids it, so it must not be called.
+
+    The URLs live in place-search-core.js since #591; search.js and place-name.js fetch them."""
+    src = "\n".join((EXPLORER / "src" / name).read_text(encoding="utf-8")
+                    for name in ("search.js", "place-search-core.js", "place-name.js"))
     assert "photon.komoot.io" in src
+    assert "place-search-core.js" in (EXPLORER / "src" / "search.js").read_text(encoding="utf-8")
     called = re.findall(r'https?://[^\s"\')]+', src)
     assert not [u for u in called if "nominatim" in u.lower()], "Nominatim forbids autocomplete"
 
