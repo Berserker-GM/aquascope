@@ -7,9 +7,6 @@ All notable changes to AquaScope are documented here.
 
 ## [Unreleased]
 
-### Fixed
-- **Windows repair patch application** (#432, #607): write generated unified-diff patch files with LF line endings on all platforms, and test CRLF-formatted repair proposals to prevent Windows `git apply --check` failures.
-
 ### Added
 - **What 1.0 promises** (#588, part of the 1.0 milestone). The public surface is now written down and tested.
   - [`docs/stability.md`](docs/stability.md): the four public surfaces (Python names, CLI commands and flags, MCP tools and arguments, the Archive's paths and columns), what counts as breaking and what does not (a corrected number is not), how a deprecated name keeps working and warns (`AquaScopeDeprecationWarning`, a `FutureWarning`; a stderr line on the CLI; a `"deprecated"` key in an MCP result) until the next major release and for at least six months, and what experimental means.
@@ -30,6 +27,7 @@ All notable changes to AquaScope are documented here.
 - **UK EA daily reading quality mapping** (#439). Parsed agency `quality`, `completeness`, and sub-daily counts (`valid`, `invalid`, `missing`) in `UKEACollector`. Mapped `quality` codes to harmonized `Quality` enum (`Good` -> `approved`, `Unchecked` -> `provisional`, `Estimated` -> `estimated`, `Suspect` -> `suspect`, `Missing` -> `unknown`), while preserving completeness and raw telemetry counts in `quality_raw`. Documented the mapping in `docs/data_sources.md`.
 
 ### Fixed
+- **Windows repair patch application** (#432, #607): write generated unified-diff patch files with LF line endings on all platforms, and test CRLF-formatted repair proposals to prevent Windows `git apply --check` failures.
 - **A real HEC-RAS 2D run with terrain and volume accounting** (#592, part of the 1.0 milestone): the mesh viewer and the review checked on a HEC-RAS 6.5 plan of Portsmouth, Virginia (HydroShare, CC BY 4.0, not committed). The depth equals HEC-RAS's own `Cell Invert Depth` to 2.2e-6 m at every cell and step, and the cell volumes from the elevation-volume tables sum to the file's `Volume Ending`. Three fixes ([assessment](docs/assessments/hec-ras.md)):
   - The volume check now reads each 2D area's volumes under the names HEC-RAS gives them (`Vol Starting`, `Vol Ending`, `Cum Inflow`, `Cum Outflow` under `Volume Accounting 2D/<area>`); before, the area's error was found but its volumes came back empty.
   - Where the plan wrote HEC-RAS's own cell velocity (`Cell Velocity - Velocity X / Y`), the reader uses it for the arrows, a cell's series and the largest speed, instead of rebuilding it from the faces (on this run the rebuild gave 4.35 m/s where HEC-RAS says 3.83 m/s). A run that wrote cell velocity but not face velocity now has arrows. HEC-RAS also writes a small velocity in dry cells (up to 0.24 m/s on this run); the largest speed leaves out the steps a cell is dry, as the arrows and the card already did.
