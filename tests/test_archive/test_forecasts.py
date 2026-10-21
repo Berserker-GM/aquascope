@@ -163,7 +163,7 @@ def test_publish_uploads_only_the_forecasts_folder(monkeypatch, tmp_path):
     seen = {}
 
     def fake_publish(folder, repo_id, token=None, commit_message=None):
-        seen["files"] = sorted(str(p.relative_to(folder)) for p in Path(folder).rglob("*") if p.is_file())
+        seen["files"] = sorted(p.relative_to(folder).as_posix() for p in Path(folder).rglob("*") if p.is_file())
         seen["message"] = commit_message
         return "https://hf.co/commit/1"
 
