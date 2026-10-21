@@ -1390,7 +1390,8 @@ _p = _a["place"]
 _GW_RINGS = _GW_HEADS = None
 try:
     _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"), rotation=_p.get("rotation"),
-                 crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"))
+                 crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"),
+                 approximate_at=_p.get("approximate_at"))
     if not _res.get("error"):
         _GW_RINGS = np.ascontiguousarray(_res["rings"], dtype="<f8").tobytes()
         _GW_OFFS = np.ascontiguousarray(_res["ring_offsets"], dtype="<i4").tobytes()
