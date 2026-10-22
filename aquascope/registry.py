@@ -220,7 +220,11 @@ SOURCES: dict[str, SourceMeta] = {
         supports_station_lookup=True,
         output_model="WaterLevelReading",
         license="CC-BY-4.0", redistributable=True,
-        attribution="Office of Public Works, waterlevel.ie (CC BY 4.0)",
+        attribution=(
+            "Contains Irish Public Sector Information licensed under a Creative Commons "
+            "Attribution 4.0 International (CC BY 4.0) licence (source http://waterlevel.ie "
+            "- provided by the Office of Public Works.)"
+        ),
     ),
     "greece_hydroscope": _s(
         key="greece_hydroscope", label="Greece Hydroscope", region="Greece",
