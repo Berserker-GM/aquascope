@@ -208,8 +208,8 @@ SOURCES: dict[str, SourceMeta] = {
         variables=("water_level", "discharge"),
         supports_station_lookup=True,
         output_model="WaterLevelReading | StreamflowReading",
-        license="DL-DE-BY-2.0", redistributable=True,
-        attribution="Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), PEGELONLINE, dl-de/by-2-0",
+        license="DL-DE-ZERO-2.0", redistributable=True,
+        attribution="Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV), PEGELONLINE (dl-de/zero-2-0)",
     ),
     "ireland_opw": _s(
         key="ireland_opw", label="Ireland OPW", region="Ireland",
