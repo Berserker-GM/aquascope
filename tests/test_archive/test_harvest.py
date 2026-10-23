@@ -51,7 +51,7 @@ def test_stations_table_is_geoparquet():
     # registry-derived columns
     row = table.slice(1, 1).to_pylist()[0]
     assert row["agency"].startswith("Wasserstra")
-    assert row["license"] == "DL-DE-BY-2.0" and row["redistributable"] is True
+    assert row["license"] == "DL-DE-ZERO-2.0" and row["redistributable"] is True
     assert row["variables"] == ["discharge", "water_level"]
     assert json.loads(row["extra"]) == {"number": "48300105"}
     assert row["period_start"] == date(1990, 1, 1)
