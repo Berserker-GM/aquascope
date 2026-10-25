@@ -136,7 +136,7 @@ Console: no errors from the AI roles; two MapLibre missing-sprite warnings.
 
 ## The defects and where they were fixed
 
-Two pull requests fix them: **A** is `fix/ondevice-ask-590` (the Ask panel, Ask the map,
+Two pull requests fix them: **A** is #639 on `fix/ondevice-ask-590` (the Ask panel, Ask the map,
 the sampling and the Studio brief), **B** is `fix/ondevice-roles-590` (Scout, Explain, What
 if, the review and the map card). Neither was checked on a real on-device model after the
 fix: headless Chrome has none, so each fix is covered by tests that use the recorded model
