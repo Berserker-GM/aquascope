@@ -945,7 +945,7 @@ def views_summary(v: dict[str, Any]) -> dict[str, Any]:
     """The views without their geometry, for an MCP answer or a terminal."""
     if v.get("error"):
         return v
-    out = {k: v[k] for k in ("kind", "time_index", "layer", "length_unit", "wells_how", "wells_from", "method",
+    out: dict[str, Any] = {k: v[k] for k in ("kind", "time_index", "layer", "length_unit", "wells_how", "wells_from", "method",
                              "limits", "notes") if k in v}
     if "head" in v:
         out["head"] = {"range": v["head"]["range"], "step": v["head"]["step"], "levels": len(v["head"]["levels"])}
