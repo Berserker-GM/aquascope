@@ -301,3 +301,24 @@ def test_experimental():
     from aquascope.experimental import is_experimental
 
     assert is_experimental("aquascope.groundwater.views")
+
+
+def test_cli_modflow_views(tmp_path, monkeypatch, capsys):
+    import sys
+
+    from aquascope import cli
+
+    hds, dis = synthetic_model()
+    (tmp_path / "m.hds").write_bytes(hds)
+    (tmp_path / "m.dis").write_bytes(dis)
+    monkeypatch.setattr(sys, "argv", ["aquascope", "modflow", str(tmp_path / "m.hds"),
+                                      "--grid", str(tmp_path / "m.dis"), "--origin", "448000", "5411000",
+                                      "--crs", "EPSG:32631", "--time", "3",
+                                      "--views", "--reference", "highest", "--json"])
+    pytest.importorskip("pyproj")
+    cli.main()
+    out = json.loads(capsys.readouterr().out)
+    v = out["views"]
+    assert v["wells"][0]["model_row"] == 15 and v["wells"][0]["model_col"] == 23
+    assert v["flow"]["towards"] in ("east-south-east", "south-east", "east")
+    assert v["capture"][0]["area_km2"] > 0.2 and v["drawdown"]["reference"] >= 21
