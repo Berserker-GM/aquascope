@@ -125,6 +125,30 @@ function series({ id, cell }) {
   post({ id, result: JSON.parse(out) });
 }
 
+// The section, the hydrograph and what gets flooded (#621, #622: aquascope.flood_section and
+// aquascope.flood_exposure): { type: "section", id, line }, { type: "hydrograph", id, cell, threshold } and
+// { type: "exposure", id, read, threshold } (read: the buildings, roads and population a light worker read;
+// threshold: the depth that counts as flooded, in metres). Arguments in as one JSON string, the answer back as one.
+const FLOOD_CALLS = new Set(["section", "hydrograph", "exposure"]);
+function floodCall({ id, type, line, cell, threshold, read }) {
+  pyodide.globals.set("_fq", JSON.stringify({ type, line: line || null, cell: cell === undefined ? null : cell,
+    threshold: threshold === undefined ? null : threshold, read: read || null }));
+  const out = pyodide.runPython(`
+from aquascope import flood_section as _fs, flood_exposure as _fx
+_q = json.loads(_fq)
+if _M is None:
+    raise _mesh.MeshError("No model result is open.")
+if _q["type"] == "section":
+    _o = _fs.section(_M, _q["line"])
+elif _q["type"] == "hydrograph":
+    _o = _fs.hydrograph(_M, _q["cell"], threshold=_q["threshold"])
+else:
+    _o = _fx.exposure_payload(_M, _q["read"], threshold_m=_q["threshold"])
+json.dumps(_o)
+`);
+  post({ id, result: JSON.parse(out) });
+}
+
 // The review's calls: their arguments travel as one JSON string and come back as one.
 function reviewCall({ id, type, rows, context, findings, reply, by }) {
   pyodide.globals.set("_rq", JSON.stringify({ type, rows: rows || [], context: context || null, findings: findings || [],
@@ -194,6 +218,7 @@ self.onmessage = async (e) => {
       return;
     }
     await booting;
+    if (FLOOD_CALLS.has(m.type)) { floodCall(m); return; }
     if (m.type === "open") await openFile(m);
     else if (m.type === "frame") frame(m);
     else if (m.type === "series") series(m);

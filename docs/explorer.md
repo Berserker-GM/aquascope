@@ -1237,6 +1237,18 @@ the legend row lists the nine checks and what each found. A model, on the device
 your key, may only order and word them, held to the numbers by the claim lock
 ([mesh.md](mesh.md#review-my-model-results)).
 
+**Draw a section** (#621) on the legend row: drag a line across the flood, or tap its two ends,
+and a panel above the time bar draws the ground and the water from A to A′, stepping with the
+time bar, the highest water of the run dashed; hover or touch it to read a point. A click on a
+cell puts its hydrograph in the card: the depth and the water level over the run, with the
+arrival, the peak and the time under water marked (as HEC-RAS Mapper defines them).
+**What gets flooded** (#622) counts the buildings, the road length and the people under the
+water at each step and at the peak, from Overture Maps (ODbL) and GHS-POP (CC BY 4.0) read in
+the browser, lights the flooded buildings and roads on the map, and says the limits of each
+count ([mesh.md](mesh.md#what-gets-flooded)).
+
+![A section on a phone](img/models/621-phone.png)
+
 A file that does not say its coordinate system gets one question: its EPSG code (the
 UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read gets one
 plain sentence why: not a model result, a HEC-RAS geometry file with no results in it,
