@@ -28,6 +28,8 @@ MODULES: tuple[str, ...] = (
     "aquascope.context",
     "aquascope.evidence",
     "aquascope.flood_depth",
+    "aquascope.flood_exposure",
+    "aquascope.flood_section",
     "aquascope.flowstatus",
     "aquascope.groundwater.surface",
     "aquascope.gym",
