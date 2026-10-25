@@ -284,7 +284,7 @@ function keepLineInSight() {
   const lons = line.map((p) => p[0]), lats = line.map((p) => p[1]);
   const pad = Math.min(48, box.width / 8);
   map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], {
-    padding: { top: 70, left: pad, right: pad, bottom: Math.max(pad, box.bottom - r.top + 24) }, maxZoom: map.getZoom() + 1, duration: 700 });
+    padding: { top: box.width > 640 ? 130 : 70, left: pad, right: pad, bottom: Math.max(pad, box.bottom - r.top + 24) }, maxZoom: map.getZoom() + 1, duration: 700 });
 }
 
 function closeSection() {

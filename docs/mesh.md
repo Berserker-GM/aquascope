@@ -137,6 +137,77 @@ no peak to time) and three without; the largest rises of the water surface are p
 
 ![The review of the Bald Eagle Creek example](img/globe/564-review-baldeagle.png)
 
+## A section and a hydrograph
+
+`aquascope.flood_section` (#621, experimental) is RAS Mapper's profile line and time series plot:
+
+- `section(mesh, [[lon, lat], [lon, lat], ...])` reads the ground and the water level along a line, at every
+  model step, with the highest water of the run, the distance along the line, the cell under each point, and a
+  few facts (the length, the share on the mesh, the widest water and the deepest point, each with its step).
+  The ground is the cell's bed level: HEC-RAS's `Cells Minimum Elevation`, the lowest terrain point in the
+  cell, not the terrain under the line; a UGRID file's bed level. A file without bed levels gives the water
+  surface only and says so.
+- `hydrograph(mesh, cell)` (or `lon=`, `lat=`) gives the depth and the water level at one cell over the run,
+  with the arrival, the peak, the recession and the duration. They follow HEC-RAS Mapper's Arrival Time,
+  Duration and Recession maps ([Creating Results Maps](https://www.hec.usace.army.mil/confluence/rasdocs/rmum/6.3/mapping-results/creating-results-maps)):
+  arrival is when the depth first exceeds a threshold, recession when it falls back below it for the last
+  time, and the duration runs from one to the other, a second peak included. The threshold defaults to the
+  readers' dry depth (0.01 in the file's unit); times are to the model's output interval. A cell still wet at
+  the end of the run says its duration is a lower bound.
+
+In the Explorer, **Draw a section** on the model's legend row, then drag across the flood or tap the two ends,
+with a mouse, a pen or a finger. A panel above the time bar draws A to A′, stepping with the time bar; hover or
+touch it to read a point and see it on the map. A click on a cell puts its hydrograph in the card, and the
+step on show moves along it.
+
+![A section across the synthetic valley at 13:00](img/models/621-section.png)
+
+![A cell's hydrograph: arrival, peak and time under water](img/models/621-hydrograph.png)
+
+## What gets flooded
+
+`aquascope.flood_exposure` (#622, experimental) counts the buildings, the road length and the people under the
+water at every step and at the peak, and says when each building and stretch of road was under water.
+
+- **Buildings**: a footprint counts when the depth passes the threshold in a cell under its centre or a
+  corner. Source: Overture Maps buildings (ODbL 1.0, © OpenStreetMap contributors, Overture Maps Foundation;
+  Overture's buildings also carry Microsoft and Google footprints and Esri Community Maps, see
+  [Overture's attribution](https://docs.overturemaps.org/attribution/#buildings)).
+- **Roads**: each road segment (Overture transportation, subtype `road`, ODbL 1.0) is cut where it crosses
+  from one cell to the next (the crossing found by bisection), and a stretch counts when its cell is flooded.
+- **People**: GHS-POP R2023A, the 2025 epoch at 3 arc-seconds (European Commission JRC; Schiavina et al.
+  2023, [doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE](https://doi.org/10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE),
+  CC BY 4.0), read from the Cloud-Optimized GeoTIFF tiles WFP publishes on
+  [Source Cooperative](https://source.coop/wfp/jrc-ghsl-pop). Each grid square is split into 3 x 3 parts that
+  share its people, and a part counts when the cell under it is flooded.
+
+Every source is read over HTTPS range requests with no key, from the browser too (CORS checked on 2026-10-25
+from the Explorer's origin): `overture_files` finds the GeoParquet files whose boxes meet the model's in
+Overture's STAC catalogue, and `read_overture` reads only the row groups whose bounding boxes meet it (pyarrow,
+which the Explorer loads only when asked). For the synthetic valley test model in Linz that is about 3.9 MB of
+buildings and 7.5 MB of roads, of files of 640 MB.
+
+The threshold defaults to any water (0.01 m). A rain-on-grid run wets every cell, so the Explorer counts water
+deeper than 0.15 m by default and offers 0.30 m too: the Environment Agency's surface water map explains that
+at 0.15 m flooding typically exceeds kerb height and can flood property in some areas, and at 0.30 m it is
+likely to flood property, from average threshold levels
+([What is the updated Flood Map for Surface Water?](https://www.cumbria.gov.uk/eLibrary/view.asp?ID=61733),
+November 2013).
+
+**Limits.** Footprints are mapped or machine-detected outlines, some missing or misplaced. A cell's depth is
+not the depth at the door: HEC-RAS measures it from the lowest ground in the cell, so a building on a rise
+beside a ditch can count as wet. A bridge or an embankment above the water still counts as a flooded road.
+The population grid is a model of where residents live in 2025, spread evenly within each square: people in
+the flooded area, not people at risk. The Explorer rounds people to what a 90 m grid can say ("about 16,000").
+
+In the Explorer, **What gets flooded** on the model's legend row reads the sources around the model (in a
+light worker) and counts in the mesh worker beside the file. The flooded buildings and stretches of road light
+up and follow the time bar, the legend row gives each count at the step on show and its peak, and a summary
+card opens on the peak with the sources, licences and limits. A click on a building says when it was under
+water and how deep.
+
+![What gets flooded in Portsmouth, Virginia, at 02:30](img/models/622-exposure.png)
+
 ## Checked against real files (2026-10-11)
 
 In Pyodide 314.0.7, the Explorer's Python, in Chrome:

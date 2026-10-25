@@ -97,7 +97,8 @@ THRESHOLD_SOURCE = "https://www.cumbria.gov.uk/eLibrary/view.asp?ID=61733"
 LIMITS: dict[str, str] = {
     "buildings": "A building counts when the model's water in a cell under its centre or a corner passes the "
                  "threshold. Footprints are mapped or machine-detected outlines, some missing or misplaced, and "
-                 "a cell's depth is not the depth at the door.",
+                 "a cell's depth is not the depth at the door: HEC-RAS measures it from the lowest ground in the "
+                 "cell, so a building on a rise beside a ditch can count as wet.",
     "roads": "Each stretch of road counts by the cell it crosses: a bridge or an embankment above the water still "
              "counts, because the model's cells do not know it is there.",
     "population": "A model of where residents live in 2025, at about 90 m, spread evenly within each grid square: "
