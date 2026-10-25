@@ -1531,7 +1531,7 @@ from aquascope.groundwater import layers as _views, budget as _budget
 _a = json.loads(__aqGwv)
 _p = _a["place"]
 _out = {}
-_GWV_TOP = _GWV_BOTM = None
+_GWV_TOP = _GWV_BOTM = _GWV_TOPS = None
 # The map's read (op "modflow" of "groundwater", kept as _GW_RES for the #623/#624 views) is the same model:
 # use it rather than holding a second copy of the heads; read again only when it is not there.
 _res = globals().get("_GW_RES")
@@ -1550,6 +1550,7 @@ else:
             _out["layers"] = _views.layers_summary(_l)
             _GWV_TOP = np.ascontiguousarray(_l["top"], dtype="<f4").tobytes()
             _GWV_BOTM = np.ascontiguousarray(_l["botm"], dtype="<f4").tobytes()
+            _GWV_TOPS = np.ascontiguousarray(_l["tops"], dtype="<f4").tobytes()  # each layer's own top (LAYCBD)
         except ValueError as exc:
             _out["layers_error"] = str(exc)
     else:
@@ -1564,10 +1565,10 @@ json.dumps(_out, default=str)
 `;
     try {
       const meta = JSON.parse(await pyodide.runPythonAsync(code));
-      const top = f32("_GWV_TOP"), botm = f32("_GWV_BOTM");
-      pyodide.runPython("_GWV_TOP = _GWV_BOTM = _res = None");
-      const result = { ...meta, top, botm };
-      self.postMessage({ type: "result", id, result }, [top, botm].filter(Boolean).map((a) => a.buffer));
+      const top = f32("_GWV_TOP"), botm = f32("_GWV_BOTM"), tops = f32("_GWV_TOPS");
+      pyodide.runPython("_GWV_TOP = _GWV_BOTM = _GWV_TOPS = _res = None");
+      const result = { ...meta, top, botm, tops };
+      self.postMessage({ type: "result", id, result }, [top, botm, tops].filter(Boolean).map((a) => a.buffer));
     } finally {
       self.__aqGwv = null;
       for (const f of [hds, grid, cbc, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* gone */ } }

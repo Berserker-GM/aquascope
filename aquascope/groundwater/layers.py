@@ -102,7 +102,8 @@ def _mf6_griddata(text: str) -> dict[str, Any]:
             i += 1
     if "TOP" not in got or "BOTM" not in got:
         raise ValueError("the grid file has no TOP or BOTM array")
-    return {"nlay": nlay, "ncpl": ncpl, "top": got["TOP"], "botm": got["BOTM"].reshape(nlay, ncpl),
+    botm = got["BOTM"].reshape(nlay, ncpl)
+    return {"nlay": nlay, "ncpl": ncpl, "top": got["TOP"], "botm": botm, "tops": _stack_tops(got["TOP"], botm),
             "idomain": got["IDOMAIN"].reshape(nlay, ncpl).astype(int) if "IDOMAIN" in got else None,
             "from": "MODFLOW 6 grid file"}
 
@@ -116,21 +117,31 @@ def _mf2005_griddata(text: str) -> dict[str, Any]:
     _, i = _array(lines, i, nrow, mf6=False)  # DELC
     n = nrow * ncol
     top, i = _array(lines, i, n, mf6=False)
-    botm = []
+    botm, tops = [], [top]
     for k in range(nlay):
         b, i = _array(lines, i, n, mf6=False)
         botm.append(b)
         if laycbd[k]:
-            _, i = _array(lines, i, n, mf6=False)  # the confining bed's bottom: not a model layer
-    return {"nlay": nlay, "ncpl": n, "top": top, "botm": np.vstack(botm), "idomain": None,
-            "from": "MODFLOW-2005 DIS file"}
+            # The confining bed under layer k is not a model layer: the next layer starts at its bottom.
+            cb, i = _array(lines, i, n, mf6=False)
+            tops.append(cb)
+        else:
+            tops.append(b)
+    return {"nlay": nlay, "ncpl": n, "top": top, "botm": np.vstack(botm), "tops": np.vstack(tops[:nlay]),
+            "idomain": None, "laycbd": [int(x) for x in laycbd], "from": "MODFLOW-2005 DIS file"}
+
+
+def _stack_tops(top: np.ndarray, botm: np.ndarray) -> np.ndarray:
+    """Each layer's top: the model top, then the bottom of the layer above."""
+    return np.vstack([np.asarray(top, float)[None, :], np.asarray(botm, float)[:-1]])
 
 
 def read_layer_elevations(grid: Any) -> dict[str, Any]:
     """Each layer's top and bottom from a MODFLOW grid file (bytes or a path).
 
-    Returns {nlay, ncpl, top (ncpl), botm (nlay x ncpl), idomain (or None), from}, in the model's length unit and
-    the cell order of the head file."""
+    Returns {nlay, ncpl, top (ncpl), botm (nlay x ncpl), tops (nlay x ncpl: each layer's own top, which is the
+    bottom of a MODFLOW-2005 confining bed where the layer above has one), idomain (or None), from}, in the
+    model's length unit and the cell order of the head file."""
     buf = _as_bytes(grid)
     if buf[:5] == b"GRID ":
         v = _grb_values(buf)
@@ -139,8 +150,9 @@ def read_layer_elevations(grid: Any) -> dict[str, Any]:
         if "TOP" not in v or "BOTM" not in v:
             raise ValueError("the binary grid file has no TOP or BOTM")
         idom = v.get("IDOMAIN")
-        return {"nlay": nlay, "ncpl": ncpl, "top": np.asarray(v["TOP"], float)[:ncpl],
-                "botm": np.asarray(v["BOTM"], float).reshape(nlay, ncpl),
+        top = np.asarray(v["TOP"], float)[:ncpl]
+        botm = np.asarray(v["BOTM"], float).reshape(nlay, ncpl)
+        return {"nlay": nlay, "ncpl": ncpl, "top": top, "botm": botm, "tops": _stack_tops(top, botm),
                 "idomain": np.asarray(idom, int).reshape(nlay, ncpl) if idom is not None and len(idom) == nlay * ncpl
                 else None, "from": "MODFLOW 6 binary grid file"}
     text = buf.decode("utf-8", "replace")
@@ -192,9 +204,11 @@ def model_layers(res: dict[str, Any], grid: Any) -> dict[str, Any]:
         raise ValueError(f"the grid file has {el['ncpl']} cells per layer but the heads {ncell}: the same model?")
     top = np.asarray(el["top"], float).copy()
     botm = np.asarray(el["botm"], float).copy()
+    tops = (np.asarray(el["tops"], float) if el.get("tops") is not None else _stack_tops(top, botm)).copy()
     if el.get("idomain") is not None:
         off = np.asarray(el["idomain"]) <= 0
         botm[off] = np.nan
+        tops[off] = np.nan
         if off.all(axis=0).any():
             top[off.all(axis=0)] = np.nan
     block = int(g.get("block") or 1)
@@ -202,6 +216,7 @@ def model_layers(res: dict[str, Any], grid: Any) -> dict[str, Any]:
         nrow, ncol = int(g["nrow"]), int(g["ncol"])
         top = _block_mean(top, nrow, ncol, block)
         botm = np.vstack([_block_mean(b, nrow, ncol, block) for b in botm])
+        tops = np.vstack([_block_mean(b, nrow, ncol, block) for b in tops])
     finite = np.concatenate([top[np.isfinite(top)], botm[np.isfinite(botm)]])
     if not finite.size:
         raise ValueError("the grid file has no layer elevations")
@@ -216,6 +231,7 @@ def model_layers(res: dict[str, Any], grid: Any) -> dict[str, Any]:
     ve = nice_exaggeration(STACK_SHARE * extent / thick_m) if thick_m > 0 else 1
     return {
         "kind": "modflow_layers", "layers": list(range(1, int(el["nlay"]) + 1)), "top": top, "botm": botm,
+        "tops": tops,
         "base": round(base, 4), "crest": round(crest, 4), "thickness": round(crest - base, 4),
         "metres_per_unit": m_per, "length_units": units or None, "extent_m": round(extent, 1), "exaggeration": ve,
         "note": (f"Vertical exaggeration x{ve}: the layers are drawn {ve} times taller than they are, from the "
@@ -226,10 +242,10 @@ def model_layers(res: dict[str, Any], grid: Any) -> dict[str, Any]:
 
 def layers_summary(lay: dict[str, Any]) -> dict[str, Any]:
     """:func:`model_layers` without its arrays, with each layer's mean top, bottom and thickness."""
-    out = {k: v for k, v in lay.items() if k not in ("top", "botm")}
+    out = {k: v for k, v in lay.items() if k not in ("top", "botm", "tops")}
     rows = []
     for i, k in enumerate(lay["layers"]):
-        upper = lay["top"] if i == 0 else lay["botm"][i - 1]
+        upper = layer_top(lay, i)
         th = upper - lay["botm"][i]
         ok = np.isfinite(th)
         rows.append({"layer": k, "mean_top": round(float(np.nanmean(upper)), 3) if ok.any() else None,
@@ -240,7 +256,10 @@ def layers_summary(lay: dict[str, Any]) -> dict[str, Any]:
 
 
 def layer_top(lay: dict[str, Any], i: int) -> np.ndarray:
-    """Layer ``i``'s top (0-based): the model top for the first, the bottom of the one above for the others."""
+    """Layer ``i``'s top (0-based): the model top for the first, the bottom of the one above (or of its confining
+    bed, in a MODFLOW-2005 model with LAYCBD) for the others."""
+    if lay.get("tops") is not None:
+        return lay["tops"][i]
     return lay["top"] if i == 0 else lay["botm"][i - 1]
 
 

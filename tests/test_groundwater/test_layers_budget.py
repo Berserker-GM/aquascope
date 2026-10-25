@@ -188,6 +188,9 @@ def test_mf2005_confining_beds_are_skipped():
     el = gv.read_layer_elevations(text.encode())
     assert el["top"].tolist() == [50.0, 50.0]
     assert el["botm"].tolist() == [[40.0, 40.0], [0.0, 0.0]]   # 35 is the confining bed's bottom, not a layer
+    # ...but it is where layer 2 starts: the bed between 40 and 35 is a gap, not part of layer 2
+    assert el["tops"].tolist() == [[50.0, 50.0], [35.0, 35.0]]
+    assert gv.layer_top(el, 1).tolist() == [35.0, 35.0]
 
 
 def test_mf6_dis_with_layered_botm_and_idomain():

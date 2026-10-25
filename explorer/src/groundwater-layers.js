@@ -72,7 +72,7 @@ export async function layersLoaded(model, sorted) {
     if (my !== token) return;
     if (out.error) throw new Error(out.error);
     if (out.layers && out.top && out.botm) {
-      views.geo = { ...out.layers, top: out.top, botm: out.botm, nlay: out.layers.layers.length };
+      views.geo = { ...out.layers, top: out.top, botm: out.botm, tops: out.tops || null, nlay: out.layers.layers.length };
       ve = out.layers.exaggeration || 1;
       shown = new Set(out.layers.layers.map((_, i) => i));
     }
@@ -659,7 +659,7 @@ export function initGwLayers({ fill, line } = {}) {
   window.addEventListener("resize", () => { if (dockOpen()) renderDock(); });
   // Debug hooks (harmless, like the rest of window.__aq): what the views hold, and a section cut from code.
   dbg.gwLayers = {
-    state: () => ({ busy: views ? views.busy : null, geo: haveGeo() ? { ...views.geo, top: undefined, botm: undefined } : null,
+    state: () => ({ busy: views ? views.busy : null, geo: haveGeo() ? { ...views.geo, top: undefined, botm: undefined, tops: undefined } : null,
       budget: haveBudget(), layersError: views && views.layersError, budgetError: views && views.budgetError,
       view3d, ve, section: section ? { cells: section.segments.length, length_m: section.length_m } : null,
       sectionError, dock: dockOpen() ? dockTab : null }),

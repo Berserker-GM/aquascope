@@ -82,7 +82,8 @@ export function exaggerationChoices(suggested) {
  * head at any time (inactive) is left out. gap (metres) pulls the layers apart, each raised that much above the one
  * under it, so each layer's top shows.
  *
- * geo: { top (cells), botm (layers x cells, flat), nlay, base, metres_per_unit }; model: { rings, offsets, heads,
+ * geo: { top (cells), botm (layers x cells, flat), tops (optional, layers x cells: each layer's own top), nlay, base,
+ * metres_per_unit }; model: { rings, offsets, heads,
  * shape (time x layer x cell), layers (the head file's, 1-based) }.
  */
 export function prismFeatures(geo, model, t, { exaggeration = 1, shown = null, range = [0, 1], wet = null, gap = 0 } = {}) {
@@ -97,7 +98,7 @@ export function prismFeatures(geo, model, t, { exaggeration = 1, shown = null, r
     const hl = hpos.get(i + 1);
     const lift = gap * (geo.nlay - 1 - i);   // pulled apart: each layer raised above the one under it
     for (let c = 0; c < nc; c++) {
-      const top = i === 0 ? geo.top[c] : geo.botm[(i - 1) * nc + c];
+      const top = geo.tops ? geo.tops[i * nc + c] : i === 0 ? geo.top[c] : geo.botm[(i - 1) * nc + c];   // tops: LAYCBD
       const bot = geo.botm[i * nc + c];
       if (!Number.isFinite(top) || !Number.isFinite(bot) || top <= bot) continue;
       const h = hl === undefined ? NaN : heads[(t * nl + hl) * nc + c];

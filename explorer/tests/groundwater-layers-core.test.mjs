@@ -35,6 +35,9 @@ test("prisms stand between each layer's bottom and top, exaggerated, coloured by
   assert.equal(later.features.find((f) => f.properties.l === 0).properties.base, 40 + 50);
   // only the layers shown
   assert.equal(prismFeatures(geo, model, 0, { shown: new Set([1]), wet }).features.length, 1);
+  // a confining bed (MODFLOW-2005 LAYCBD) between the layers: layer 2 starts at its own top, not at layer 1's bottom
+  const bed = prismFeatures({ ...geo, tops: new Float32Array([60, 60, 30, 30]) }, model, 0, { wet });
+  assert.equal(bed.features.find((f) => f.properties.l === 1).properties.height, 30);
 });
 
 const sec = {
