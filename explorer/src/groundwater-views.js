@@ -89,8 +89,11 @@ function ensureLayers() {
     "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": ["case", ["get", "index"], 11.5, 10.5],
     "text-max-angle": 30, "text-keep-upright": true, "text-padding": 4 },
   paint: { "text-color": "#0b2440", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.4 } });
+  // Arrows that would touch drop out (no overlap), so a small model seen from afar, or on a phone, keeps a calm,
+  // even scatter and fills in as you zoom; they never push the contour labels away (ignore placement).
   add(L.arrows, L.arrows, { type: "symbol", layout: { "icon-image": ARROW, "icon-rotate": ["get", "b"],
-    "icon-rotation-alignment": "map", "icon-size": ["get", "s"], "icon-allow-overlap": true, "icon-ignore-placement": true },
+    "icon-rotation-alignment": "map", "icon-size": ["get", "s"], "icon-allow-overlap": false, "icon-ignore-placement": true,
+    "icon-padding": 3 },
   paint: { "icon-color": "#14324f", "icon-halo-color": "rgba(255,255,255,0.9)", "icon-halo-width": 1.2, "icon-opacity": 0.9 } });
   add(L.wells, L.wells, { type: "circle", paint: {
     "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3.5, 14, 6.5],

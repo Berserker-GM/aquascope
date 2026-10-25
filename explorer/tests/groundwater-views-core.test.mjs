@@ -88,7 +88,9 @@ test("the legend says what is drawn, briefly", () => {
   assert.match(head[0], /^Contours every 2 m, heavier every 10 m\.$/);
   assert.match(head[1], /east-south-east, about 1 in 220/);
   const dd = viewLines(v, "drawdown", { unit: "m", stepLabel: (t) => `month ${t + 1}` });
-  assert.match(dd[0], /^Change since month 1: brown where the water table fell/);
+  assert.match(dd[0], /^Change since month 1: brown where the water table is lower now/);
+  const later = viewLines({ ...v, time_index: 3, drawdown: { ...v.drawdown, reference: 21 } }, "drawdown", { stepLabel: (t) => `month ${t + 1}` });
+  assert.match(later[0], /^Change against month 22, a later step: brown/);
   assert.match(dd[1], /Deepest at W1: 2\.30 m down/);
   const cap = viewLines(v, "capture", { unit: "m" });
   assert.match(cap[1], /W1 1\.2 km²/);

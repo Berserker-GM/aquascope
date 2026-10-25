@@ -108,6 +108,42 @@ def test_contours_of_a_plane_are_straight_parallel_and_evenly_spaced(analytic):
     assert dist == pytest.approx(0.5 / g, rel=1e-3)
 
 
+# ── an analytic cone: a well alone, on a rotated grid ───────────────────────
+
+
+def test_arrows_point_into_a_cone_and_its_contours_close_around_it():
+    x, y = rotated_lattice(31, 31, 100.0, 30.0)
+    plane = plane_from_metres(x, y)
+    cx, cy = centres(plane)
+    wx, wy = cx[15, 15], cy[15, 15]
+    r = np.hypot(cx - wx, cy - wy) + 50.0
+    head = 50.0 - 2.0 * np.log(2000.0 / r)                     # Thiem-like: log of the distance to the well
+    f = gv.flow_field(head, plane)
+    arrows = gv.flow_arrows(f, plane, across=10)["arrows"]
+    wlon, wlat = plane.lonlat(np.array([15.0]), np.array([15.0]))
+    k = math.cos(math.radians(plane.lat0))
+    checked = 0
+    for a in arrows:
+        dist = math.hypot((a["lon"] - wlon[0]) * k, a["lat"] - wlat[0]) * math.pi / 180 * R
+        if dist < 150:
+            continue
+        to_well = gv._bearing(np.array([a["lon"]]), np.array([a["lat"]]), wlon, wlat)[0]
+        assert abs((a["bearing"] - to_well + 180) % 360 - 180) < 6
+        checked += 1
+    assert checked >= 40
+    c = gv.head_contours(head, plane, step=0.5)
+    inside = [lv for lv in c["levels"] if 2000.0 * math.exp((lv["level"] - 50.0) / 2.0) - 50.0 < 1300]
+    assert len(inside) >= 4
+    for lv in inside:
+        assert len(lv["lines"]) == 1
+        pts = np.array(lv["lines"][0])
+        assert np.allclose(pts[0], pts[-1])                       # a closed ring
+        px = np.radians(pts[:, 0] - plane.lon0) * R * k
+        py = np.radians(pts[:, 1] - plane.lat0) * R
+        want = 2000.0 * math.exp((lv["level"] - 50.0) / 2.0) - 50.0
+        assert np.allclose(np.hypot(px - wx, py - wy), want, rtol=0.08, atol=15)
+
+
 # ── the synthetic pumping well (a copy of aquascope_promo/test_models/make_synthetic_models.py) ─────────────
 
 

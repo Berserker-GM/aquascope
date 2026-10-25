@@ -184,7 +184,10 @@ export function viewLines(v, mode, { unit = "", stepLabel = (t) => `step ${t + 1
     if (v.flow && v.flow.towards) out.push(`Arrows: groundwater flow, down the head gradient: mostly to the ${v.flow.towards}, ${gradientWords(v.flow.gradient)}.`);
   } else if (mode === "drawdown") {
     const d = v.drawdown || {};
-    out.push(`Change since ${stepLabel(d.reference)}: brown where the water table fell, blue-green where it rose` +
+    // a reference later than the step on show (the wells idle at the end of the run) is read "against", not "since"
+    const later = Number.isInteger(v.time_index) && Number.isInteger(d.reference) && d.reference > v.time_index;
+    out.push(`${later ? `Change against ${stepLabel(d.reference)}, a later step` : `Change since ${stepLabel(d.reference)}`}: ` +
+      `brown where the water table is lower now, blue-green where it is higher` +
       `${d.step ? `; rings every ${levelLabel(d.step, d.step)}${u}` : ""}.`);
     const deep = (v.wells || []).filter((w) => Number.isFinite(w.drawdown)).sort((a, b) => b.drawdown - a.drawdown)[0];
     if (deep && deep.drawdown > 0) out.push(`Deepest at ${deep.id}: ${fmt(deep.drawdown)}${u} down.`);
