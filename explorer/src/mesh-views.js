@@ -106,8 +106,16 @@ function ensureLayers() {
     map.addLayer({ id: LABELS, type: "symbol", source: LINES, filter: ["!=", ["get", "kind"], "edge"],
       layout: { visibility: "none", "symbol-placement": "line", "text-field": ["get", "label"], "text-font": LABEL_FONT,
         "text-size": 10.5, "symbol-spacing": 260, "text-max-angle": 30, "text-keep-upright": true, "text-padding": 2 },
-      paint: { "text-color": "#0c2238", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.4 } }, above);
+      paint: { "text-color": "#0c2238", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.4 } }, overArrows());
   }
+}
+
+// The contour labels go over the model's arrows (so an arrow never strikes through "2 m"): just above them.
+function overArrows() {
+  const ids = map.getStyle().layers.map((l) => l.id);
+  const k = ids.indexOf(MESH_LAYERS.ARROWS);
+  if (k < 0) return map.getLayer(MESH_LAYERS.SEL) ? MESH_LAYERS.SEL : undefined;
+  return ids[k + 1];
 }
 
 function removeLayers() {
@@ -293,7 +301,8 @@ function key() {
   if (lens === "arrival") {
     const a = meta.arrival;
     extra = `<p class="mv-line muted">Arrival is ${escapeHtml(a.rule)}. ${a.wet_at_start ? `${a.wet_at_start.toLocaleString("en-GB")} cells wet from the start; ` : ""}` +
-      `the last place floods ${escapeHtml(hoursWords(a.last_h))} after the start. Lines every ${escapeHtml(stepWords(meta.arrival_levels))}.</p>`;
+      `the last place floods ${escapeHtml(hoursWords(a.last_h))} after the start. Lines every ${escapeHtml(stepWords(meta.arrival_levels))}; ` +
+      `blank where the water never reaches ${escapeHtml(String(a.depth_m))} m.</p>`;
   }
   return line + `<div class="fd-ramp" role="img" aria-label="${escapeHtml(lensLine(lens, meta))}, ${words}" style="background:${rampCssOf(lensStops(lens))}"></div>` +
     `<div class="fd-ticks" aria-hidden="true">${t}</div>` + extra;

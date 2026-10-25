@@ -76,14 +76,14 @@ test("hours, areas and limits in words", () => {
   assert.equal(areaWords(185000), "18.5 ha");
   assert.equal(areaWords(2.3e6), "2.3 km²");
   assert.match(limitWords(CLASSES[3]), /^H4 means depth × velocity up to 1 m²\/s, depth up to 2 m and speed up to 2 m\/s\.$/);
-  assert.match(limitWords(CLASSES[5]), /beyond every H5 limit/);
+  assert.match(limitWords(CLASSES[5]), /past an H5 limit: depth × velocity over 4 m²\/s, depth over 4 m or speed over 4 m\/s/);
 });
 
 test("the card explains the hazard at a cell with the step and the numbers that put it there", () => {
   const f = lensFacts("hazard", VIEWS, 2, TIMES, UNITS);
   assert.equal(f.status, `H6: ${CLASSES[5].words}`);
   assert.equal(f.figure.value, "H6");
-  assert.match(f.note, /Reached at 15 Mar 2026 01:00 with 4\.8 m of water moving at 2\.28 m\/s \(depth × velocity 10\.9 m²\/s\)/);
+  assert.match(f.note, /Worst at 15 Mar 2026 01:00, with 4\.8 m of water moving at 2\.28 m\/s \(depth × velocity 10\.9 m²\/s\)/);
   assert.match(f.note, /AIDR Guideline 7-3/);
   assert.equal(f.color, HAZARD_COLOURS[5]);
   assert.match(lensFacts("hazard", VIEWS, 0, TIMES, UNITS).status, /^Dry all through the run/);
@@ -107,4 +107,10 @@ test("each lens has its line in the key", () => {
   assert.match(lensLine("hazard", META), /from depth and speed at every step$/);
   assert.equal(lensLine("arrival", META), "When each place first has 0.1 m of water, after the start of the run");
   assert.equal(lensLine("depth", META, { step: 1, times: TIMES }), "Depth at 15 Mar 2026 01:00");
+});
+
+test("a file with only the water surface calls its largest value a water surface, not a depth", () => {
+  const ws = { ...VIEWS, meta: { ...META, variable: "water_surface" } };
+  assert.equal(lensLine("max_depth", ws.meta), "Highest water surface in each place over the run");
+  assert.equal(lensFacts("max_depth", ws, 2, TIMES, { water_surface: "m" }).status, "Largest water surface 4.8 m over the run");
 });

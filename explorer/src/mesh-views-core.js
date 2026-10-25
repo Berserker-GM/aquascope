@@ -165,7 +165,7 @@ export function lensFacts(lens, views, cell, times, units = {}) {
     const t = when(k);
     const dv = arrays.hazard_dv[cell], d = arrays.hazard_depth[cell], v = arrays.hazard_speed[cell];
     const how = meta.hazard.from === "step"
-      ? `Reached${t ? ` at ${t}` : ""} with ${fmt(d)} m of water moving at ${fmt(v)} m/s (depth × velocity ${fmt(dv)} m²/s).`
+      ? `Worst${t ? ` at ${t}` : ""}, with ${fmt(d)} m of water moving at ${fmt(v)} m/s (depth × velocity ${fmt(dv)} m²/s).`
       : `From the largest depth ${fmt(d)} m and the largest speed ${fmt(v)} m/s (depth × velocity ${fmt(dv)} m²/s).`;
     return {
       status: `${cls.code}: ${cls.words}`, color: HAZARD_COLOURS[h - 1],
@@ -186,11 +186,13 @@ export function lensFacts(lens, views, cell, times, units = {}) {
   }
   if (lens === "max_depth") {
     const v = arrays.max_depth[cell];
+    const ws = meta.variable === "water_surface";
     if (!Number.isFinite(v)) return { status: "Dry all through the run", figure: null, note: "", color: null };
     const t = when(arrays.max_depth_step ? arrays.max_depth_step[cell] : -1);
-    return { status: `Largest depth ${fmt(v)}${lenUnit ? ` ${lenUnit}` : ""} over the run`,
-      figure: { value: fmt(v), unit: lenUnit, label: "largest depth" },
-      note: t ? `The deepest of the output steps is ${t}.` : "", color: null };
+    const what = ws ? "water surface" : "depth";
+    return { status: `Largest ${what} ${fmt(v)}${lenUnit ? ` ${lenUnit}` : ""} over the run`,
+      figure: { value: fmt(v), unit: lenUnit, label: `largest ${what}` },
+      note: t ? `The ${ws ? "highest" : "deepest"} of the output steps is ${t}.` : "", color: null };
   }
   if (lens === "max_speed" && arrays.max_speed) {
     const v = arrays.max_speed[cell];
@@ -206,7 +208,7 @@ export function lensFacts(lens, views, cell, times, units = {}) {
 /** "H4 means D × V up to 1 m²/s, D up to 2 m and V up to 2 m/s." */
 export function limitWords(cls) {
   if (!cls) return "";
-  if (cls.dv === null || cls.dv === undefined) return `${cls.code} is beyond every H5 limit (D × V over 4 m²/s, or D or V over 4).`;
+  if (cls.dv === null || cls.dv === undefined) return `${cls.code} is past an H5 limit: depth × velocity over 4 m²/s, depth over 4 m or speed over 4 m/s.`;
   return `${cls.code} means depth × velocity up to ${fmt(cls.dv)} m²/s, depth up to ${fmt(cls.depth)} m and speed up to ${fmt(cls.velocity)} m/s.`;
 }
 
@@ -214,7 +216,7 @@ export function limitWords(cls) {
 export function lensLine(lens, meta, { step = null, times = [] } = {}) {
   if (lens === "hazard") return `Highest flood hazard in each cell over the run, ${meta.hazard.rule === "the highest class reached at any output step" ? "from depth and speed at every step" : "from the largest depth and speed"}`;
   if (lens === "arrival") return `When each place first has ${fmt(meta.arrival.depth_m)} m of water, after the start of the run`;
-  if (lens === "max_depth") return "Largest depth in each place over the run";
+  if (lens === "max_depth") return meta.variable === "water_surface" ? "Highest water surface in each place over the run" : "Largest depth in each place over the run";
   if (lens === "max_speed") return "Largest speed in each place over the run";
   return step === null || !times.length ? "Largest depth over the run" : `Depth at ${modelTime(times[step])}`;
 }

@@ -94,16 +94,18 @@ the MCP tool `mesh_lenses` only show it.
   run's first output step: AquaScope's choice, deeper than the 1 cm that reads as wet, so a
   film does not count, and stated wherever it is shown. Cells wet from the start arrive at
   0 h. Lines of equal arrival are drawn at a round interval (0.25 h up to a week), traced
-  halfway to the next output time, because arrival only changes between output steps.
+  halfway to the next output time, because arrival only changes between output steps. A line
+  that no place reaches since the line before (it would lie on that one) is left out.
 - **Largest depth and largest speed** over the run, with the output step of each.
 
 **Flood hazard, H1 to H6.** The combined flood hazard curves of the Australian Disaster
 Resilience Guideline 7-3, *Technical flood risk management guideline: Flood hazard*
 (Australian Institute for Disaster Resilience, 2014), Table 1 (what each class means) and
-Table 2 (its limits), after Smith, Davey and Cox (2014), *Flood hazard*, UNSW Water Research
+Table 2 (its limits, which the guideline says are modelled after Smith and Wasko 2012), with the
+background to the curves in Smith, Davey and Cox (2014), *Flood hazard*, UNSW Water Research
 Laboratory Technical Report 2014/07
 ([the guideline](https://knowledge.aidr.org.au/media/1891/guideline-7-3-technical-flood-risk-management.pdf),
-CC BY-NC). A place is in the lowest class whose three limits it meets:
+CC BY-NC 4.0). A place is in the lowest class whose three limits it meets:
 
 | Class | D × V (m²/s) | Depth D (m) | Speed V (m/s) | Table 1 |
 |---|---|---|---|---|
@@ -115,8 +117,8 @@ CC BY-NC). A place is in the lowest class whose three limits it meets:
 | H6 | > 4.0 | | | Unsafe for vehicles and people. All building types considered vulnerable to failure. |
 
 The guideline asks for hazard "at all stages of the flood hydrograph", so each cell is
-classified at every output step and keeps its highest class, with the step, depth and
-speed that put it there. A run of more than 40 million cell values is classified once
+classified at every output step and keeps its highest class. The card gives the step at
+which that class was worst (the largest D × V within it), with the depth and speed then. A run of more than 40 million cell values is classified once
 from the largest depth and the largest speed, which may not happen together, and a note
 says it can overstate. Files in feet are converted to metres first. A file without
 velocities has no hazard; one without bed levels has no hazard and no arrival time.

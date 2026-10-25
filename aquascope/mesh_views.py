@@ -16,7 +16,7 @@ Explorer (``explorer/src/mesh-views.js``), the CLI (``aquascope mesh lenses FILE
 * :func:`contour_levels` and :func:`contour_lines`: lines of equal depth (or arrival time) at a round interval,
   traced on that grid with contourpy, as GeoJSON in longitude and latitude.
 * :func:`hazard_class` and :func:`mesh_lenses`: the combined flood hazard curves H1 to H6 of the Australian
-  Disaster Resilience Guideline 7-3 (AIDR 2014, Tables 1 and 2, after Smith et al. 2014), assessed at every
+  Disaster Resilience Guideline 7-3 (AIDR 2014, Tables 1 and 2; background in Smith et al. 2014), assessed at every
   output step as the guideline asks ("at all stages of the flood hydrograph"), the arrival time (the first
   output step with water at least :data:`ARRIVAL_DEPTH_M` deep), and the largest depth and speed with the step
   they were reached.
@@ -41,10 +41,11 @@ HAZARD_SOURCE = {
     "short": "AIDR Guideline 7-3 (2014), Tables 1 and 2",
     "publisher": "Australian Institute for Disaster Resilience",
     "year": 2014,
-    "tables": "Table 1 (vulnerability thresholds) and Table 2 (classification limits), after Smith et al. (2014), "
-              "Flood hazard, UNSW Water Research Laboratory Technical Report 2014/07",
+    "tables": "Table 1 (vulnerability thresholds) and Table 2 (classification limits, which the guideline says are "
+              "modelled after Smith and Wasko 2012); background to the curves in Smith, Davey and Cox (2014), Flood "
+              "hazard, UNSW Water Research Laboratory Technical Report 2014/07",
     "url": "https://knowledge.aidr.org.au/media/1891/guideline-7-3-technical-flood-risk-management.pdf",
-    "licence": "CC BY-NC (the guideline's own terms)",
+    "licence": "CC BY-NC 4.0 (the guideline's own terms)",
 }
 
 # Table 2's classification limits: a place is in the lowest class whose three limits it meets (D x V in m2/s,
@@ -605,6 +606,11 @@ def field_payload(m: Mesh, grid: FieldGrid, lenses: Lenses, what: str = "depth",
         img = smooth_field(grid, lenses.arrival_h, kind="strict")
         a = lenses.arrival_h[np.isfinite(lenses.arrival_h)]
         levels = contour_levels(float(a.min()), float(a.max()), most=8, hours=True) if a.size else []
+        # A line no place reaches since the line before would lie on that one (the water jumps from 0 h to 8 h
+        # across a bank, say, and 2, 4 and 6 h would stack there): only the levels some cell arrives by are drawn.
+        if len(levels) > 1:
+            gap = levels[1] - levels[0]
+            levels = [lv for lv in levels if bool(((a > lv - gap) & (a <= lv)).any())]
         # Arrival comes in output steps, so the field is flat between them: the line "flooded by 2 h" is traced
         # halfway to the next output time, on the field softened by about a cell, and crumbs are left out.
         hours = _hours(m.times)

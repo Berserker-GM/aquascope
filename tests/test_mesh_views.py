@@ -280,7 +280,9 @@ def test_depth_contours_and_the_wet_edge(valley, grid, lenses):
 def test_arrival_lines_and_other_pictures(valley, grid, lenses):
     pytest.importorskip("contourpy")
     fc = json.loads(V.field_payload(valley, grid, lenses, "arrival")["lines"])
-    assert [f["properties"]["label"] for f in fc["features"]] == ["2 h", "4 h", "6 h", "8 h", "10 h", "12 h", "14 h"]
+    # The channel is wet from the start and the floodplain first floods at 8 h: 2, 4 and 6 h would all lie on the
+    # bank, on top of each other, so they are not drawn.
+    assert [f["properties"]["label"] for f in fc["features"]] == ["8 h", "10 h", "12 h", "14 h"]
     sp = V.field_payload(valley, grid, lenses, "max_speed")["image"]
     assert np.nanmax(sp) == pytest.approx(float(np.nanmax(lenses.max_speed)), rel=0.05)
     step = V.field_payload(valley, grid, lenses, "depth", 0)["image"]
