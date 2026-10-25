@@ -592,15 +592,15 @@ def test_explorer_check_labels_and_worker_ops_match():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "explorer"
-    js = (root / "src" / "mesh-review-core.js").read_text()
+    js = (root / "src" / "mesh-review-core.js").read_text(encoding="utf-8")
     block = re.search(r"export const CHECK_LABELS = \{(.*?)\};", js, re.S).group(1)
     assert dict(re.findall(r'(\w+): "([^"]+)"', block)) == R.CHECKS
     sev = re.search(r"export const SEVERITY = \{(.*?)\n\};", js, re.S).group(1)
     assert re.findall(r"^  (\w+):", sev, re.M) == list(R.SEVERITIES)
-    mesh_worker = (root / "src" / "mesh-worker.js").read_text()
+    mesh_worker = (root / "src" / "mesh-worker.js").read_text(encoding="utf-8")
     for call in ("gauges_inside", "_review.review(", "review_prompt", "apply_words"):
         assert call in mesh_worker
-    worker = (root / "worker.js").read_text()
+    worker = (root / "worker.js").read_text(encoding="utf-8")
     assert '"mesh_review"' in re.search(r"const LITE_TYPES = new Set\(\[([^\]]*)\]\)", worker).group(1)
     for call in ("gather_floods", "gauge_series", "model_words"):
         assert f"_mr.{call}(" in worker
