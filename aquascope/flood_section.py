@@ -182,11 +182,11 @@ class MeshIndex:
         k2 = np.where(last, np.repeat(off[cc], ne), k + 1)
         xs, ys = np.asarray(self.m.ring_lon), np.asarray(self.m.ring_lat)
         px, py, qx, qy = xs[k], ys[k], xs[k2], ys[k2]
-        X, Y = x[pair], y[pair]
-        cross = (py > Y) != (qy > Y)
+        xp, yp = x[pair], y[pair]
+        cross = (py > yp) != (qy > yp)
         with np.errstate(divide="ignore", invalid="ignore"):
-            xi = px + (Y - py) * (qx - px) / (qy - py)
-        hit = cross & (X < xi)
+            xi = px + (yp - py) * (qx - px) / (qy - py)
+        hit = cross & (xp < xi)
         parity = np.bincount(pair, weights=hit.astype("f8"), minlength=pp.size).astype(np.intp) % 2 == 1
         if parity.any():
             ip, ic = pp[parity], cc[parity]

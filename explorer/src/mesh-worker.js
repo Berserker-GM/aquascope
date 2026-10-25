@@ -12,6 +12,9 @@
 // aquascope.mesh_review): { type: "inside", id, rows } (the gauges standing in a cell), { type: "review", id,
 // context }, { type: "prompt", id, findings, context } and { type: "words", id, findings, reply, by } (a model's
 // reply held to the claim lock).
+// For the section, the hydrograph and what gets flooded (#621, #622: aquascope.flood_section and
+// aquascope.flood_exposure): { type: "section", id, line }, { type: "hydrograph", id, cell, threshold } and
+// { type: "exposure", id, read, threshold } (read: the buildings, roads and population a light worker read).
 // Messages out: { type: "progress", text }, { type: "ready" }, { id, result } or { id, error }.
 
 let pyodide = null;
@@ -142,6 +145,26 @@ json.dumps(_o, default=str)
   post({ id, result: JSON.parse(out) });
 }
 
+// The flood views' calls: arguments in as one JSON string, the answer back as one.
+function floodCall({ id, type, line, cell, threshold, read }) {
+  pyodide.globals.set("_fq", JSON.stringify({ type, line: line || null, cell: cell === undefined ? null : cell,
+    threshold: threshold === undefined ? null : threshold, read: read || null }));
+  const out = pyodide.runPython(`
+from aquascope import flood_section as _fs, flood_exposure as _fx
+_q = json.loads(_fq)
+if _M is None:
+    raise _mesh.MeshError("No model result is open.")
+if _q["type"] == "section":
+    _o = _fs.section(_M, _q["line"])
+elif _q["type"] == "hydrograph":
+    _o = _fs.hydrograph(_M, _q["cell"], threshold=_q["threshold"])
+else:
+    _o = _fx.exposure_payload(_M, _q["read"], threshold=_q["threshold"])
+json.dumps(_o)
+`);
+  post({ id, result: JSON.parse(out) });
+}
+
 self.onmessage = async (e) => {
   const m = e.data || {};
   try {
@@ -155,6 +178,7 @@ self.onmessage = async (e) => {
     else if (m.type === "frame") frame(m);
     else if (m.type === "series") series(m);
     else if (["inside", "review", "prompt", "words"].includes(m.type)) reviewCall(m);
+    else if (["section", "hydrograph", "exposure"].includes(m.type)) floodCall(m);
     else if (m.type === "close") {
       pyodide.runPython("_M.close() if _M is not None else None\n_M = None");
       post({ id: m.id, result: true });

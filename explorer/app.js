@@ -34,6 +34,8 @@ import { initFloodDepth } from "./src/flood-depth.js?v=__BUILD__";  // flood dep
 import { initMeshView } from "./src/mesh-view.js?v=__BUILD__";  // your model results on the globe (#555)
 import { initModelSamples } from "./src/model-samples.js?v=__BUILD__";  // Open model results: your files or a sample (#591)
 import { initMeshReview } from "./src/mesh-review.js?v=__BUILD__";  // review my model results (#564)
+import { initFloodSection } from "./src/flood-section.js?v=__BUILD__";  // a section and a hydrograph (#621)
+import { initFloodExposure } from "./src/flood-exposure.js?v=__BUILD__";  // what gets flooded (#622)
 import { initSearch } from "./src/search.js?v=__BUILD__";
 import { initShell, initTabs, selectTab, setStatusEl, showSurface } from "./src/shell.js?v=__BUILD__";
 import { initStationPanel, reanalyze, selectStation, setPeriod } from "./src/panel-station.js?v=__BUILD__";
@@ -204,6 +206,8 @@ function bringMapOnline(url) {
   initModelSamples();
   initMeshView();
   initMeshReview();
+  initFloodSection();
+  initFloodExposure();
   initMapActions();   // after every layer it can switch (#561)
   initWhatIf();       // its slot in the action log (#565)
   // A selection made while the map was still dark has nothing on the map yet.

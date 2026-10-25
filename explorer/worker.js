@@ -12,7 +12,7 @@ let ready = null;
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
 const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review",
-  "whatif_words"]);
+  "whatif_words", "flood_exposure"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1284,6 +1284,31 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── What gets flooded (#622): aquascope.flood_exposure.read_sources reads the buildings and roads (Overture Maps
+// GeoParquet, pyarrow loaded here on first use) and the population grid (GHS-POP COG tiles) around the model; the
+// counting runs in mesh-worker.js, beside the file.
+let pyarrowLoaded = false;
+async function floodExposureOp({ id, bbox, what }) {
+  if (!pyarrowLoaded) {
+    post("progress", { text: "Loading pyarrow to read Overture's GeoParquet…" });
+    await pyodide.loadPackage(["pyarrow"]);
+    pyarrowLoaded = true;
+  }
+  self.__aqExposure = JSON.stringify({ bbox: bbox || null, what: what || ["buildings", "roads", "population"] });
+  try {
+    const out = await pyodide.runPythonAsync(`
+import json
+from js import __aqExposure
+from aquascope import flood_exposure as _fx
+_a = json.loads(__aqExposure)
+json.dumps(_fx.read_sources(_a["bbox"], what=tuple(_a["what"])))
+`);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqExposure = null;
+  }
+}
+
 // ── Explain what is on screen (#562): aquascope.map_explain, the same functions as `aquascope layers explain`
 // and the MCP tool explain_view. op "facts" reads the view into facts and template notes (the month's status
 // file is fetched here and handed over as bytes); "check" holds a model's notes to the facts (the claim lock);
@@ -1460,6 +1485,7 @@ self.onmessage = async (e) => {
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
     if (m.type === "mesh_review") return await meshReviewOp(m);
+    if (m.type === "flood_exposure") return await floodExposureOp(m);
     if (m.type === "whatif" || m.type === "whatif_words") return await whatIf(m);
     if (m.type === "groundwater") return await groundwater(m);
   } catch (err) {

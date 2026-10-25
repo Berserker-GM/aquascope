@@ -111,6 +111,23 @@ export function setReviewSection(fn) { reviewSection = fn; }
 /** Redraw the legend row (the review calls it when its result changes). */
 export function refreshMeshLegend() { if (mesh) refreshLegend("mesh"); }
 
+// ── for the section, the hydrograph and what gets flooded (#621, #622: flood-section.js, flood-exposure.js) ──
+
+const stepHooks = new Set();
+/** Run fn({ view, step }) when the model on show moves to another step, or back to the largest. */
+export function onMeshStep(fn) { stepHooks.add(fn); return () => stepHooks.delete(fn); }
+const tellStep = () => { for (const fn of stepHooks) { try { fn({ view, step }); } catch (err) { console.warn("mesh step", err && err.message); } } };
+/** The step on show: { view: "max" | "step", step }, or null without a model. */
+export const meshStepNow = () => (mesh ? { view, step } : null);
+
+const meshTools = [];
+/** A button on the model's legend row: { id, label, title, run() }. */
+export function addMeshTool(tool) { if (!meshTools.some((t) => t.id === tool.id)) meshTools.push(tool); if (mesh) refreshLegend("mesh"); }
+
+const cellHooks = new Set();
+/** Run fn(cell, cardId) when a cell's card opens. */
+export function onMeshCell(fn) { cellHooks.add(fn); return () => cellHooks.delete(fn); }
+
 /** The layer the review's cell flags go under: the arrows, so they stay readable on top. */
 export const meshFlagsBefore = () => (map && map.getLayer(ARROWS) ? ARROWS : beforeId());
 
@@ -372,6 +389,7 @@ async function showStep(i) {
   paint();
   drawArrows();
   syncSelection();
+  tellStep();
 }
 
 async function showLargest() {
@@ -380,6 +398,7 @@ async function showLargest() {
   paint();
   drawArrows();
   syncSelection();
+  tellStep();
 }
 
 // ── the arrows ──────────────────────────────────────────────────────────────
@@ -564,6 +583,7 @@ function onClick(e) {
     ...cardSpec(i), credit: "Your file, read in your browser by aquascope. Nothing is uploaded.",
   });
   syncSelection();
+  for (const fn of cellHooks) { try { fn(i, `mesh:${i}`); } catch (err) { console.warn("mesh cell", err && err.message); } }
   if (!meta.times.length) return;
   const run = seriesCache.get(i) || ask("series", { cell: i });
   seriesCache.set(i, run);
@@ -605,7 +625,8 @@ function keyHtml() {
     `<div class="fd-ramp" role="img" aria-label="${escapeHtml(words)} from ${escapeHtml(String(scale.lo))} to ${escapeHtml(String(scale.hi))}${unit ? ` ${escapeHtml(unit)}` : ""}, light to deep blue" style="background:${rampCss()}"></div>` +
     `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>` +
     velocity + notes +
-    `<p class="mv-actions">${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
+    `<p class="mv-actions">${meshTools.map((t) => `<button type="button" class="fd-go" data-act="tool:${escapeHtml(t.id)}" ` +
+      `title="${escapeHtml(t.title || "")}">${escapeHtml(t.label)}</button>`).join("")}${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
     `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
     `stays in your browser</p>` +
@@ -641,6 +662,7 @@ function registerRow() {
       else if (name === "open") { pickFile(); }
       else if (name === "review") { if (actions.reviewModel) void actions.reviewModel(); }
       else if (name === "clear") { clearMesh(); }
+      else if (name.startsWith("tool:")) { const t = meshTools.find((x) => `tool:${x.id}` === name); if (t) t.run(); }
     },
   });
 }

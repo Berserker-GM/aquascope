@@ -49,8 +49,8 @@ from aquascope.flood_section import MeshIndex, _bed, _typical_cell_m, hours_sinc
 from aquascope.io.mesh import DRY_DEPTH, Mesh, MeshError
 
 __all__ = [
-    "LIMITS", "SOURCES", "exposure", "exposure_for_mesh", "ghsl_tile_url", "overture_files", "read_overture",
-    "read_population", "wkb_parts",
+    "LIMITS", "SOURCES", "exposure", "exposure_for_mesh", "exposure_payload", "ghsl_tile_url", "overture_files",
+    "read_overture", "read_population", "read_sources", "wkb_parts",
 ]
 
 IS_EMSCRIPTEN = sys.platform == "emscripten"
@@ -308,7 +308,8 @@ def _chunk_spans(md: Any, groups: list[int], columns: list[str]) -> list[tuple[i
             c = rg.column(i)
             if c.path_in_schema.split(".")[0] not in columns:
                 continue
-            start = c.dictionary_page_offset if c.has_dictionary_page and c.dictionary_page_offset else c.data_page_offset
+            dic = c.dictionary_page_offset if c.has_dictionary_page else None
+            start = dic if dic else c.data_page_offset
             spans.append((int(start), int(start) + int(c.total_compressed_size)))
     return spans
 
@@ -631,39 +632,68 @@ def _round_coords(a: np.ndarray, nd: int = 6) -> list[list[float]]:
     return [[round(float(x), nd), round(float(y), nd)] for x, y in a]
 
 
-def exposure_for_mesh(m: Mesh, *, threshold: float | None = None, what: tuple[str, ...] = ("buildings", "roads",
-                      "population"), release: str | None = None) -> dict[str, Any]:
-    """Read the open sources around the mesh and count what its water reaches: the Explorer's "What gets
-    flooded". A source that cannot be read leaves its count out, with the reason in ``errors``; the others
-    still count. The features come back as plain lists, ready to draw."""
-    bbox = m.bbox()
+def _plain_parts(parts: list[list[np.ndarray]]) -> list[list[list[list[float]]]]:
+    return [[_round_coords(np.asarray(r)) for r in part] for part in parts]
+
+
+def read_sources(bbox: list[float], *, what: tuple[str, ...] = ("buildings", "roads", "population"),
+                 release: str | None = None) -> dict[str, Any]:
+    """Read the open sources inside ``bbox`` as plain JSON types, for :func:`exposure_payload`: the Explorer reads
+    them in a light worker and counts in the mesh worker, beside the file. A source that cannot be read is left
+    out, with the reason in ``errors``."""
+    bbox = [float(x) for x in bbox]
     _check_area(bbox)
-    got: dict[str, Any] = {}
-    errors: dict[str, str] = {}
-    info: dict[str, dict[str, Any]] = {}
+    out: dict[str, Any] = {"bbox": bbox, "info": {}, "errors": {}}
     for w in what:
         try:
             if w == "population":
                 pop = read_population(bbox)
-                got["population"] = pop
-                info["population"] = {"tiles": pop["tiles"]}
-            else:
+                out["population"] = {"lon": [round(float(x), 7) for x in pop["lon"]],
+                                     "lat": [round(float(x), 7) for x in pop["lat"]],
+                                     "people": [round(float(x), 4) for x in pop["people"]], "step": pop["step"]}
+                out["info"]["population"] = {"tiles": pop["tiles"]}
+            elif w in ("buildings", "roads"):
                 r = read_overture(bbox, w, release=release)
-                got[w] = r["features"]
-                info[w] = {"release": r["release"], "files": len(r["files"]), "requests": r["requests"],
-                           "bytes": r["bytes"], "truncated": r["truncated"]}
+                out[w] = [{"id": f["id"], "class": f["class"], "parts": _plain_parts(f["parts"])}
+                          for f in r["features"]]
+                out["info"][w] = {"release": r["release"], "files": len(r["files"]), "requests": r["requests"],
+                                  "bytes": r["bytes"], "truncated": r["truncated"]}
         except Exception as exc:  # noqa: BLE001 - any failure of one source is said and the rest go on
-            errors[w] = f"{type(exc).__name__}: {exc}"[:300]
-    res = exposure(m, buildings=got.get("buildings"), roads=got.get("roads"), population=got.get("population"),
+            out["errors"][w] = f"{type(exc).__name__}: {exc}"[:300]
+    return out
+
+
+def _arrays(feats: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
+    if feats is None:
+        return None
+    return [{**f, "parts": [[np.asarray(r, dtype="f8").reshape(-1, 2) for r in part] for part in f["parts"]]}
+            for f in feats]
+
+
+def exposure_payload(m: Mesh, read: dict[str, Any], *, threshold: float | None = None) -> dict[str, Any]:
+    """:func:`exposure` over what :func:`read_sources` read, with each source's name, licence and credit, the
+    limits of each count and the reading errors, as plain JSON types ready to draw."""
+    pop = read.get("population")
+    if pop is not None:
+        pop = {**pop, "lon": np.asarray(pop["lon"], "f8"), "lat": np.asarray(pop["lat"], "f8"),
+               "people": np.asarray(pop["people"], "f8")}
+    res = exposure(m, buildings=_arrays(read.get("buildings")), roads=_arrays(read.get("roads")), population=pop,
                    threshold=threshold)
-    for w in what:
+    for w in ("buildings", "roads", "population"):
         if w in res:
-            res["sources"][w] = {**SOURCES[w], **info.get(w, {})}
+            res["sources"][w] = {**SOURCES[w], **read.get("info", {}).get(w, {})}
     if "buildings" in res:
         for f in res["buildings"]["features"]:
             f["ring"] = _round_coords(f["ring"])
     if "roads" in res:
         for p in res["roads"]["pieces"]:
             p["coords"] = _round_coords(p["coords"])
-    res["errors"] = errors
+    res["errors"] = dict(read.get("errors", {}))
     return res
+
+
+def exposure_for_mesh(m: Mesh, *, threshold: float | None = None, what: tuple[str, ...] = ("buildings", "roads",
+                      "population"), release: str | None = None) -> dict[str, Any]:
+    """Read the open sources around the mesh and count what its water reaches, in one call (the CLI and MCP
+    faces; the Explorer splits it in two across its workers)."""
+    return exposure_payload(m, read_sources(m.bbox(), what=what, release=release), threshold=threshold)
