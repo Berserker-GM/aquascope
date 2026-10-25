@@ -454,3 +454,72 @@ def test_the_status_classes_are_the_maps():
     from aquascope.map_layers import STATUS_CLASSES
 
     assert mc.STATUS_IDS == tuple(c["id"] for c in STATUS_CLASSES)
+
+
+# ── #590: what the on-device run found ──────────────────────────────────────
+
+
+@pytest.mark.parametrize("text", [
+    "is anything wrong with my flood model?", "is there anything wrong with the HEC-RAS model",
+    "what's wrong with my model run", "any problems with my MODFLOW model?", "does my model look right",
+    "sanity check my flood model results please", "is my model broken", "check my model",
+])
+def test_the_ways_people_ask_about_their_model_reach_the_review(text):
+    res = mc.parse_command(text, today=TODAY)
+    assert res["control"] == "review", text   # recorded: the device turned Floods past on instead
+
+
+@pytest.mark.parametrize("text", ["check the river status", "check the floods past", "show floods past"])
+def test_a_layer_request_is_not_a_review(text):
+    assert mc.parse_command(text, today=TODAY)["control"] != "review"
+
+
+@pytest.mark.parametrize("text", ["what does this view show", "describe the view", "tell me about this map",
+                                  "what am I looking at on the map"])
+def test_more_ways_to_ask_about_the_view(text):
+    assert mc.parse_command(text, today=TODAY)["control"] == "explain"
+
+
+def test_the_model_may_answer_with_the_review_or_the_notes():
+    assert set(mc.action_schema()["properties"]["control"]["enum"]) == {"review", "explain"}
+    system = mc.model_prompt(today=TODAY)["system"]
+    assert '"control": "review"' in system and '"control": "explain"' in system
+    out = mc.parse_model_reply('{"actions": [{"type": "set_layer", "layer": "floods_past", "on": true}], '
+                               '"control": "review"}', TODAY, text="is anything wrong with my flood model?")
+    assert out["control"] == "review" and out["actions"] == []
+    assert mc.parse_model_reply('{"actions": [], "control": "delete"}', TODAY)["control"] is None
+
+
+def test_the_recorded_made_up_box_for_africa_becomes_africas_extent():
+    # Recorded on the device: fly_to bbox [15, 20, 30, 40] for "where is it driest in Africa right now? zoom there".
+    reply = {"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]},
+                         {"type": "set_layer", "layer": "status", "on": True}]}
+    out = mc.parse_model_reply(reply, TODAY, text="where is it driest in Africa right now? zoom there")
+    assert out["actions"][0] == {"type": "fly_to", "region": "africa", "bbox": mc.REGIONS["africa"]["bbox"],
+                                 "label": "Africa"}
+    assert out["said"][0] == "Fly to Africa"
+    assert any("replaced by the extent of Africa" in e for e in out["errors"])
+
+
+def test_a_made_up_box_with_no_place_in_the_words_is_refused_and_says_what_is_needed():
+    out = mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]}]}, TODAY,
+                               text="where is it driest right now? zoom there")
+    assert out["actions"] == []
+    assert "name a place or a region" in out["errors"][0]
+    pin = mc.parse_model_reply({"actions": [{"type": "add_pin", "lat": 10, "lon": 20, "title": "dry"}]}, TODAY,
+                               text="pin the driest place in Africa")
+    assert pin["actions"] == [] and "made up" in pin["errors"][0]
+
+
+def test_coordinates_the_words_hold_and_named_places_are_kept():
+    said = mc.parse_model_reply({"actions": [{"type": "fly_to", "center": [47.5, -7.6], "zoom": 6}]}, TODAY,
+                                text="go to 47.5, -7.6")
+    assert said["actions"][0]["center"] == [47.5, -7.6] and not said["errors"]
+    placed = mc.parse_model_reply({"actions": [{"type": "fly_to", "center": [47.5, 7.6], "place": "Basel"}]}, TODAY,
+                                  text="zoom to Basel")
+    assert placed["actions"] == [{"type": "fly_to", "place": "Basel"}]
+    labelled = mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [7, 47, 8, 48], "label": "Basel"}]},
+                                    TODAY, text="zoom to Basel")
+    assert labelled["actions"] == [{"type": "fly_to", "place": "Basel"}]
+    # Without the words (the page's own validate op), nothing changes.
+    assert mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]}]}, TODAY)["actions"]

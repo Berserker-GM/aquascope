@@ -246,6 +246,11 @@ def _place_text(raw: str) -> str:
 # ── the action vocabulary, the schema and the checks ────────────────────────
 
 
+#: The controls a model may answer with instead of actions: the review of the model result on the map (#564) and
+#: the notes on the view (#562).
+MODEL_CONTROLS = ("review", "explain")
+
+
 def action_schema() -> dict[str, Any]:
     """The JSON Schema a model's reply is held to: ``{"actions": [ {type, ...}, ... ]}``.
 
@@ -289,6 +294,8 @@ def action_schema() -> dict[str, Any]:
                     "required": ["type"],
                 },
             },
+            # A request about the model result on the map, or about the view itself, is a control (#590).
+            "control": {"type": "string", "enum": list(MODEL_CONTROLS)},
         },
         "required": ["actions"],
     }
@@ -964,20 +971,36 @@ def _merge_time(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
 # "What am I seeing?": explain the view (#562, aquascope.map_explain), a control like undo rather than an action.
 _EXPLAIN = re.compile(
     r"(?:please\s+|can you\s+)?(?:"
-    r"what am i (?:seeing|looking at)(?: here| now)?"
+    r"what am i (?:seeing|looking at)(?: here| now| on (?:the|this) (?:map|screen|view))?"
     r"|what(?: is|s) (?:this|that|on (?:the )?(?:screen|map)|going on(?: here)?|happening(?: here)?)"
-    r"|what does (?:this|the map) show"
+    r"|what does (?:this|the)(?: (?:view|map|screen))? show(?: me)?"
     r"|what do (?:the|these) colou?rs mean(?: here)?"
+    r"|what do i see(?: here)?"
     r"|explain(?: (?:this|the|my|what is on the|whats on the))?(?: (?:view|map|screen))?(?: to me)?(?: please)?"
+    r"|explain what i(?: a)?m (?:seeing|looking at)"
+    r"|(?:describe|summari[sz]e|walk me through)(?: (?:this|the|my))? (?:view|map|screen)(?: for me)?"
+    r"|tell me about (?:this|the) (?:view|map|screen)"
     r"|tell me what i(?: a)?m? (?:see|seeing|looking at)"
     r")")
 
 
 # "Review my model": the checks on the model result on the map (#564, aquascope.mesh_review), a control too.
+#: "Is anything wrong with my flood model?" went to a model on the device, which turned Floods past on (#590): the
+#: ways people ask whether a model result is right are read here, so they reach the review.
+_KINDS = r"(?:flood|hec ?-?ras|hecras|modflow|swmm|groundwater|hydraulic|2d|1d|river|catchment)"
+_MODEL_KIND = r"(?:" + _KINDS + r" )?"
+_MODEL_NOUN = _MODEL_KIND + r"(?:model(?: (?:results?|run|output))?|run|results?|mesh|output|simulation)"
 _REVIEW = re.compile(
-    r"(?:please\s+|can you\s+)?(?:"
-    r"(?:review|check)(?: (?:my|the|this|these))?(?: model)?(?: (?:results?|run|mesh|output))?(?: please)?"
-    r"|(?:does|do) (?:my|the|this) (?:model|run|results?) look (?:right|ok|okay|sensible)"
+    r"(?:please\s+|can you\s+|could you\s+)?(?:"
+    r"(?:review|check|audit|validate|sanity check|inspect)(?: (?:my|the|this|these|over))?(?: " + _KINDS
+    + r")?(?: model)?(?: (?:results?|run|mesh|output|simulation))?(?: for (?:me|errors|problems|mistakes))?(?: please)?"
+    r"|(?:does|do|is|are) (?:my|the|this|these) " + _MODEL_NOUN
+    + r" (?:look )?(?:right|ok|okay|sensible|plausible|correct|reasonable)"
+    r"|(?:is|are) (?:there )?(?:anything|something|any (?:problems?|issues?|errors?|mistakes?)) (?:wrong )?"
+    r"(?:with|in) (?:my|the|this|these) " + _MODEL_NOUN
+    + r"|what(?: is|s) wrong with (?:my|the|this) " + _MODEL_NOUN
+    + r"|any (?:problems?|issues?|errors?|mistakes?) (?:with|in) (?:my|the|this|these) " + _MODEL_NOUN
+    + r"|is (?:my|the|this) " + _MODEL_NOUN + r" (?:wrong|broken)"
     r")")
 
 
@@ -1272,7 +1295,11 @@ def model_prompt(context: str = "", today: str | date | None = None) -> dict[str
         '- add_pin: a pin with a note. "lat" and "lon" (or "place"), a short "title" and "text".',
         "",
         "Never invent numbers, data or places that were not asked for. "
-        "Use place names as the reader wrote them; the map looks them up.",
+        "Use place names as the reader wrote them; the map looks them up. Give a bbox or a center only when "
+        "the reader wrote its numbers.",
+        'If the reader asks whether the model results on the map are right ("is anything wrong with my flood '
+        'model?", "check my model"), reply {"actions": [], "control": "review"}. If they ask what the view '
+        'shows ("what am I seeing?"), reply {"actions": [], "control": "explain"}.',
         'If the request is not about the map, reply {"actions": []}.',
         "",
         *shots,
@@ -1283,8 +1310,82 @@ def model_prompt(context: str = "", today: str | date | None = None) -> dict[str
     return {"system": system, "schema": action_schema()}
 
 
-def parse_model_reply(reply: Any, today: str | date | None = None) -> dict[str, Any]:
-    """A model's reply (text or parsed JSON) as checked actions: ``{"actions", "errors", "said"}``."""
+_COORD_KEYS = ("bbox", "center", "lat", "lon")
+
+
+def _region_in(folded: str) -> str | None:
+    """The region a request names anywhere in it ("where is it driest in Africa" names Africa), longest first."""
+    for alias, key in _REGION_ALIASES:
+        if key == "world" and not re.search(r"world|globe", alias):
+            continue   # "home", "earth" and "everywhere" are words, not a request for the world view
+        if re.search(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])", folded):
+            return key
+    return None
+
+
+def _coords(action: dict[str, Any]) -> list[float]:
+    vals: list[Any] = []
+    for key in ("bbox", "center"):
+        if isinstance(action.get(key), (list, tuple)):
+            vals.extend(action[key])
+    vals.extend(action[k] for k in ("lat", "lon") if action.get(k) is not None)
+    return [float(v) for v in vals if _finite(v)]
+
+
+def ground_places(actions: Any, text: str) -> tuple[Any, list[str]]:
+    """Hold a model's boxes and points to the request's words (#590).
+
+    "Where is it driest in Africa right now? zoom there" came back from the on-device model as a fly_to with a
+    bbox of its own, [15, 20, 30, 40], and the map flew there as if it were the answer. A bbox, center or
+    lat/lon is kept only when the words hold its numbers; otherwise, in this order, the action keeps the place
+    the model also named (the gazetteer looks it up), takes the extent of a region the words name, or takes its
+    label as a place when the words say it. Failing all three it is refused, with what is needed. Returns the
+    actions and the lines to show for what was replaced or refused.
+    """
+    if isinstance(actions, dict):
+        actions = actions.get("actions", [actions] if "type" in actions else [])
+    if not isinstance(actions, list):
+        return actions, []
+    folded = _fold(text)
+    said = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", folded)]
+    region = _region_in(folded)
+    out: list[Any] = []
+    notes: list[str] = []
+    for i, a in enumerate(actions[:8]):
+        if not isinstance(a, dict):
+            out.append(a)
+            continue
+        vals = _coords(a)
+        if not vals or all(any(abs(abs(v) - n) <= 0.05 for n in said) for v in vals):
+            out.append(a)
+            continue
+        bare = {k: v for k, v in a.items() if k not in _COORD_KEYS}
+        kind = a.get("type")
+        label = _text(a.get("label"), 80)
+        what = "box" if a.get("bbox") is not None else "point"
+        if _text(a.get("place"), 80):
+            out.append(bare)
+        elif region and kind in ("fly_to", "draw_area"):
+            spec = REGIONS[region]
+            out.append({**bare, "region": region, **({"bbox": spec["bbox"]} if spec["bbox"] else {}),
+                        "label": spec["label"]})
+            notes.append(f"action {i + 1}: the model's own {what}, replaced by the extent of {spec['label']}")
+        elif label and len(label) >= 3 and _fold(label) in folded:
+            # The label becomes the place for the gazetteer; without it, so a failed lookup still reads as one.
+            out.append({**{k: v for k, v in bare.items() if k != "label"}, "place": label})
+        else:
+            notes.append(f"action {i + 1}: a {what} the model made up (the words name no place it could come "
+                         "from); name a place or a region")
+    return out + actions[8:], notes
+
+
+def parse_model_reply(reply: Any, today: str | date | None = None, text: str | None = None) -> dict[str, Any]:
+    """A model's reply (text or parsed JSON) as checked actions: ``{"actions", "errors", "said", "control"}``.
+
+    ``control`` is "review" or "explain" when the model answered with one of :data:`MODEL_CONTROLS` (the
+    request was about the model result on the map, or the view), and the actions are then left out. With
+    ``text`` (the request), a box or point the words do not hold goes through :func:`ground_places`.
+    """
     data = reply
     if isinstance(reply, str):
         raw = reply.strip()
@@ -1296,8 +1397,16 @@ def parse_model_reply(reply: Any, today: str | date | None = None) -> dict[str, 
             data, _ = json.JSONDecoder().raw_decode(raw[start:])
         except ValueError:
             return {"actions": [], "errors": ["the model's JSON could not be read"], "said": []}
+    control = data.get("control") if isinstance(data, dict) else None
+    if control in MODEL_CONTROLS:
+        return {"actions": [], "errors": [], "said": [], "control": control}
+    notes: list[str] = []
+    if text is not None:
+        data, notes = ground_places(data, text)
     checked = validate_actions(data, today)
+    checked["errors"] = notes + checked["errors"]
     checked["said"] = [describe_action(a) for a in checked["actions"]]
+    checked["control"] = None
     return checked
 
 
@@ -1322,6 +1431,6 @@ def model_command(text: str, *, provider: str | None = None, model: str | None =
         messages=[{"role": "system", "content": prompt["system"]}, {"role": "user", "content": str(text)}],
     )
     content = resp.choices[0].message.content or ""
-    out = parse_model_reply(content, today)
+    out = parse_model_reply(content, today, text=str(text))
     out["model"] = f"{model} via {provider}"
     return out
