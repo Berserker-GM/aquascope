@@ -1,4 +1,4 @@
-"""HydroGym Phase 2: plan quality, scored against expert reference plans (#367, epic #363).
+"""AquaScope Bench Phase 2: plan quality, scored against expert reference plans (#367, epic #363).
 
 Phase 1 (:mod:`aquascope.gym.tasks`, :mod:`aquascope.gym.bench`) asks whether
 an agent lands on the playbook branch the tree selects. Phase 2 asks a harder
@@ -1056,7 +1056,7 @@ def plan_leaderboard(results: Iterable[PlanResult], *, out: str | Path | None = 
     rows = summarize_plans(rs)
     n_cases = len({r.case_id for r in rs})
     lines = [
-        f"## {title or 'HydroGym plan-quality leaderboard'}", "",
+        f"## {title or 'AquaScope Bench plan-quality leaderboard'}", "",
         f"{n_cases} cases, {len(rs)} runs, {len(rows)} agent-model pairs. Score is the mean over every case of the "
         "plan-quality score (weights " + ", ".join(f"{k} {v:g}" for k, v in WEIGHTS.items())
         + "; a declining case scores 1 for a decline and 0 for a plan; an error scores 0); solvable is the mean over "

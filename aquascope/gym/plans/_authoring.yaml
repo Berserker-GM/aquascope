@@ -1,4 +1,4 @@
-# HydroGym Phase 2: how a reference plan is written (issue #367, epic #363).
+# AquaScope Bench Phase 2: how a reference plan is written (issue #367, epic #363).
 #
 # One file per case, `<id>.yaml`, read by aquascope.gym.plans; a file whose name starts with `_` (this one) is
 # not a case. The keys of a case:

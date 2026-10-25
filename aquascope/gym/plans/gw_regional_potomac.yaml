@@ -1,4 +1,4 @@
-# HydroGym Phase 2 reference plan; the authoring rules are in _authoring.yaml.
+# AquaScope Bench Phase 2 reference plan; the authoring rules are in _authoring.yaml.
 # No well in the catalog within 50 km (the USGS list carries none): what can be said is regional, the ERA5
 # water balance for the cell, labelled as such; the well methods are not defensible.
 id: gw_regional_potomac
