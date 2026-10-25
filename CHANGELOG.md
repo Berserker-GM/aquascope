@@ -36,6 +36,7 @@ All notable changes to AquaScope are documented here.
   - `aquascope mesh lenses FILE` and the MCP tool `mesh_lenses` (experimental) give the same numbers: the area in each hazard class, the arrival times, and the largest depth and speed with when and where.
 
 ### Changed
+- **The Explorer is checked in Safari, Firefox and on phones** (#591). [`docs/assessments/browsers.md`](docs/assessments/browsers.md) now records Chrome on a Mac with all 13 journeys working after the fixes, and the maintainer's 2026-10-25 report that Safari and Firefox on the desktop, Safari on an iPhone and Chrome on Android work, with what is still worth measuring (per-journey tables, frame rate and memory on a phone).
 - **HydroGym is now AquaScope Bench** (#440): the benchmark is renamed in the README, the docs, the paper, CLI help, docstrings and leaderboard headings, because an unrelated reinforcement-learning platform has the old name. The code entry points are unchanged: `aquascope.gym`, `aquascope gym`, the file names and the recorded results.
 - The JOSS paper is ready to submit (part of #72): it names AquaScope Bench and acknowledges the API credits from Anthropic's AI for Science program.
 - `harvest.yml` fails a scheduled run that did not publish, and says in the workflow why the observation step is allowed to stop early (#449).
