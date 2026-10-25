@@ -43,6 +43,7 @@ All notable changes to AquaScope are documented here.
 - **UK EA daily reading quality mapping** (#439). Parsed agency `quality`, `completeness`, and sub-daily counts (`valid`, `invalid`, `missing`) in `UKEACollector`. Mapped `quality` codes to harmonized `Quality` enum (`Good` -> `approved`, `Unchecked` -> `provisional`, `Estimated` -> `estimated`, `Suspect` -> `suspect`, `Missing` -> `unknown`), while preserving completeness and raw telemetry counts in `quality_raw`. Documented the mapping in `docs/data_sources.md`.
 
 ### Fixed
+- **Windows Map Scout UTF-8 reads** (#432): read published Scout JSON and forecast warning files explicitly as UTF-8 so non-ASCII characters such as `km²` survive on Windows; align Windows permission and forecast time-budget tests with platform behavior.
 - **Windows repair patch application** (#432, #607): write generated unified-diff patch files with LF line endings on all platforms, and test CRLF-formatted repair proposals to prevent Windows `git apply --check` failures.
 - **Explorer station actions** (#611): keep the right-aligned More actions menu inside the scrolling panel when the buttons wrap, so Send to workbench and the other menu actions remain clickable. An offline Chromium layout check covers desktop and phone widths and runs in PR CI.
 - **Sample models, and a MODFLOW model you can see without its georeference** (part of #591, from the first browser check, [assessment](docs/assessments/browsers.md)):
