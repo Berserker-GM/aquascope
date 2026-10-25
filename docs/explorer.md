@@ -1168,7 +1168,7 @@ into the page and read like a dropped file, with their credit on the legend row:
   see-through when shallow, deep blue when deep), on a square-root scale up to the
   file's own 99th percentile. A file without bed levels shows the water surface instead,
   and says so. From zoom 13 the cell edges are drawn faintly.
-- **The arrows.** One arrow for about every 34 pixels on screen, pointing where the water
+- **The arrows.** One arrow for about every 46 pixels on screen, pointing where the water
   goes, longer when faster. In the largest view they show the step with the most water
   on the mesh.
 - **Particles.** Tick **Particles** in the legend and white traces drift with the current
@@ -1181,6 +1181,32 @@ into the page and read like a dropped file, with their credit on the legend row:
   at the step on show, the largest over the run, and the time series at that cell.
 - **One legend row** with the file's name: the ramp and its units, the arrows and
   particles, **Zoom to** and **Remove**.
+
+**Smooth depth, contours, 3D and lenses** (#619, #620). Once the file is read, the mesh
+worker builds the smooth picture and the lenses (`aquascope.mesh_views`, [mesh.md](mesh.md#smooth-depth-contours-and-the-flood-lenses)):
+
+- **Smooth** (on by default): the depth interpolated between cell centres instead of square
+  cells, with labelled depth contours at a round interval and a line at the edge of the water.
+  Step or play the time bar and the picture and its lines are redrawn at each step, so the
+  flood front advances across the map. Untick **Smooth** to see the cells as the model
+  computed them; **Contours** turns the lines off.
+- **3D**: the map's terrain (AWS Terrain Tiles) comes on, the camera tilts over the model and
+  the water is draped over the relief. Untick it to put the map back as it was.
+- **Lenses**, one at a time: **Depth** (the time bar's), **Hazard** (H1 to H6 from depth and
+  speed at every step, the AIDR Guideline 7-3 curves, with the area in each class and the
+  source in the key), **Arrival** (when each place first has 0.1 m of water, with lines of
+  equal arrival), **Max depth** and **Max speed**. Moving the time bar goes back to **Depth**.
+  A click on a cell under a lens explains the value there: the class, the step and the depth
+  and speed that put the cell in it, and the class's limits; or when the water arrived; or
+  the largest depth or speed and its step.
+
+![Smooth depth and labelled contours on a HEC-RAS 2D run](img/models/619-smooth-contours.jpg)
+
+![The flood draped over the terrain in 3D](img/models/619-3d.jpg)
+
+![The hazard lens, H1 to H6, with a cell's card](img/models/620-hazard.jpg)
+
+![The arrival-time lens with lines of equal arrival](img/models/620-arrival.jpg)
 
 ![A UGRID mesh of San Diego Bay (ADH), the largest depth](img/globe/555-ugrid-sandiego.png)
 

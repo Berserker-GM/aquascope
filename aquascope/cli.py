@@ -1263,6 +1263,9 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     if args.file == "review" and args.review_file:
         _mesh_review(args)
         return
+    if args.file == "lenses" and args.review_file:
+        _mesh_lenses(args)
+        return
     res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
@@ -1383,6 +1386,41 @@ def _mesh_review(args: argparse.Namespace) -> None:
         print(f"      Source: {f['source']}")
     for e in res.get("errors") or []:
         print(f"  note: {e}")
+
+
+def _mesh_lenses(args: argparse.Namespace) -> None:
+    """`aquascope mesh lenses FILE` (#620): the hazard, arrival time, largest depth and speed the Explorer shows."""
+    from aquascope.mesh_views import lens_summary
+
+    res = lens_summary(args.review_file, crs=args.crs, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
+        sys.exit(1)
+    print(f"  {res['name']}: {res['cells']:,} cells, {res['time_steps']} time steps")
+    h = res.get("hazard")
+    if h:
+        print(f"  Flood hazard, {h['rule']} ({h['source']}):")
+        for c in h["classes"]:
+            print(f"    {c['code']}  {c['area_km2']:>9.4f} km2  {c['cells']:>7,} cells  {c['words']}")
+        print(f"    {h['url']}")
+    a = res.get("arrival") or {}
+    if a.get("last_h") is not None:
+        print(f"  Arrival ({a['rule']}): {a['wet_at_start']:,} cells wet from the start, the last after "
+              f"{a['last_h']:g} h; {a['reached']:,} cells reached")
+    for key, label in (("max_depth", "Largest depth"), ("max_speed", "Largest speed")):
+        x = res.get(key)
+        if x:
+            unit = f" {x['unit']}" if x.get("unit") else ""
+            when = f" at {x['time']}" if x.get("time") else ""
+            print(f"  {label}: {x['value']}{unit}{when}, {x['lat']}, {x['lon']} (cell {x['cell']})")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
 
 
 def cmd_basins(args: argparse.Namespace) -> None:
@@ -4705,9 +4743,10 @@ def main() -> None:
     p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
                             "times, the largest depth and speed")
     p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file; or 'review' then the "
-                        "file, to check the run (#564)")
+                        "file, to check the run (#564); or 'lenses' then the file, for the flood hazard, arrival "
+                        "time and largest depth and speed (#620)")
     p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
-                        help="With 'review': the model result to check")
+                        help="With 'review' or 'lenses': the model result")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
     p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
                         help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
