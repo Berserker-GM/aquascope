@@ -1426,12 +1426,12 @@ json.dumps(_out, default=str)
   }
 }
 
-// ── Groundwater views (#625, #626): aquascope.groundwater.views and .budget, the same functions as
+// ── Groundwater views (#625, #626): aquascope.groundwater.layers and .budget, the same functions as
 // `aquascope modflow --layers --section --cell --budget`. op "open" reads the model again beside the map's copy and
 // keeps it in this worker (with its layers and, when a .cbc came, its water budget); "section" cuts it along a line
 // drawn on the map, "hydrograph" gives one cell's heads in every layer, "close" lets it go. Arrays come back as
 // typed arrays.
-async function gwViews(m) {
+async function gwLayers(m) {
   const { id, op } = m;
   const f32 = (name) => {
     const p = pyodide.globals.get(name);
@@ -1459,7 +1459,7 @@ import json
 import numpy as np
 from js import __aqGwv
 from aquascope.groundwater.surface import read_modflow_heads as _read
-from aquascope.groundwater import views as _views, budget as _budget
+from aquascope.groundwater import layers as _views, budget as _budget
 _a = json.loads(__aqGwv)
 _p = _a["place"]
 _out = {}
@@ -1508,7 +1508,7 @@ json.dumps(_out, default=str)
 import json
 import numpy as np
 from js import __aqGwv
-from aquascope.groundwater import views as _views
+from aquascope.groundwater import layers as _views
 _GWV_A = None
 _GWV = globals().get("_GWV")
 if _GWV is None or _GWV.get("layers") is None:
@@ -1544,7 +1544,7 @@ json.dumps(_out, default=str)
     const code = `
 import json
 from js import __aqGwv
-from aquascope.groundwater import views as _views
+from aquascope.groundwater import layers as _views
 _GWV = globals().get("_GWV")
 if _GWV is None:
     _out = {"error": "The model is not read yet."}
@@ -1601,7 +1601,7 @@ self.onmessage = async (e) => {
     if (m.type === "mesh_review") return await meshReviewOp(m);
     if (m.type === "whatif" || m.type === "whatif_words") return await whatIf(m);
     if (m.type === "groundwater") return await groundwater(m);
-    if (m.type === "gw_views") return await gwViews(m);
+    if (m.type === "gw_layers") return await gwLayers(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
     // exception line (last non-empty) and log the whole thing for debugging.

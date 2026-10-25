@@ -4002,7 +4002,7 @@ def cmd_modflow(args: argparse.Namespace) -> None:
 def _modflow_views(res: dict, args: argparse.Namespace) -> dict:
     """The experimental views of `aquascope modflow` (#625, #626): layers, a section, a cell's heads, the budget."""
     from aquascope.groundwater import budget as gb
-    from aquascope.groundwater import views as gv
+    from aquascope.groundwater import layers as gv
 
     out: dict = {}
     lay = None

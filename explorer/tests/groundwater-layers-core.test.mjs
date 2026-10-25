@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   budgetRows, budgetStep, budgetSvg, dateWords, distWords, everWet, exaggerationChoices, hydrographSvg, hydrographWords,
   layerLine, niceTicks, prismFeatures, rateWords, sectionAt, sectionRange, sectionSvg, sectionValue, termColor, veWords,
-} from "../src/groundwater-views-core.js";
+} from "../src/groundwater-layers-core.js";
 import { isModflowDrop, sortModelFiles } from "../src/groundwater-core.js";
 
 // Two cells side by side, two layers, two times (time x layer x cell).

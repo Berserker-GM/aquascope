@@ -727,7 +727,7 @@ def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: li
     if res.get("error") or not (section or budget_path or (cell_row and cell_col)):
         return out
     from aquascope.groundwater import budget as gb
-    from aquascope.groundwater import views as gv
+    from aquascope.groundwater import layers as gv
 
     try:
         lay = gv.model_layers(res, grid_path) if grid_path else None

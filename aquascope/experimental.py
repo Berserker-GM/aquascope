@@ -11,7 +11,7 @@ What is here and why (``docs/stability.md`` has the full policy):
   ladder, watch, the monthly bulletin, place context, engineering exports, and the model-results-on-the-map arc
   (``map_*``, flood depth, flow against normal, the water balance, mesh review, what if on the map, MODFLOW
   heads, SWMM). These modules changed in nearly every review of their first week.
-* The MODFLOW views added after 0.27.0 (#625, #626): ``aquascope.groundwater.views`` (layers, cross-sections,
+* The MODFLOW views added after 0.27.0 (#625, #626): ``aquascope.groundwater.layers`` (layers, cross-sections,
   a cell's heads over time) and ``aquascope.groundwater.budget`` (the cell-by-cell budget reader).
 * ``aquascope.gym`` and ``aquascope gym``: the benchmark is being renamed (#440). The old name will keep working
   as a deprecated alias, but the package path is not frozen before the rename.
@@ -33,7 +33,7 @@ MODULES: tuple[str, ...] = (
     "aquascope.flowstatus",
     "aquascope.groundwater.budget",
     "aquascope.groundwater.surface",
-    "aquascope.groundwater.views",
+    "aquascope.groundwater.layers",
     "aquascope.gym",
     "aquascope.hydrology.b17c_check",
     "aquascope.io.engineering",

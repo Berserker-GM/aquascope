@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from aquascope.groundwater import budget as gb
-from aquascope.groundwater import views as gv
+from aquascope.groundwater import layers as gv
 from aquascope.groundwater.surface import read_modflow_heads
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -390,5 +390,5 @@ def test_mcp_modflow_heads_views(tmp_path):
 def test_the_views_are_experimental():
     from aquascope.experimental import is_experimental
 
-    assert is_experimental("aquascope.groundwater.views") and is_experimental("aquascope.groundwater.budget")
+    assert is_experimental("aquascope.groundwater.layers") and is_experimental("aquascope.groundwater.budget")
     assert not math.isnan(gv.STACK_SHARE)

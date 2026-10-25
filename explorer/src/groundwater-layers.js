@@ -9,8 +9,8 @@
 // - The water budget from the cell-by-cell budget file (.cbc), dropped with the other files: in and out by term
 //   over time, the current time's numbers beside it.
 //
-// The worker reads the model again into its own Python (op "open" of "gw_views"), with aquascope.groundwater.views
-// and .budget: every number here comes from there. groundwater-views-core.js draws them (node tests it).
+// The worker reads the model again into its own Python (op "open" of "gw_layers"), with aquascope.groundwater.layers
+// and .budget: every number here comes from there. groundwater-layers-core.js draws them (node tests it).
 
 import { claimClicks, clickLayers, dbg, escapeHtml, setTime, state } from "./core.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
@@ -21,7 +21,7 @@ import { lengthUnit } from "./groundwater-core.js?v=__BUILD__";
 import {
   budgetRows, budgetStep, budgetSvg, dateWords, distWords, everWet, exaggerationChoices, hydrographSvg, hydrographWords,
   headRange, layerLine, prismFeatures, rateWords, sectionAt, sectionRange, sectionSvg, veWords,
-} from "./groundwater-views-core.js?v=__BUILD__";
+} from "./groundwater-layers-core.js?v=__BUILD__";
 
 const L = { prisms: "gwv-3d", line: "gwv-line", pts: "gwv-line-pts", catcher: "gwv-catch" };
 const EMPTY = { type: "FeatureCollection", features: [] };
@@ -54,7 +54,7 @@ const haveBudget = () => Boolean(views && views.budget);
 // ── the worker ──────────────────────────────────────────────────────────────
 
 /** A model was drawn: read its layers (and budget, when a .cbc came with it) in the worker. */
-export async function viewsLoaded(model, sorted) {
+export async function layersLoaded(model, sorted) {
   current = model;
   const my = ++token;
   views = { geo: null, budget: null, layersError: null, budgetError: null, busy: true };
@@ -64,7 +64,7 @@ export async function viewsLoaded(model, sorted) {
   refreshLegend("modflow");
   try {
     const read = (f) => f.arrayBuffer();
-    const out = await call("gw_views", {
+    const out = await call("gw_layers", {
       op: "open", hds: await read(sorted.hds), grid: sorted.grid ? await read(sorted.grid) : null,
       gridName: sorted.grid ? sorted.grid.name : null, sidecars: await Promise.all(sorted.sidecars.map(read)),
       cbc: sorted.cbc ? await read(sorted.cbc) : null, place: model.place || {},
@@ -89,7 +89,7 @@ export async function viewsLoaded(model, sorted) {
 }
 
 /** The model left the map. */
-export function viewsRemoved() {
+export function layersRemoved() {
   token++;
   current = null;
   views = null;
@@ -98,11 +98,11 @@ export function viewsRemoved() {
   if (view3d) set3d(false);
   closeDock();
   clearLine();
-  void call("gw_views", { op: "close" }).catch(() => {});
+  void call("gw_layers", { op: "close" }).catch(() => {});
 }
 
 /** The model's frame changed (time step, layer) or the style was reloaded: redraw what follows it. */
-export function viewsFrame(model) {
+export function layersFrame(model) {
   current = model;
   if (view3d) paint3d();
   if (section) drawLine(section.line);
@@ -110,7 +110,7 @@ export function viewsFrame(model) {
 }
 
 /** Whether a line is being drawn (a click on the model then adds a point, it does not open a card). */
-export const viewsDrawing = () => Boolean(drawing);
+export const layersDrawing = () => Boolean(drawing);
 
 // ── 3D ──────────────────────────────────────────────────────────────────────
 
@@ -323,7 +323,7 @@ async function cut(pts) {
   if (!was) clearOfDock();
   const my = token;
   try {
-    const out = await call("gw_views", { op: "section", line: pts });
+    const out = await call("gw_layers", { op: "section", line: pts });
     if (my !== token) return;
     if (out.error) { sectionError = out.error; section = null; return; }
     section = { ...out, line: pts };
@@ -581,11 +581,11 @@ function onBudgetPick(e) {
 // ── a cell's heads over time, on its card ──────────────────────────────────
 
 /** Fill a model cell's card with its hydrograph: every layer's head over the run. */
-export async function viewsCellChart(cardId, c) {
+export async function layersCellChart(cardId, c) {
   if (!current) return;
   const my = token;
   try {
-    const h = await call("gw_views", { op: "hydrograph", cell: c });
+    const h = await call("gw_layers", { op: "hydrograph", cell: c });
     if (my !== token || h.error) return;
     const unit = lengthUnit(current.meta);
     const chart = hydrographSvg(h, current.t, { unit: unit || "head" });
@@ -602,7 +602,7 @@ export async function viewsCellChart(cardId, c) {
 // ── the legend's part ───────────────────────────────────────────────────────
 
 /** The model row's views: 2D or 3D, the exaggeration and the layers in 3D, the section and the budget. */
-export function viewsLegendHtml() {
+export function layersLegendHtml() {
   if (!current || !views) return "";
   const seg = (act, label, on, title = "") => `<button type="button" class="gw-seg${on ? " on" : ""}" data-act="${act}" aria-pressed="${on}"${title ? ` title="${escapeHtml(title)}"` : ""}>${label}</button>`;
   let html = '<div class="gwv-ctl">';
@@ -636,7 +636,7 @@ export function viewsLegendHtml() {
 }
 
 /** A legend button of ours: handled here (true), or not ours (false). */
-export function viewsAct(name) {
+export function layersAct(name) {
   if (!name.startsWith("gwv-")) return false;
   if (name === "gwv-3d") set3d(true);
   else if (name === "gwv-2d") set3d(false);
@@ -654,11 +654,11 @@ export function viewsAct(name) {
 }
 
 /** Ids of groundwater-view.js's plan layers (hidden under the 3D stack). */
-export function initGwViews({ fill, line } = {}) {
+export function initGwLayers({ fill, line } = {}) {
   ids = { fill: fill || ids.fill, line: line || ids.line };
   window.addEventListener("resize", () => { if (dockOpen()) renderDock(); });
   // Debug hooks (harmless, like the rest of window.__aq): what the views hold, and a section cut from code.
-  dbg.gwViews = {
+  dbg.gwLayers = {
     state: () => ({ busy: views ? views.busy : null, geo: haveGeo() ? { ...views.geo, top: undefined, botm: undefined } : null,
       budget: haveBudget(), layersError: views && views.layersError, budgetError: views && views.budgetError,
       view3d, ve, section: section ? { cells: section.segments.length, length_m: section.length_m } : null,

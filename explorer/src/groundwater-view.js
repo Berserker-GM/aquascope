@@ -32,8 +32,8 @@ import {
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
 import {
-  initGwViews, setCellOpener, viewsAct, viewsCellChart, viewsDrawing, viewsFrame, viewsLegendHtml, viewsLoaded, viewsRemoved,
-} from "./groundwater-views.js?v=__BUILD__";
+  initGwLayers, setCellOpener, layersAct, layersCellChart, layersDrawing, layersFrame, layersLegendHtml, layersLoaded, layersRemoved,
+} from "./groundwater-layers.js?v=__BUILD__";
 
 const ARCHIVE = "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/";
 const BUNDLE = `${ARCHIVE}obs/groundwater_level/${GW_SOURCE}.parquet`;
@@ -326,14 +326,14 @@ function onWellClick(e) {
 }
 
 function onModelClick(e) {
-  if (!model || !modelShown() || viewsDrawing()) return;
+  if (!model || !modelShown() || layersDrawing()) return;
   if (map.queryRenderedFeatures(e.point, { layers: ["points", "clusters"].filter((id) => map.getLayer(id)) }).length) return;
   const f = (e.features || [])[0];
   if (!f) return;
   cellCard(Number(f.properties.c), e.lngLat, model.l);
 }
 
-// A cell's card: its head now, and (from groundwater-views.js, #626) its head over time in every layer.
+// A cell's card: its head now, and (from groundwater-layers.js, #626) its head over time in every layer.
 function cellCard(c, lngLat, l) {
   const h = frameOf(model.heads, model.shape, model.t, l)[c];
   const lay = model.meta.layers[l];
@@ -356,7 +356,7 @@ function cellCard(c, lngLat, l) {
     credit: model.sample ? `${model.sample.credit} Read in your browser with aquascope.`
       : "Your file, read in your browser with aquascope (it did not leave this page).",
   });
-  void viewsCellChart(cardId, c);
+  void layersCellChart(cardId, c);
 }
 
 // ── your MODFLOW heads ──────────────────────────────────────────────────────
@@ -377,7 +377,7 @@ function paintModel() {
   }
   map.getSource(L.model).setData(model.fc);
   setLayerVisibility();
-  viewsFrame(model);
+  layersFrame(model);
   refreshLegend("modflow");
 }
 
@@ -437,7 +437,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     syncModelDated();
     openLegendRow("modflow", true);
     map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, maxZoom: 14, duration: 1200 });
-    void viewsLoaded(model, sorted);
+    void layersLoaded(model, sorted);
   } catch (err) {
     openModal("Your MODFLOW heads", `<p>Could not read the files: ${escapeHtml(err && err.message ? err.message : String(err))}</p>`);
   } finally {
@@ -536,7 +536,7 @@ function pickFiles() {
 
 function removeModel() {
   model = null;
-  viewsRemoved();
+  layersRemoved();
   if (state.mapOk && map) {
     for (const id of [L.model, L.modelEdge]) if (map.getSource(id)) map.getSource(id).setData(EMPTY);
   }
@@ -639,7 +639,7 @@ function modelBody() {
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +
       `<span class="gw-step-n muted">${model.t + 1} / ${n}</span>` : "") +
-    `</div>` + viewsLegendHtml() +
+    `</div>` + layersLegendHtml() +
     (n > 1 ? `<p class="gw-line">${dated ? 'Plays with the time bar. <button type="button" class="gw-link" data-act="play">Play the run</button>'
       : "No start date, so the slider steps through the model times."}</p>` : "") +
     (isApproximate(m)
@@ -667,7 +667,7 @@ function registerModelRow() {
     body: modelBody,
     shown: () => Boolean(model || modelBusy),
     act: (name) => {
-      if (viewsAct(name)) return;
+      if (layersAct(name)) return;
       if (name === "remove") removeModel();
       else if (name === "fit" && model) { const b = edgeOf(model.rings); map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, duration: 1000 }); }
       else if (name === "play" && model && model.meta.dates) playModel();
@@ -747,7 +747,7 @@ export function initGroundwater() {
     toggle.addEventListener("change", (e) => setGroundwater(e.target.checked));
   }
   bindModelControls();
-  initGwViews({ fill: L.model, line: L.modelLine });
+  initGwLayers({ fill: L.model, line: L.modelLine });
   setCellOpener((c, lngLat, l) => { if (model) cellCard(c, lngLat, l); });
   actions.openModflowFiles = openModflowFiles;   // Tools, Open model results, and its MODFLOW sample (model-samples.js)
   if (!state.mapOk || !map) return;

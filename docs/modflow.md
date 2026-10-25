@@ -94,7 +94,7 @@ length unit.
 ## Layers, sections, hydrographs and the water budget
 
 Experimental (see [Stability](stability.md#experimental)), added after 0.27.0 for #625 and
-#626: `aquascope.groundwater.views` and `aquascope.groundwater.budget`.
+#626: `aquascope.groundwater.layers` and `aquascope.groundwater.budget`.
 
 ![Three layers in 3D, coloured by head, five times taller than they are and pulled apart](img/models/gw-3d.png)
 

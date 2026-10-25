@@ -1,6 +1,6 @@
 // Groundwater views (#625, #626), the pure part: no DOM, no map, so node can test it.
 //
-// Every number drawn here comes from the package (aquascope.groundwater.views and .budget, in the worker): the
+// Every number drawn here comes from the package (aquascope.groundwater.layers and .budget, in the worker): the
 // layers' tops and bottoms, the cross-section, a cell's heads over time, the water budget. This module turns them
 // into what is drawn: the 3D prisms, the section, the hydrograph and the budget chart, all as plain SVG strings.
 
