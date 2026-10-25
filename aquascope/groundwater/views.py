@@ -249,7 +249,7 @@ def layer_top(lay: dict[str, Any], i: int) -> np.ndarray:
 
 def _cell_index(res: dict[str, Any], lat0: float, lon0: float) -> dict[str, Any]:
     rings = np.asarray(res["rings"], float)
-    offs = np.asarray(res["ring_offsets"], np.int64)
+    offs = np.asarray(res["ring_offsets"]).astype(np.intp)  # intp: reduceat refuses int64 on 32-bit (Pyodide)
     x, y = _local_xy(rings[:, 0], rings[:, 1], lat0, lon0)
     starts = offs[:-1]
     xmin, xmax = np.minimum.reduceat(x, starts), np.maximum.reduceat(x, starts)

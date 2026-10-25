@@ -31,6 +31,9 @@ import {
   headWord, isModflowDrop, keyLines, lengthUnit, maskScale, modelOutline, monthOf, paintMask, paintSurface, rampCss, readGwParam, readPlaceForm, readingsWindow,
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
+import {
+  initGwViews, setCellOpener, viewsAct, viewsCellChart, viewsDrawing, viewsFrame, viewsLegendHtml, viewsLoaded, viewsRemoved,
+} from "./groundwater-views.js?v=__BUILD__";
 
 const ARCHIVE = "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/";
 const BUNDLE = `${ARCHIVE}obs/groundwater_level/${GW_SOURCE}.parquet`;
@@ -323,21 +326,26 @@ function onWellClick(e) {
 }
 
 function onModelClick(e) {
-  if (!model || !modelShown()) return;
+  if (!model || !modelShown() || viewsDrawing()) return;
   if (map.queryRenderedFeatures(e.point, { layers: ["points", "clusters"].filter((id) => map.getLayer(id)) }).length) return;
   const f = (e.features || [])[0];
   if (!f) return;
-  const c = Number(f.properties.c);
-  const h = frameOf(model.heads, model.shape, model.t, model.l)[c];
-  const lay = model.meta.layers[model.l];
+  cellCard(Number(f.properties.c), e.lngLat, model.l);
+}
+
+// A cell's card: its head now, and (from groundwater-views.js, #626) its head over time in every layer.
+function cellCard(c, lngLat, l) {
+  const h = frameOf(model.heads, model.shape, model.t, l)[c];
+  const lay = model.meta.layers[l];
   const g = model.meta.grid;
   const where = g.type === "dis" && !(g.block > 1)
     ? `row ${Math.floor(c / g.drawn_ncol) + 1}, column ${(c % g.drawn_ncol) + 1}` : `cell ${c + 1}`;
-  const { lng, lat } = e.lngLat;
+  const { lng, lat } = lngLat;
   const unit = lengthUnit(model.meta), word = headWord(model.meta);
   const approx = isApproximate(model.meta);
+  const cardId = `gw-model:${c}:${model.t}:${l}`;
   openCard({
-    id: `gw-model:${c}:${model.t}:${model.l}`, lngLat: [lng, lat], lift: 4,
+    id: cardId, lngLat: [lng, lat], lift: 4,
     what: approx ? `Your MODFLOW heads, ${APPROX_LABEL}` : "Your MODFLOW heads", title: Number.isFinite(h) ? `${word} ${fmtM(h)}${unit ? ` ${unit}` : ""}` : `No ${word.toLowerCase()} (inactive or dry)`,
     sub: `${where}, layer ${lay} · ${timeLabel(model.meta, model.t)}`,
     status: { text: `${model.name}: ${model.meta.text.toLowerCase()} from ${model.sample ? "the sample" : "your file"}, in the model's length unit.`, color: null },
@@ -348,6 +356,7 @@ function onModelClick(e) {
     credit: model.sample ? `${model.sample.credit} Read in your browser with aquascope.`
       : "Your file, read in your browser with aquascope (it did not leave this page).",
   });
+  void viewsCellChart(cardId, c);
 }
 
 // ── your MODFLOW heads ──────────────────────────────────────────────────────
@@ -368,6 +377,7 @@ function paintModel() {
   }
   map.getSource(L.model).setData(model.fc);
   setLayerVisibility();
+  viewsFrame(model);
   refreshLegend("modflow");
 }
 
@@ -416,7 +426,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     model = {
       meta: out, rings: out.rings, offsets: out.offsets, heads: out.heads, shape: out.shape,
       t: 0, l: 0, name: sorted.hds.name,
-      fc: cellsGeoJSON(out.rings, out.offsets), files, sample,
+      fc: cellsGeoJSON(out.rings, out.offsets), files, sample, place,
     };
     modelOn = true;
     pending = null;
@@ -427,6 +437,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     syncModelDated();
     openLegendRow("modflow", true);
     map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, maxZoom: 14, duration: 1200 });
+    void viewsLoaded(model, sorted);
   } catch (err) {
     openModal("Your MODFLOW heads", `<p>Could not read the files: ${escapeHtml(err && err.message ? err.message : String(err))}</p>`);
   } finally {
@@ -518,13 +529,14 @@ function pickFiles() {
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
-  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis";
+  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis,.cbc,.bud,.cbb";
   input.addEventListener("change", () => { if (input.files && input.files.length) void loadModel([...input.files]); });
   input.click();
 }
 
 function removeModel() {
   model = null;
+  viewsRemoved();
   if (state.mapOk && map) {
     for (const id of [L.model, L.modelEdge]) if (map.getSource(id)) map.getSource(id).setData(EMPTY);
   }
@@ -627,7 +639,7 @@ function modelBody() {
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +
       `<span class="gw-step-n muted">${model.t + 1} / ${n}</span>` : "") +
-    `</div>` +
+    `</div>` + viewsLegendHtml() +
     (n > 1 ? `<p class="gw-line">${dated ? 'Plays with the time bar. <button type="button" class="gw-link" data-act="play">Play the run</button>'
       : "No start date, so the slider steps through the model times."}</p>` : "") +
     (isApproximate(m)
@@ -655,6 +667,7 @@ function registerModelRow() {
     body: modelBody,
     shown: () => Boolean(model || modelBusy),
     act: (name) => {
+      if (viewsAct(name)) return;
       if (name === "remove") removeModel();
       else if (name === "fit" && model) { const b = edgeOf(model.rings); map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, duration: 1000 }); }
       else if (name === "play" && model && model.meta.dates) playModel();
@@ -734,6 +747,8 @@ export function initGroundwater() {
     toggle.addEventListener("change", (e) => setGroundwater(e.target.checked));
   }
   bindModelControls();
+  initGwViews({ fill: L.model, line: L.modelLine });
+  setCellOpener((c, lngLat, l) => { if (model) cellCard(c, lngLat, l); });
   actions.openModflowFiles = openModflowFiles;   // Tools, Open model results, and its MODFLOW sample (model-samples.js)
   if (!state.mapOk || !map) return;
   initDrop();

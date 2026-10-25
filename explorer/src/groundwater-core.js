@@ -259,12 +259,13 @@ export function wellCard(res, w) {
 
 /** Which dropped files are which: { hds, grid, sidecars, other }. A head file is told by its extension. */
 export function sortModelFiles(files) {
-  const out = { hds: null, grid: null, sidecars: [], other: [] };
+  const out = { hds: null, grid: null, sidecars: [], cbc: null, other: [] };
   for (const f of files || []) {
     const name = String(f.name || "").toLowerCase();
     if (/\.(hds|hed|bhd|head|ddn)$/.test(name)) out.hds = out.hds || f;
     else if (/\.(disv?\.grb|grb|disv?)$/.test(name)) out.grid = out.grid || f;
     else if (/\.(nam|tdis)$/.test(name)) out.sidecars.push(f);
+    else if (/\.(cbc|bud|cbb)$/.test(name)) out.cbc = out.cbc || f;   // the cell-by-cell budget (#626)
     else out.other.push(f);
   }
   return out;
@@ -272,9 +273,9 @@ export function sortModelFiles(files) {
 
 /** Whether a drop holds MODFLOW files (a head file, a grid, a name file). The map has one drop zone for model
  * results: these go to the MODFLOW reader here, everything else to the mesh viewer (mesh-view.js, #555). */
-export const MODFLOW_FILE = /\.(hds|hed|bhd|head|ddn|disv?\.grb|grb|disv?|nam|tdis)$/i;
+export const MODFLOW_FILE = /\.(hds|hed|bhd|head|ddn|disv?\.grb|grb|disv?|nam|tdis|cbc|bud|cbb)$/i;
 /** The extensions the file picker offers for MODFLOW (Tools, Open model results). */
-export const MODFLOW_ACCEPT = ".hds,.hed,.bhd,.head,.ddn,.dis,.disv,.grb,.nam,.tdis";
+export const MODFLOW_ACCEPT = ".hds,.hed,.bhd,.head,.ddn,.dis,.disv,.grb,.nam,.tdis,.cbc,.bud,.cbb";
 export const isModflowDrop = (files) => [...(files || [])].some((f) => MODFLOW_FILE.test(String((f && f.name) || "")));
 
 /** The georeference form's fields, read and checked: { origin, rotation, crs, cell_size, start_date } or an error. */
