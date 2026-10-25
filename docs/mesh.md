@@ -168,7 +168,10 @@ findings and words them, writing each number as a placeholder (`{f3}`) that code
 in; Explain's claim lock (`aquascope.map_explain.claim_lock`) refuses wording with any
 other number or with a sign or a digit set against a placeholder ("-{f3}", "{f3}0",
 `placeholder_touches`, the check Explain and Scout make too), and a ranking word the rules
-wording does not use is refused too. Without a
+wording does not use is refused too. A count made under a threshold names it: the film check's
+"cells wetted only by a film" are those under its own fact "A film is shallower than" (0.03 m),
+so wording that puts the count under another value ("8 cells (< {f1} m)", where `f1` is one
+cell's largest depth) is refused even though both numbers are facts. Without a
 model, the package's templates say it.
 
 ```bash
@@ -190,7 +193,10 @@ m.close()
 
 In the Explorer, **Review these results** on the model's legend row (or "review my model"
 in Ask the map) drops the findings as numbered pins coloured by severity, flags the cells
-each one is about, and lists the checks under the legend row. Every pin is in the action
+each one is about, and lists the checks under the legend row. The line under the bar names
+the file reviewed. From Ask the map the review is of the model on screen: with a MODFLOW
+model there (which it does not read) or the mesh out of view, the line says so instead of
+reviewing a mesh out of sight; the legend row's button reviews its own mesh wherever the map is. Every pin is in the action
 log: undo one and its flags go with it. The file stays in the browser; the radar and news
 floods come from the Archive's context mirror and the gauge records from the Archive (or
 the agency).

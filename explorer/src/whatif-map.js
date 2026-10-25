@@ -298,7 +298,8 @@ async function checkBasin(t) {
   const key = targetKey(t);
   if (basin && basin.key === key) { if (!basin.ok) say(escapeHtml(basin.error), "warn"); syncOutputs(); return; }
   try {
-    const res = await callLight("whatif_words", { op: "basin", args: { river_id: t.river_id, lat: t.lat, lon: t.lon } }, { priority: 2 });
+    // The main worker: the routing tables need pandas, and it keeps them for the run that follows.
+    const res = await call("whatif", { op: "basin", args: { river_id: t.river_id, lat: t.lat, lon: t.lon } });
     if (!res || typeof res.ok !== "boolean") return;   // the tables did not answer: Run says why, as before
     basin = { key, ok: Boolean(res.ok), error: res.error || "", area_km2: res.area_km2 };
   } catch {

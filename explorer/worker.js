@@ -1209,8 +1209,9 @@ json.dumps(_out, default=str)
 // whatif_map. Type "whatif" (the main worker: GR4J needs scipy and pandas): op "run" calibrates the basin's model
 // and carries the scenario downstream; op "llm" reads the reader's line with their own key. Type "whatif_words"
 // (a light worker can): op "parse" is the keyless rules, "prompt" the system prompt and schema for the on-device
-// model, "read" both in one call, "reply" checks a model's reply against the reader's words (the claim lock), and
-// "basin" says whether the reach's basin is within the size a run takes.
+// model, "read" both in one call, "reply" checks a model's reply against the reader's words (the claim lock).
+// Op "basin" (the main worker: the routing tables need pandas) says whether the reach's basin is within the size
+// a run takes, before any calibration.
 async function whatIf({ id, type, op, args, text, reply, context, provider, model, api_key, base_url }) {
   self.__aqWhatIf = JSON.stringify({
     op: String(op || (type === "whatif" ? "run" : "parse")), args: args || {}, text: String(text || ""),

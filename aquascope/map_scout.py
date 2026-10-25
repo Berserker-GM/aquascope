@@ -1029,7 +1029,6 @@ _NUMBER_WORDS = re.compile(
     r"deepest|most|least|unprecedented)\b", re.I)
 
 
-
 def slots_back(words: str, slots: dict[str, str]) -> str:
     """``words`` with each slot's exact value, where it is written out whole, put back as its placeholder
     ("in September 2026" becomes "in {month}" when ``month`` is "September 2026"). The longest values go first,
