@@ -12,12 +12,13 @@
 import { $, escapeHtml, sourceStyle, state } from "./core.js?v=__BUILD__";
 import { map } from "./map.js?v=__BUILD__";
 import { addPin, cameraPadding, log, renderLog, undoEntry } from "./map-actions.js?v=__BUILD__";
+import { explainWho } from "./map-actions-core.js?v=__BUILD__";
 import { askModelConfig, currentContext } from "./ask.js?v=__BUILD__";
 import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-model.js?v=__BUILD__";
 import { statusReady, statusShown } from "./status-layer.js?v=__BUILD__";
 import { floodsAheadReady, floodsAheadShown, floodsVisible } from "./floods-ahead.js?v=__BUILD__";
 import { floodsPastReady, floodsPastShown } from "./floods-past.js?v=__BUILD__";
-import { call, callLight } from "./worker-client.js?v=__BUILD__";
+import { QUICK_PRIORITY, call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 
 const GROUP = "explain";
@@ -146,7 +147,7 @@ async function byDevice(res) {
   const reply = await generateJsonLocally({
     system: res.prompt.system, prompt: "Write the notes.", schema: res.prompt.schema, timeoutMs: 30000,
   });
-  const checked = await callLight("map_explain", { op: "check", reply, facts: res.facts, view: res.view }, { priority: 3 });
+  const checked = await callLight("map_explain", { op: "check", reply, facts: res.facts, view: res.view }, { priority: QUICK_PRIORITY });
   return { ...checked, model: localReaderLabel() || "the on-device model" };
 }
 
@@ -214,18 +215,22 @@ export async function explainView({ say = () => {} } = {}) {
   }
   let notes = res.notes, by = "rules", who = ["Rules", "no model"], refused = [];
   try {
-    const device = await byDevice(res).catch((err) => ({ error: err.message }));
+    const device = await byDevice(res).catch((err) => ({ error: err.message, model: localReaderLabel() || "the on-device model" }));
     if (my !== run) return [];
     if (device && device.notes && device.notes.length) {
       notes = device.notes; by = "device"; who = [device.model, "on this device"]; refused = device.refused || [];
     } else {
+      // The device was asked and none of its notes passed: the rules' notes stand, and the line says the model's
+      // wording was refused (and why), not that there was no model (#590).
+      if (device) { who = explainWho(device); refused = device.refused || []; }
       if (askModelConfig()) say(`<span class="spinner" aria-hidden="true"></span>Asking ${escapeHtml(askModelConfig().label)}…`);
-      const key = await byKey(res).catch((err) => ({ error: err.message }));
+      const key = await byKey(res).catch((err) => ({ error: err.message, model: askModelConfig() && askModelConfig().label }));
       if (my !== run) return [];
       if (key && key.notes && key.notes.length) {
         notes = key.notes; by = "key"; who = [key.model, "your key"]; refused = key.refused || [];
-      } else if (key && key.refused) {
-        refused = key.refused;
+      } else if (key) {
+        who = explainWho(key);
+        refused = [...refused, ...(key.refused || [])];
       }
     }
   } catch (err) {

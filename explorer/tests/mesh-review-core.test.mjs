@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  CHECK_LABELS, MAX_FLAG_CELLS, SEVERITY, checkRows, flaggedCells, gaugesInBox, reviewLine, reviewPin, reviewWho, runSpan,
+  CHECK_LABELS, MAX_FLAG_CELLS, SEVERITY, checkRows, flaggedCells, gaugesInBox, reviewLine, reviewPin, reviewTarget, reviewWho,
+  runSpan,
 } from "../src/mesh-review-core.js";
 import { ActionLog, checkPin } from "../src/map-actions-core.js";
 
@@ -81,4 +82,30 @@ test("the gauges handed to the review are the catalogue's inside the mesh's box,
 test("the run's days for the gauge records", () => {
   assert.deepEqual(runSpan(["1999-01-01T12:00:00", "1999-01-04T12:00:00"]), { start: "1999-01-01", end: "1999-01-04" });
   assert.equal(runSpan([]), null);
+});
+
+// ── which model the review is about (#590) ──────────────────────────────────
+
+const PORTSMOUTH = { name: "Portsmouth.p01.hdf", bbox: [-76.4, 36.8, -76.2, 36.9], openedAt: 1, visible: true };
+const FREYBERG = { name: "freyberg.hds", bbox: [-98.1, 30.0, -97.9, 30.2], openedAt: 2, visible: true };
+const TEXAS = [-99, 29, -97, 31];
+const VIRGINIA = [-77, 36, -76, 37];
+
+test("the review is of the model on screen, and names it", () => {
+  // The MODFLOW sample on screen in Texas, an older HEC-RAS mesh off screen in Virginia: not reviewed out of sight.
+  const t = reviewTarget({ mesh: PORTSMOUTH, modflow: FREYBERG, view: TEXAS });
+  assert.equal(t.review, false);
+  assert.match(t.line, /^freyberg\.hds \(MODFLOW heads\) is the model on screen/);
+  assert.match(t.line, /Portsmouth\.p01\.hdf is loaded but not in view/);
+  assert.deepEqual(reviewTarget({ mesh: PORTSMOUTH, modflow: FREYBERG, view: VIRGINIA }), { review: true, name: "Portsmouth.p01.hdf" });
+  // Both in view: the one shown last.
+  const both = [-100, 25, -70, 40];
+  assert.equal(reviewTarget({ mesh: PORTSMOUTH, modflow: FREYBERG, view: both }).review, false);
+  assert.equal(reviewTarget({ mesh: { ...PORTSMOUTH, openedAt: 3 }, modflow: FREYBERG, view: both }).review, true);
+  // A mesh alone but out of view is said; with no view (the legend row) it is reviewed.
+  assert.match(reviewTarget({ mesh: PORTSMOUTH, view: TEXAS }).line, /not in view/);
+  assert.equal(reviewTarget({ mesh: PORTSMOUTH }).review, true);
+  assert.match(reviewTarget({}).line, /^No model result on the map/);
+  // The final line names the file.
+  assert.equal(reviewLine({ summary: "1 problem." }, 2, "Portsmouth.p01.hdf"), "Portsmouth.p01.hdf: 1 problem. 2 pins, most severe first.");
 });

@@ -432,7 +432,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     model = {
       meta: out, rings: out.rings, offsets: out.offsets, heads: out.heads, shape: out.shape,
       t: 0, l: 0, name: sorted.hds.name,
-      fc: cellsGeoJSON(out.rings, out.offsets), files, sample, place,
+      fc: cellsGeoJSON(out.rings, out.offsets), files, sample, place, openedAt: Date.now(),
     };
     modelOn = true;
     pending = null;
@@ -801,6 +801,13 @@ export function initGroundwater() {
   });
   ensureVectorLayers();
   if (state.groundwater) setGroundwater(true, { write: false });
+}
+
+/** The MODFLOW model on the map, for the review (#590): { name, bbox: [w, s, e, n], openedAt, visible }, or null. */
+export function modflowShown() {
+  if (!model) return null;
+  const b = edgeOf(model.rings);
+  return { name: model.name, bbox: [b.w, b.s, b.e, b.n], openedAt: model.openedAt || 0, visible: modelShown() };
 }
 
 /** What the layer shows now, for Explain and Scout: the surface's summary (no grid), or null when off. */

@@ -401,11 +401,16 @@ def _tiny(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, k: float) ->
         i = int(i)
         f1 = _fact(ids, "Largest depth", round(float(hi[i]), 4), unit, fmt(hi[i]), lat=m.lat[i], lon=m.lon[i])
         if f2 is None:
+            # The depth the count is under is a fact of its own, so a model's words can say it; the count names
+            # it as its bound, so "{cells} cells under {largest depth}" is refused (_locked).
+            f4 = _fact(ids, "A film is shallower than", round(TINY_DEPTH_M * k, 4), unit, limit)
+            f4["threshold"] = True
             f2 = _fact(ids, "Cells wetted only by a film", int(film.size), "cells", _count(film.size))
+            f2["under"] = f4["id"]
             share = 100 * film.size / max(wet, 1)
             f3 = _fact(ids, "Share of the cells that get wet", round(film.size / max(wet, 1), 4), "",
                        f"{fmt(share, 2) if share < 1 else round(share)}%")
-            facts = [f1, f2, f3]
+            facts = [f1, f2, f3, f4]
             reason = (f"This cell never gets deeper than {f1['shown']}{u}, under {limit}{u}. "
                       f"{f2['shown']} {'cell in all is' if film.size == 1 else 'cells in all are'} like it, "
                       f"{f3['shown']} of those that get wet: rain on the grid, "
@@ -942,6 +947,28 @@ def _reply_json(reply: Any) -> Any:
         return None
 
 
+# "under {f1}", "< {f1}", "below {f1}", "less than {f1}": a count said to be under a value.
+_UNDER = re.compile(r"(?:[<\u2264]\s*|\b(?:under|below|less than|shallower than|at most|up to)\s+)\{(f\d+)\}",
+                    re.IGNORECASE)
+
+
+def _wrong_bound(words: str, own: dict[str, dict[str, Any]]) -> str | None:
+    """Why ``words`` put a count under the wrong value, or None. A count of cells under a threshold names that
+    threshold (``under``); in a sentence that says the count, "under" a value must be that threshold. All the
+    numbers can be in the facts and the claim still wrong: "8 cells (< 0.0269 m)" when 0.0269 m is one cell's
+    largest depth and the 8 cells are those under 0.03 m."""
+    for sentence in re.split(r"(?<=[.!?;])\s+", words or ""):
+        counts = [own[m.group(1)] for m in re.finditer(r"\{(f\d+)\}", sentence)
+                  if m.group(1) in own and own[m.group(1)].get("under")]
+        for c in counts:
+            for m in _UNDER.finditer(sentence):
+                if m.group(1) != c["under"]:
+                    bound = own.get(c["under"])
+                    return (f"says {c['label'].lower()} {m.group(0).strip()!r}, the count is of those under "
+                            f"{bound['shown'] if bound else 'another value'}")
+    return None
+
+
 def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str] | None, str | None]:
     """A model's title and reason for one finding, held to its facts: filled text, or None and why not."""
     from aquascope.map_explain import _PLACEHOLDER, _fill, claim_lock, placeholder_touches
@@ -970,6 +997,9 @@ def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str]
     stray = claim_lock(words, [{**x, "label": f"{x['label']} {x.get('unit') or ''}"} for x in own.values()])
     if stray:
         return None, f"a number not in its facts ({', '.join(stray)})"
+    wrong = _wrong_bound(words, own)
+    if wrong:
+        return None, wrong
     said = f"{f['rules_title']} {f['rules_reason']}".lower()
     rank = [w for w in _RANKING.findall(words) if w.lower() not in said]
     if rank:
