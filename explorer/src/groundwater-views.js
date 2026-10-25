@@ -20,7 +20,7 @@ import { refreshLegend } from "./map-legend.js?v=__BUILD__";
 import { lengthUnit } from "./groundwater-core.js?v=__BUILD__";
 import {
   budgetRows, budgetStep, budgetSvg, dateWords, distWords, everWet, exaggerationChoices, hydrographSvg, hydrographWords,
-  layerLine, prismFeatures, rateWords, sectionAt, sectionRange, sectionSvg, veWords,
+  headRange, layerLine, prismFeatures, rateWords, sectionAt, sectionRange, sectionSvg, veWords,
 } from "./groundwater-views-core.js?v=__BUILD__";
 
 const L = { prisms: "gwv-3d", line: "gwv-line", pts: "gwv-line-pts", catcher: "gwv-catch" };
@@ -42,6 +42,7 @@ let sectionBusy = false;
 let sectionError = null;
 let drawing = null;        // { pts: [[lon, lat]], unclaim } while a line is being drawn
 let dockTab = "section";
+let closeLook = false;     // the section's vertical range around the heads, not the whole depth
 let dock = null;
 let markers = [];
 let saved2d = null;        // the camera before 3D, to go back to
@@ -326,7 +327,9 @@ async function cut(pts) {
     if (my !== token) return;
     if (out.error) { sectionError = out.error; section = null; return; }
     section = { ...out, line: pts };
-    section.yRange = sectionRange(section);
+    section.whole = sectionRange(section);
+    section.close = headRange(section);
+    section.yRange = closeLook ? section.close : section.whole;
   } catch (err) {
     sectionError = err && err.message ? err.message : String(err);
   } finally {
@@ -355,6 +358,11 @@ function ensureDock() {
     else if (act === "draw") startDrawing();
     else if (act === "cancel") { stopDrawing(); clearLine(); if (section) drawLine(section.line); renderDock(); }
     else if (act === "done") finishDrawing();
+    else if (act === "whole" || act === "near") {
+      closeLook = act === "near";
+      if (section) section.yRange = closeLook ? section.close : section.whole;
+      renderDock();
+    }
   });
   dock.addEventListener("mousemove", onDockHover);
   dock.addEventListener("mouseleave", () => hoverOff());
@@ -417,7 +425,10 @@ function sectionBody() {
     `<span class="gwv-key"><i class="gwv-k-sat"></i>Saturated</span>` +
     (d.noHead ? '<span class="gwv-key"><i class="gwv-k-none"></i>No head (inactive or dry)</span>' : "") +
     section.layers.slice(1).map((lay, i) => `<span class="gwv-key"><i class="gwv-k-dash" style="border-color:${layerLine(i + 1)}"></i>Layer ${lay} head</span>`).join("") +
-    `</span><button type="button" class="gw-link" data-gwv="draw">Draw another</button></p>` +
+    `</span><span class="gw-segs gwv-depth" role="group" aria-label="Vertical range">` +
+    `<button type="button" class="gw-seg${closeLook ? "" : " on"}" data-gwv="whole" aria-pressed="${!closeLook}">Whole depth</button>` +
+    `<button type="button" class="gw-seg${closeLook ? " on" : ""}" data-gwv="near" aria-pressed="${closeLook}">Around the heads</button></span>` +
+    `<button type="button" class="gw-link" data-gwv="draw">Draw another</button></p>` +
     `<p class="gwv-note muted">${escapeHtml(section.water_table_rule)} ${escapeHtml((section.notes || []).join(" "))}</p>`;
 }
 

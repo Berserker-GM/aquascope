@@ -660,6 +660,28 @@ The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPS
 [--origin X Y] [--layer N] [--time I] [--geojson out.geojson]` and the MCP tool
 `modflow_heads`. More in [MODFLOW heads on the map](modflow.md).
 
+**Beyond the plan view** (#625, #626), from the same legend row:
+
+- **3D layers** stacks every layer between its top and bottom from the grid file, coloured
+  by its head now, on the map. The vertical exaggeration is chosen so the stack stands about
+  an eighth of the model's width and is said on the row (x1 to x500, one click each); a layer
+  can be hidden, and **Pulled apart** lifts each layer off the one below to show its top.
+  **Plan** goes back to 2D.
+- **Cross-section**: click points across the model from A to A′, double-click to finish.
+  The dock under the map shows every layer under the line (tops and bottoms as the model
+  holds them, cell by cell), the saturated ground in blue, the water table (the head of the
+  uppermost layer that has one) and the heads of the deeper layers, with the drawing's own
+  vertical exaggeration. It steps with the time bar. **Around the heads** zooms the vertical
+  range onto the water, where a cone of depression shows. Hover for a cell's row, column and
+  each layer's top, bottom and head.
+- **A cell's card** draws its head over the whole run in every layer, one line each.
+- **Water budget**: drop the cell-by-cell budget file (`.cbc`, `.bud` or `.cbb`) with the
+  other files. The dock charts each term in (above zero) and out (below) for every saved
+  time, with the current time's table and MODFLOW's percent discrepancy beside it. A click
+  on a column takes the map to that time.
+
+![The synthetic three-layer model: the section through a pumping well, around the heads](img/models/gw-section.png)
+
 ![On a phone: the head surface over England](img/globe/groundwater-phone.png)
 
 ## Water balance

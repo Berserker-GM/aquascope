@@ -10,6 +10,8 @@ import { rgb, valueColor } from "./groundwater-core.js?v=__BUILD__";
 export const LAYER_LINES = ["#1d6fb8", "#c4622d", "#3f8f3a", "#7a52a8", "#b8336a", "#2b8a8a", "#8a6d1f", "#4a5d73"];
 /** The section's layer bands, earth tones from light to deeper, repeating. */
 export const LAYER_FILLS = ["#f3ead5", "#ddd0b3", "#ece2cb", "#d6c7a6", "#efe6d0", "#dacbae"];
+/** The same layers below the water table: pale blues, one shade per layer, so saturated ground reads as water. */
+export const SATURATED_FILLS = ["#d3e5f4", "#bcd5ec", "#cfe2f3", "#b6d0e9", "#d7e7f5", "#c0d8ee"];
 export const WATER = "#1d6fb8";
 export const layerLine = (i) => LAYER_LINES[i % LAYER_LINES.length];
 
@@ -36,7 +38,7 @@ export function niceTicks(lo, hi, n = 4) {
   const p = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) || 10 * p;
   const out = [];
-  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) out.push(Math.round(v / step) * step);
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + 1e-9; v += step) out.push(Math.round(v / step) * step || 0);   // no "-0" on an axis
   return out;
 }
 
@@ -163,6 +165,16 @@ export function sectionRange(sec) {
   return [lo - pad, hi + pad];
 }
 
+/** A vertical range around the heads alone (every layer, every time), for a close look at the water table and the
+ * cone; the layers are cut at its edges. */
+export function headRange(sec) {
+  let lo = Infinity, hi = -Infinity;
+  for (const v of sec.heads) if (Number.isFinite(v)) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  if (!(hi >= lo)) return sectionRange(sec);
+  const pad = Math.max(0.5, (hi - lo) * 0.25);
+  return [lo - pad, hi + pad];
+}
+
 /**
  * The section as SVG: the layers as bands between their tops and bottoms (stepped, one value per cell, as the model
  * holds them), the saturated ground tinted below the water table, the water table (the head of the uppermost layer
@@ -193,19 +205,21 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
       if (up.length) parts.push(`<polygon class="gwv-band" points="${[...up, ...dn].join(" ")}" fill="${LAYER_FILLS[i % LAYER_FILLS.length]}"/>`);
     }
   }
-  // the saturated ground: from the water table (or the top of its layer, when the head stands above it) down to
-  // the bottom of the deepest layer with a head
+  // the saturated ground, layer by layer: below the water table, in every layer down to the deepest with a head
+  // (a layer whose head stands above its top is full)
   for (const g of groups) {
     for (const s of g) {
       const wt = sectionValue(sec, "wt", t, 0, s);
       if (wt === null) continue;
-      let first = -1, last = -1;
-      for (let i = 0; i < nl; i++) if (sectionValue(sec, "head", t, i, s) !== null) { if (first < 0) first = i; last = i; }
-      const cap = sectionValue(sec, "top", t, first, s), floor = sectionValue(sec, "bottom", t, last, s);
-      if (cap === null || floor === null) continue;
-      const top = Math.min(wt, cap);
-      if (top <= floor) continue;
-      parts.push(`<rect class="gwv-sat" x="${f(X(segs[s].from_m))}" y="${f(Y(top))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(floor) - Y(top))}"/>`);
+      let last = -1;
+      for (let i = 0; i < nl; i++) if (sectionValue(sec, "head", t, i, s) !== null) last = i;
+      for (let i = 0; i <= last; i++) {
+        const tp = sectionValue(sec, "top", t, i, s), bt = sectionValue(sec, "bottom", t, i, s);
+        if (tp === null || bt === null) continue;
+        const top = Math.min(wt, tp);
+        if (top <= bt) continue;
+        parts.push(`<rect class="gwv-sat" x="${f(X(segs[s].from_m))}" y="${f(Y(top))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(bt) - Y(top))}" fill="${SATURATED_FILLS[i % SATURATED_FILLS.length]}"/>`);
+      }
     }
   }
   // cells with no head in any layer now (inactive, or dry through): hatched, so a gap reads as a gap
@@ -294,7 +308,7 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
   ends.sort((a, b) => a.y - b.y);
   for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 11) ends[k].y = ends[k - 1].y + 11;
   for (const e of ends) {
-    parts.push(`<text class="gwv-end${e.bold ? " b" : ""}" x="${f(L + pw + 5)}" y="${f(Math.min(T + ph, e.y) + 3.5)}" fill="${e.color}">${esc(e.text)}</text>`);
+    parts.push(`<text class="gwv-end${e.bold ? " b" : ""}" x="${f(L + pw + 5)}" y="${f(Math.max(T + 6, Math.min(T + ph, e.y)) + 3.5)}" fill="${e.color}">${esc(e.text)}</text>`);
   }
   // axes
   const axis = [];
@@ -313,9 +327,11 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
   const mper = Number(sec.metres_per_unit) || 1;
   const ve = (ph / ((yhi - ylo) * mper)) / (pw / sec.length_m);   // vertical pixels per metre over horizontal
   const svg = `<svg class="gwv-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(title || "Cross-section")}">` +
-    '<defs><pattern id="gwv-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+    `<defs><clipPath id="gwv-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath>` +
+    '<pattern id="gwv-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
     '<rect width="6" height="6" class="gwv-hatch-bg"/><line x1="0" y1="0" x2="0" y2="6" class="gwv-hatch-ln"/></pattern></defs>' +
-    `${axis.join("")}${parts.join("")}<line class="gwv-cursor" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/></svg>`;
+    `${axis.join("")}<g clip-path="url(#gwv-clip)">${parts.filter((x) => !x.startsWith("<text class=\"gwv-end")).join("")}</g>` +
+    `${parts.filter((x) => x.startsWith("<text class=\"gwv-end")).join("")}<line class="gwv-cursor" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/></svg>`;
   return { svg, ve, x0: L, x1: L + pw, top: T, bottom: T + ph, noHead };
 }
 

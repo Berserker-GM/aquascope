@@ -42,12 +42,13 @@
   padding: .3rem .45rem; font-size: .66rem; line-height: 1.45; font-variant-numeric: tabular-nums;
 }
 .gwv-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .9rem; margin: .2rem 0 0; color: var(--ink-2); font-size: .68rem; }
-.gwv-foot .gw-link { margin-left: auto; }
+.gwv-foot .gwv-depth { margin: 0 0 0 auto; }
+.gwv-foot .gw-link { margin-left: .2rem; }
 .gwv-keys { display: inline-flex; flex-wrap: wrap; gap: .2rem .7rem; }
 .gwv-key { display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap; }
 .gwv-key i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
 .gwv-key i.gwv-k-wt { height: 0; border-top: 2.4px solid #1d6fb8; border-radius: 0; width: 14px; }
-.gwv-key i.gwv-k-sat { background: rgba(52, 132, 200, .3); box-shadow: inset 0 0 0 1px rgba(29, 111, 184, .35); }
+.gwv-key i.gwv-k-sat { background: #c6dcf0; box-shadow: inset 0 0 0 1px rgba(29, 111, 184, .3); }
 .gwv-key i.gwv-k-none { background: repeating-linear-gradient(135deg, #9aa3ab 0 1px, #eef0f2 1px 4px); }
 .gwv-key i.gwv-k-dash { height: 0; width: 14px; border-top: 1.6px dashed; border-radius: 0; }
 .gwv-note { margin: .25rem 0 0; font-size: .64rem; line-height: 1.4; }
@@ -76,8 +77,8 @@
 .gwv-ground { fill: none; stroke: #6b5531; stroke-width: 1.5; }
 .gwv-hatch-bg { fill: #eef0f2; }
 .gwv-hatch-ln { stroke: #9aa3ab; stroke-width: 1.2; }
-.gwv-sat { fill: rgba(52, 132, 200, .24); }
-.gwv-lname { font-size: 10px; fill: #5c4626; font-weight: 600; }
+.gwv-sat { stroke: none; }
+.gwv-lname { font-size: 10px; fill: #3d4a57; font-weight: 600; }
 .gwv-wt { fill: none; stroke: #1d6fb8; stroke-width: 2.4; stroke-linejoin: round; }
 .gwv-sym { fill: none; stroke: #1d6fb8; stroke-width: 1.4; }
 .gwv-head { fill: none; stroke-width: 1.6; stroke-dasharray: 5 3; stroke-linejoin: round; }
@@ -96,9 +97,6 @@
 }
 .gwv-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2.5px solid #1d6fb8; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
 
-@media (prefers-color-scheme: dark) {
-  .gwv-lname { fill: #4a391e; }
-}
 @media (max-width: 900px) {
   .gwv-dock { width: calc(100% - 2 * var(--gap)); min-width: 0; bottom: 110px; }
   .gwv-budget { flex-direction: column; }

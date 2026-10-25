@@ -127,6 +127,7 @@ benchmark:
   `flood_depth`, `flowstatus`, `waterbalance`, `whatif_map`, `mesh_review`, the `map_*` modules
   (`map_commands`, `map_explain`, `map_layers`, `map_scout`, `map_time`), `io.mesh`, `io.swmm`,
   `io.engineering`, `groundwater.surface`, `hydrology.b17c_check`, and `aquascope.gym` (to be renamed, #440).
+  Added since: `groundwater.views` and `groundwater.budget` (MODFLOW layers, sections and water budget, #625, #626).
 - **CLI:** `layers`, `map`, `whatif`, `mesh`, `swmm`, `bulletin`, `warnings`, `waterbalance`, `flowstatus`,
   `now`, `watch`, `river`, `evidence`, `context`, `modflow`, `export`, `gym`, and the `surface` flags of
   `groundwater`.

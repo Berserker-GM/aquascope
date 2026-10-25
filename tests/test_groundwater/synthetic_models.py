@@ -126,7 +126,7 @@ def layered_budget(model, *, double: bool = False) -> tuple[bytes, list[dict]]:
         w3 = np.zeros((NLAY, NROW, NCOL))
         w3[0], w3[2] = 0.3 * w, 0.7 * w
         sto = s * w3 / w3.sum()
-        season = 0.08 * float(rch.sum()) * np.sin(2 * np.pi * m / 12.0)         # stored in some cells, released in others
+        season = 0.08 * float(rch.sum()) * np.sin(2 * np.pi * m / 12.0)   # stored in some cells, released in others
         sto[0] += np.where(act, season / act.sum(), 0.0)
         sto[2] -= np.where(act, season / act.sum(), 0.0)
         frf = np.zeros((NLAY, NROW, NCOL))
@@ -179,7 +179,8 @@ README = """modflow-layered/ (synthetic.nam, synthetic.dis, synthetic.hds, synth
   compact budget (storage, constant heads, wells, recharge, river leakage, and flows between cells).
   Made by tests/test_groundwater/synthetic_models.py in the aquascope repository. Everything is made up.
   Test: drop all four files. Expect 3D layers, a cross-section through the cone, three hydrograph lines
-  at the well's cell, and a budget where storage gives up water in the drier months while the well pumps, and refills after.
+  at the well's cell, and a budget where storage gives up water in the drier months while the well
+  pumps, and refills after.
 """
 
 
