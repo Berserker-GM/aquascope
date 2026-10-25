@@ -1002,6 +1002,44 @@ json.dumps(_out, default=str)
   post("result", { id, result: JSON.parse(out) });
 }
 
+// ── On-device Ask (#590): aquascope.ai_engine.device_ask. op "tool" runs one tool as runTool does and returns
+// only its compact result (what the small model is shown); op "lock" holds the model's answer to this
+// question's compact results.
+async function deviceAsk({ id, op, name, arguments: args, answer, results, words }) {
+  self.__aqDev = JSON.stringify({ op: String(op || ""), name: String(name || ""), args: args || {},
+    answer: String(answer || ""), results: results || [], words: String(words || "") });
+  const code = `
+import json
+from js import __aqDev
+from aquascope.ai_engine import analyst as _analyst
+from aquascope.ai_engine import device_ask as _dev
+_a = json.loads(__aqDev)
+if _a["op"] == "tool":
+    _spec = {s.name: s for s in _analyst._tool_specs()}.get(_a["name"])
+    if _spec is None:
+        _payload = {"error": f"unknown tool {_a['name']}"}
+    else:
+        try:
+            _payload = _spec.func(**(_a.get("args") or {}))
+        except Exception as exc:
+            _payload = {"error": f"{type(exc).__name__}: {exc}"}
+    _payload = json.loads(json.dumps(_payload, default=str))
+    _ok = not (isinstance(_payload, dict) and _payload.get("error"))
+    _out = {"ok": _ok, "compact": _dev.compact_result(_a["name"], _payload)}
+elif _a["op"] == "lock":
+    _out = _dev.lock_answer(_a["answer"], _a["results"], _a["words"])
+else:
+    _out = {"error": "unknown op"}
+json.dumps(_out, default=str)
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqDev = null;
+  }
+}
+
 // ── Study this area: aquascope.area_study over the gauges the page selected ──
 // op "run" studies them (the Archive first, live fetches capped) and keeps the
 // result; "areas" fills in catchment areas the page read afterwards; "csv" and
@@ -1137,7 +1175,7 @@ try:
     elif _a["op"] == "prompt":
         _out = _mc.model_prompt(_a["context"], today=_a["today"])
     elif _a["op"] == "reply":
-        _out = _mc.parse_model_reply(_a["reply"], today=_a["today"])
+        _out = _mc.parse_model_reply(_a["reply"], today=_a["today"], text=_a["text"] or None)
     elif _a["op"] == "validate":
         _out = _mc.parse_model_reply({"actions": _a["actions"]}, today=_a["today"])
     elif _a["op"] == "resolve":
@@ -1664,6 +1702,7 @@ self.onmessage = async (e) => {
     if (m.type === "load_table") return await loadTable(m);
     if (m.type === "workbench") return await workbench(m);
     if (m.type === "tool") return await runTool(m);
+    if (m.type === "device_ask") return await deviceAsk(m);
     if (m.type === "frame_from_station") return await frameFromStation(m);
     if (m.type === "area_study") return await areaStudy(m);
     if (m.type === "context") return await placeContext(m);

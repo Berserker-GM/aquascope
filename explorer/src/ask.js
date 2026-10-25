@@ -19,6 +19,7 @@ import { map } from "./map.js?v=__BUILD__";
 import { visibleLayerSummary } from "./layer-ui.js?v=__BUILD__";
 import { initShowcase } from "./showcase.js?v=__BUILD__";
 import { askLocally, describeLocal, localAnswerHtml, localModelPossible } from "./local-model.js?v=__BUILD__";
+import { deviceAnswerMarkdown } from "./ask-local-core.js?v=__BUILD__";
 
 // Providers come from the package's registry (aquascope/ai_engine/providers.py),
 // written to explorer/providers.json by `python -m aquascope.ai_engine.providers`.
@@ -275,13 +276,18 @@ async function runLocally(question) {
   $("ask-checks").hidden = true;
   askStatus("Starting the model on your device…");
   try {
+    // The worker runs each tool and hands back the package's compact result (stats, trend, return levels, no
+    // series), and the package's lock holds the answer to this question's results (#590,
+    // aquascope.ai_engine.device_ask): a number, id or trend word that is not in them and the page shows the
+    // tools' facts with one line saying the model's wording was refused.
     const res = await askLocally(question, {
-      callTool: (name, args) => call("tool", { name, arguments: args }),
+      callTool: (name, args) => call("device_ask", { op: "tool", name, arguments: args }),
+      lock: (answer, results, words) => call("device_ask", { op: "lock", answer, results, words }),
       onEvent: (m) => (m.startsWith("tool ") ? askLog(m) : askStatus(m)),
       context: ctx,
     });
     askStatus("");
-    state.ask.markdown = `# ${question}\n\n${res.answer}\n`;
+    state.ask.markdown = deviceAnswerMarkdown(question, res);
     $("ask-result").innerHTML = localAnswerHtml(res);
     $("ask-result").hidden = false;
     revealResult();
