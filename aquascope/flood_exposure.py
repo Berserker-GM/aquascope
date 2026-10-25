@@ -24,7 +24,8 @@ The open sources, all read from the browser over HTTPS range requests (no key, C
   through Overture's STAC catalogue (https://stac.overturemaps.org) and read only for the row groups whose
   bounding boxes meet the model's. Both themes are ODbL 1.0; attribution "© OpenStreetMap contributors,
   Overture Maps Foundation" (https://docs.overturemaps.org/attribution/). Roads are the segments of subtype
-  ``road``.
+  ``road`` that carry vehicles: the classes in :data:`PATH_CLASSES` (footways, sidewalks, paths, steps,
+  pedestrian streets, cycleways, bridleways) are left out, or a city's mapped sidewalks would double its roads.
 * population: GHS-POP R2023A (European Commission JRC; Schiavina et al. 2023,
   doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE), the 2025 epoch at 3 arc-seconds in WGS84, CC BY 4.0, as
   Cloud-Optimized GeoTIFF tiles published by WFP on Source Cooperative
@@ -53,17 +54,18 @@ from aquascope.flood_section import MeshIndex, _bed, _typical_cell_m, hours_sinc
 from aquascope.io.mesh import DRY_DEPTH, Mesh, MeshError
 
 __all__ = [
-    "LIMITS", "SOURCES", "THRESHOLDS_M", "exposure", "exposure_for_mesh", "exposure_payload", "ghsl_tile_url",
-    "overture_files", "read_overture", "read_population", "read_sources", "wkb_parts",
+    "LIMITS", "PATH_CLASSES", "SOURCES", "THRESHOLDS_M", "exposure", "exposure_for_mesh", "exposure_payload",
+    "ghsl_tile_url", "overture_files", "read_overture", "read_population", "read_sources", "wkb_parts",
 ]
 
 IS_EMSCRIPTEN = sys.platform == "emscripten"
 
 STAC_ROOT = "https://stac.overturemaps.org/catalog.json"
 GHSL_BASE = "https://data.source.coop/wfp/jrc-ghsl-pop/r2023/GHS_POP_E2025_GLOBE_R2023A_4326_3ss_V1_0"
-# The GHSL WGS84 tiles are 10 degrees square, row 1 starting at 89.1 N and column 1 at the antimeridian
-# (checked against the tiles' own geotransforms: R5_C20 spans 9.99 to 19.99 E and 39.1 to 49.1 N).
-GHSL_NORTH, GHSL_WEST, GHSL_TILE_DEG = 89.1, -180.0, 10.0
+# The GHSL WGS84 tiles are 10 degrees square, row 1 starting at 89.0996 N and column 1 at 180.0079 W, half a
+# kilometre off the round degrees (the tiles' own geotransforms: R5_C20 spans 9.99208 to 19.99208 E and
+# 39.09958 to 49.09958 N, R13_C13 60.00792 to 50.00792 W and 30.90042 to 40.90042 S).
+GHSL_NORTH, GHSL_WEST, GHSL_TILE_DEG = 89.099583, -180.007917, 10.0
 
 #: Where each count comes from, with its licence and what to credit.
 SOURCES: dict[str, dict[str, str]] = {
@@ -73,7 +75,7 @@ SOURCES: dict[str, dict[str, str]] = {
         "link": "https://docs.overturemaps.org/attribution/#buildings",
     },
     "roads": {
-        "name": "Overture Maps transportation (road segments)", "licence": "ODbL 1.0",
+        "name": "Overture Maps transportation (road segments, no footways, paths or cycleways)", "licence": "ODbL 1.0",
         "credit": "© OpenStreetMap contributors, Overture Maps Foundation",
         "link": "https://docs.overturemaps.org/attribution/#transportation",
     },
@@ -99,8 +101,9 @@ LIMITS: dict[str, str] = {
                  "threshold. Footprints are mapped or machine-detected outlines, some missing or misplaced, and "
                  "a cell's depth is not the depth at the door: HEC-RAS measures it from the lowest ground in the "
                  "cell, so a building on a rise beside a ditch can count as wet.",
-    "roads": "Each stretch of road counts by the cell it crosses: a bridge or an embankment above the water still "
-             "counts, because the model's cells do not know it is there.",
+    "roads": "Roads that carry vehicles, service roads and tracks included; footways, sidewalks, paths and "
+             "cycleways are left out. Each stretch counts by the cell it crosses: a bridge or an embankment above "
+             "the water still counts, because the model's cells do not know it is there.",
     "population": "A model of where residents live in 2025, at about 90 m, spread evenly within each grid square: "
                   "people in the flooded area, not people at risk, and nothing of who was there at the time.",
 }
@@ -111,6 +114,10 @@ MAX_ROADS = 40_000
 #: The largest model box the readers will fetch for, in square kilometres.
 MAX_AREA_KM2 = 900.0
 POP_SPLIT = 3
+#: Overture road classes that are not for vehicles, left out of the road count (Overture's transportation guide,
+#: https://docs.overturemaps.org/guides/transportation/, lists the classes; sidewalks and crossings are footways).
+PATH_CLASSES = frozenset({"footway", "sidewalk", "crosswalk", "path", "steps", "pedestrian", "cycleway",
+                          "bridleway"})
 
 
 # ── geometry: WKB ───────────────────────────────────────────────────────────
@@ -339,6 +346,7 @@ def read_overture(bbox: list[float], what: str, *, release: str | None = None, f
     ``parts`` are lists of (n, 2) coordinate arrays (outer rings first for a building).
     """
     try:
+        import pyarrow as pa
         import pyarrow.compute as pc
         import pyarrow.parquet as pq
     except ImportError as exc:  # pragma: no cover - pyarrow is in the archive extra and the browser loads it
@@ -377,6 +385,9 @@ def read_overture(bbox: list[float], what: str, *, release: str | None = None, f
                        pc.and_(pc.less_equal(ymin, n), pc.greater_equal(ymax, s)))
         if what == "roads" and "subtype" in use:
             mask = pc.and_(mask, pc.equal(table.column("subtype"), "road"))
+            if "class" in use:   # vehicles only: a null class (unknown) stays
+                paths = pc.is_in(table.column("class"), value_set=pa.array(sorted(PATH_CLASSES)))
+                mask = pc.and_(mask, pc.invert(pc.fill_null(paths, False)))
         table = table.filter(mask)
         ids = table.column("id").to_pylist()
         geoms = table.column("geometry").to_pylist()

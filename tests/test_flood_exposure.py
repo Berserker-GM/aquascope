@@ -235,10 +235,14 @@ def test_read_overture_keeps_the_box_and_reads_only_its_row_groups():
 def test_read_overture_roads_are_the_road_segments():
     rows = [{"id": "r1", "kind": "line", "coords": [[1, 1], [1.2, 1.1]], "subtype": "road", "class": "primary"},
             {"id": "t1", "kind": "line", "coords": [[1, 1], [1.1, 1.3]], "subtype": "rail", "class": "standard_gauge"},
-            {"id": "r2", "kind": "line", "coords": [[1.1, 1], [1.3, 1.2]], "subtype": "road", "class": "residential"}]
+            {"id": "r2", "kind": "line", "coords": [[1.1, 1], [1.3, 1.2]], "subtype": "road", "class": "residential"},
+            {"id": "f1", "kind": "line", "coords": [[1.1, 1], [1.2, 1.2]], "subtype": "road", "class": "footway"},
+            {"id": "c1", "kind": "line", "coords": [[1.1, 1], [1.2, 1.3]], "subtype": "road", "class": "cycleway"},
+            {"id": "u1", "kind": "line", "coords": [[1.2, 1], [1.2, 1.3]], "subtype": "road", "class": None}]
     files = Files({"https://x/s.parquet": overture_parquet(rows)})
     out = X.read_overture([0, 0, 2, 2], "roads", files=["https://x/s.parquet"], release="t", fetch=files)
-    assert [f["id"] for f in out["features"]] == ["r1", "r2"]
+    # roads for vehicles: footways and cycleways are left out, a road of no class stays
+    assert [f["id"] for f in out["features"]] == ["r1", "r2", "u1"]
     assert out["features"][0]["kind"] == "line"
 
 
@@ -258,7 +262,9 @@ def test_overture_files_picks_the_files_whose_boxes_meet():
 
 
 @pytest.mark.parametrize("lon, lat, tile", [(14.29, 48.30, "R5_C20"), (2.35, 48.85, "R5_C19"),
-                                            (-58.4, -34.6, "R13_C13")])
+                                            (-58.4, -34.6, "R13_C13"),
+                                            # the tiles start 0.0079 degrees west of the round degree
+                                            (9.995, 48.3, "R5_C20"), (9.99, 48.3, "R5_C19")])
 def test_ghsl_tiles_are_ten_degree_squares(lon, lat, tile):
     assert X.ghsl_tile_url(lon, lat).endswith(f"_{tile}.tif")
 

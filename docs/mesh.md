@@ -241,8 +241,11 @@ water at every step and at the peak, and says when each building and stretch of 
   corner. Source: Overture Maps buildings (ODbL 1.0, © OpenStreetMap contributors, Overture Maps Foundation;
   Overture's buildings also carry Microsoft and Google footprints and Esri Community Maps, see
   [Overture's attribution](https://docs.overturemaps.org/attribution/#buildings)).
-- **Roads**: each road segment (Overture transportation, subtype `road`, ODbL 1.0) is cut where it crosses
-  from one cell to the next (the crossing found by bisection), and a stretch counts when its cell is flooded.
+- **Roads**: each road segment for vehicles (Overture transportation, subtype `road`, ODbL 1.0; service roads
+  and tracks included, footways, sidewalks, paths, steps, pedestrian streets, cycleways and bridleways left
+  out, `PATH_CLASSES`) is cut where it crosses from one cell to the next (the crossing found by bisection), and
+  a stretch counts when its cell is flooded. In the synthetic valley the paths left out are 123 of the 207 km of
+  `road` segments on the mesh, mostly mapped sidewalks.
 - **People**: GHS-POP R2023A, the 2025 epoch at 3 arc-seconds (European Commission JRC; Schiavina et al.
   2023, [doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE](https://doi.org/10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE),
   CC BY 4.0), read from the Cloud-Optimized GeoTIFF tiles WFP publishes on
@@ -274,7 +277,7 @@ up and follow the time bar, the legend row gives each count at the step on show 
 card opens on the peak with the sources, licences and limits. A click on a building says when it was under
 water and how deep.
 
-![What gets flooded in Portsmouth, Virginia, at 02:30](img/models/622-exposure.png)
+![What gets flooded in the synthetic valley test model at the peak, 14:00, water deeper than 0.15 m](img/models/622-exposure.png)
 
 ## Checked against real files (2026-10-11)
 
