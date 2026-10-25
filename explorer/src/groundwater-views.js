@@ -70,9 +70,9 @@ function ensureLayers() {
   const fresh = !map.getSource(L.contours);
   if (!map.hasImage(ARROW)) map.addImage(ARROW, arrowImage(), { sdf: true, pixelRatio: 2 });
   const before = beforeId();
-  const add = (id, src, spec) => {
+  const add = (id, src, spec, under = before) => {
     if (!map.getSource(src)) map.addSource(src, { type: "geojson", data: EMPTY_FC });
-    if (!map.getLayer(id)) map.addLayer({ id, source: src, ...spec }, before);
+    if (!map.getLayer(id)) map.addLayer({ id, source: src, ...spec }, under);
   };
   add(L.zones, L.zones, { type: "fill", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.16 } });
   add(L.zoneLine, L.zones, { type: "line", paint: { "line-color": ["get", "color"], "line-width": 1.8, "line-opacity": 0.9 } });
@@ -89,12 +89,13 @@ function ensureLayers() {
     "text-field": ["get", "label"], "text-font": ["Noto Sans Regular"], "text-size": ["case", ["get", "index"], 11.5, 10.5],
     "text-max-angle": 30, "text-keep-upright": true, "text-padding": 4 },
   paint: { "text-color": "#0b2440", "text-halo-color": "rgba(255,255,255,0.92)", "text-halo-width": 1.4 } });
-  // Arrows that would touch drop out (no overlap), so a small model seen from afar, or on a phone, keeps a calm,
-  // even scatter and fills in as you zoom; they never push the contour labels away (ignore placement).
+  // Arrows that would touch drop out, so a small model seen from afar, or on a phone, keeps a calm, even scatter and
+  // fills in as you zoom. They sit under the contour labels, which are placed first and keep their room.
   add(L.arrows, L.arrows, { type: "symbol", layout: { "icon-image": ARROW, "icon-rotate": ["get", "b"],
-    "icon-rotation-alignment": "map", "icon-size": ["get", "s"], "icon-allow-overlap": false, "icon-ignore-placement": true,
+    "icon-rotation-alignment": "map", "icon-size": ["get", "s"], "icon-allow-overlap": false, "icon-ignore-placement": false,
     "icon-padding": 3 },
-  paint: { "icon-color": "#14324f", "icon-halo-color": "rgba(255,255,255,0.9)", "icon-halo-width": 1.2, "icon-opacity": 0.9 } });
+  paint: { "icon-color": "#14324f", "icon-halo-color": "rgba(255,255,255,0.9)", "icon-halo-width": 1.2, "icon-opacity": 0.9 } },
+  map.getLayer(L.labels) ? L.labels : before);
   add(L.wells, L.wells, { type: "circle", paint: {
     "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3.5, 14, 6.5],
     "circle-color": ["case", ["get", "pumping"], ["get", "color"], "#ffffff"],
