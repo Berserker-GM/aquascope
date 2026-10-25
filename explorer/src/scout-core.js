@@ -106,6 +106,44 @@ export function scoutWho(by, model = "") {
   return ["Rules", "no model"];
 }
 
+/**
+ * One short note on refused wordings (#590): how many, and the first one's reason. `refused` is the package's
+ * list ("<id>: <why>"); an id may hold a colon ("models_disagree:x/1") but never a colon and a space.
+ */
+export function refusedNote(refused = []) {
+  if (!refused || !refused.length) return "";
+  const first = String(refused[0]);
+  const why = first.includes(": ") ? first.slice(first.indexOf(": ") + 2) : first;
+  const more = refused.length > 1 ? ` (and ${refused.length - 1} more)` : "";
+  return `${refused.length} wording${refused.length === 1 ? "" : "s"} refused by the claim lock, rules kept: ${why}${more}`;
+}
+
+/**
+ * Who worded the pins, and the note under the line (#590): a model that was asked but whose wording is on no
+ * pin is not said to have worded them. `by` and `model` are what the model path returned, `picks` the pins
+ * (each with its own `by`), `refused` and `unknown` aquascope.map_scout.apply_wording's, `failed` why the
+ * model could not be asked. Returns { who, how, notes }.
+ */
+export function wordingLine({ by = "rules", model = "", picks = [], refused = [], unknown = [], failed = "" } = {}) {
+  const asked = by === "rules" ? "" : (model || (by === "device" ? "the on-device model" : "your model"));
+  const used = asked ? picks.filter((f) => f.by === by).length : 0;
+  const notes = [];
+  if (failed) notes.push(failed);
+  const r = refusedNote(refused);
+  if (r) notes.push(r);
+  if (!asked) return { who: "Rules", how: failed ? "the model could not be asked" : "no model", notes };
+  if (!used) {
+    if (!refused.length) {
+      notes.push(unknown.length
+        ? `the model wrote about ${unknown.join(", ")}, not a pin in this view; rules kept`
+        : "the model wrote no wording for these pins; rules kept");
+    }
+    return { who: "Rules", how: `${asked} asked, its wording not used`, notes };
+  }
+  const [who, how] = scoutWho(by, model);
+  return { who, how: used < picks.length ? `${used} of ${picks.length} ${how}` : how, notes };
+}
+
 /** The line itself: how many pins, and from what. */
 export function scoutLine(res, n) {
   if (!n) {

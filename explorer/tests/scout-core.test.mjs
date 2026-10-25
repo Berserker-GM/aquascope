@@ -3,7 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  GLOBE_RADIUS_KM, KIND_LABELS, PIN_GAP_PX, SCOUT_MAX, keepVisible, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho,
+  GLOBE_RADIUS_KM, KIND_LABELS, PIN_GAP_PX, SCOUT_MAX, keepVisible, refusedNote, scoutLine, scoutMonth, scoutPin, scoutView,
+  scoutWho, wordingLine,
 } from "../src/scout-core.js";
 import { checkPin } from "../src/map-actions-core.js";
 
@@ -79,4 +80,34 @@ test("pins under a bar are left out and the rest renumbered, a model's extras ke
   assert.equal(withModel.candidates.length, 12);
   // A check that throws keeps the finding (better a pin under a bar than none).
   assert.equal(keepVisible(res, () => { throw new Error("no map"); }, 10, 0).picks[0].id, "f0");
+});
+
+test("the line names who worded the pins and gives a refusal's reason (#590)", () => {
+  const rules = (id) => ({ id, by: "rules" });
+  const device = (id) => ({ id, by: "device" });
+  // Europe, 2026-10-26: Gemini Nano ordered only the selected gauge, which was off screen; all three pins kept the
+  // rules' wording, and the line said "worded on this device" with no refusal.
+  let line = wordingLine({ by: "device", model: "Chrome's built-in model", picks: [rules("a"), rules("b"), rules("c")],
+    refused: [], unknown: ["USGS-01646500"] });
+  assert.equal(line.who, "Rules");
+  assert.equal(line.how, "Chrome's built-in model asked, its wording not used");
+  assert.deepEqual(line.notes, ["the model wrote about USGS-01646500, not a pin in this view; rules kept"]);
+  // US: four wordings refused for a slot that does not exist; the reason, not only the count.
+  line = wordingLine({ by: "device", model: "Gemini Nano", picks: [rules("a"), rules("b"), rules("c"), rules("d")],
+    refused: ["floods_ahead:1: unknown slot {year}", "floods_ahead:2: unknown slot {year}",
+      "gauges_today:x: unknown slot {year}", "status:2026-09:1: unknown slot {year}"] });
+  assert.equal(line.who, "Rules");
+  assert.deepEqual(line.notes, ["4 wordings refused by the claim lock, rules kept: unknown slot {year} (and 3 more)"]);
+  // Two of three worded on the device, one refused.
+  line = wordingLine({ by: "device", model: "Gemini Nano", picks: [device("a"), device("b"), rules("c")],
+    refused: ["models_disagree:x/big: leaves out what the finding says (models miss this river)"] });
+  assert.equal(line.who, "Gemini Nano");
+  assert.equal(line.how, "2 of 3 worded on this device; numbers by code");
+  assert.deepEqual(line.notes, ["1 wording refused by the claim lock, rules kept: leaves out what the finding says (models miss this river)"]);
+  // All worded; no model; the model could not be asked.
+  assert.equal(wordingLine({ by: "key", model: "m via p", picks: [{ by: "key" }] }).how, "worded with your key; numbers by code");
+  assert.deepEqual(wordingLine({ picks: [rules("a")] }), { who: "Rules", how: "no model", notes: [] });
+  line = wordingLine({ failed: "the model could not be asked (timeout); the rules' wording is kept", picks: [rules("a")] });
+  assert.equal(line.how, "the model could not be asked");
+  assert.equal(refusedNote([]), "");
 });

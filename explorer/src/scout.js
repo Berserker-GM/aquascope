@@ -17,7 +17,7 @@ import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-
 import { duck } from "./catalog.js?v=__BUILD__";
 import { ensureNowStatus } from "./now-map.js?v=__BUILD__";
 import { skillUrl } from "./evidence-core.js?v=__BUILD__";
-import { SCOUT_EXTRA, SCOUT_MAX, keepVisible, scoutLine, scoutMonth, scoutPin, scoutView, scoutWho } from "./scout-core.js?v=__BUILD__";
+import { SCOUT_EXTRA, SCOUT_MAX, keepVisible, scoutLine, scoutMonth, scoutPin, scoutView, wordingLine } from "./scout-core.js?v=__BUILD__";
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 
@@ -283,7 +283,7 @@ export async function runScout() {
     res.page_ms = { rows: Math.round(t1 - t0), scan: Math.round(performance.now() - t1), names: null };
     lastResult = res;
     let picks = res.picks || [];
-    let by = "rules", model = "", refused = [];
+    let by = "rules", model = "", refused = [], unknown = [], failed = "";
     if (modelReady && picks.length) {
       // A model words them with their place names, so it waits for the gazetteer.
       await namePlaces(res);
@@ -297,9 +297,10 @@ export async function runScout() {
           by = worded.by;
           model = worded.model || "";
           refused = worded.refused || [];
+          unknown = worded.unknown || [];
         }
       } catch (err) {
-        refused = [`the model could not be asked (${err.message}); the rules' wording is kept`];
+        failed = `the model could not be asked (${err.message}); the rules' wording is kept`;
       }
     }
     clearLast();
@@ -317,9 +318,11 @@ export async function runScout() {
       }
     }
     if (by === "rules") void renamePins(my, { ...res, picks }, pinOf);
-    const [who, how] = scoutWho(by, model);
+    // Who worded the pins: a model whose wording is on no pin is named as asked, not as the one that worded them.
+    const line = wordingLine({ by, model, picks, refused, unknown, failed });
+    const [who, how] = [line.who, line.how];
     const n = lastPins.length;
-    const notes = [...(res.notes || []), ...(refused.length ? [`${refused.length} wording${refused.length === 1 ? "" : "s"} refused by the claim lock, rules kept`] : [])];
+    const notes = [...(res.notes || []), ...line.notes];
     // One line: who, how many. Each pin's card carries its own reason and source.
     say(n
       ? `<b class="ma-who">Scout</b><span class="ma-how">${escapeHtml(who)}, ${escapeHtml(how)}</span>` +

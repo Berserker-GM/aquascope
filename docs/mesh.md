@@ -171,8 +171,10 @@ other number or with a sign or a digit set against a placeholder ("-{f3}", "{f3}
 wording does not use is refused too. A count made under a threshold names it: the film check's
 "cells wetted only by a film" are those under its own fact "A film is shallower than" (0.03 m),
 so wording that puts the count under another value ("8 cells (< {f1} m)", where `f1` is one
-cell's largest depth) is refused even though both numbers are facts. Without a
-model, the package's templates say it.
+cell's largest depth) is refused even though both numbers are facts. Wording that drops a "not" of
+the rules wording is refused too (`negation_flip`): the deepest water is "worth a look if it is not a
+channel or a pit you expect", and "investigate if it's an expected feature" turns that round. The
+line under the box gives the reason for each refusal. Without a model, the package's templates say it.
 
 ```bash
 aquascope mesh review my_run.p01.hdf             # with observed floods and gauges
