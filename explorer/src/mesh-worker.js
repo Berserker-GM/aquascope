@@ -11,13 +11,16 @@
 // { type: "frame", id, step }, { type: "series", id, cell }, { type: "close", id }, and for the review (#564,
 // aquascope.mesh_review): { type: "inside", id, rows } (the gauges standing in a cell), { type: "review", id,
 // context }, { type: "prompt", id, findings, context } and { type: "words", id, findings, reply, by } (a model's
-// reply held to the claim lock).
+// reply held to the claim lock), and for the flood views (#619, #620, aquascope.mesh_views): { type: "views", id }
+// (the lenses and the smooth grid, built once per file) and { type: "field", id, what, step } (one smooth picture
+// and its contour lines).
 // Messages out: { type: "progress", text }, { type: "ready" }, { id, result } or { id, error }.
 
 let pyodide = null;
 let booting = null;
 let mounted = 0;
 let scipyLoaded = false;
+let viewsLoaded = false;
 
 const post = (msg, transfer = []) => self.postMessage(msg, transfer);
 
@@ -41,6 +44,7 @@ import json
 from aquascope.io import mesh as _mesh
 from aquascope import mesh_review as _review
 _M = None
+_L = _G = None
 `);
   post({ type: "ready" });
 }
@@ -97,7 +101,7 @@ _meta, _arr = _mesh.browser_payload(_N)
     try { pyodide.FS.unmount(dir); } catch { /* not mounted */ }
     throw err;
   }
-  pyodide.runPython("_M.close() if _M is not None else None\n_M, _N = _N, None");
+  pyodide.runPython("_M.close() if _M is not None else None\n_M, _N = _N, None\n_L = _G = None");
   for (let k = 1; k < mounted; k++) {
     try { pyodide.FS.unmount(`/drop${k}`); } catch { /* not mounted */ }
   }
@@ -166,6 +170,45 @@ json.dumps(_o, default=str)
   post({ id, result: JSON.parse(out) });
 }
 
+// The flood views: the lenses of the whole run and the grid the smooth depth is drawn on, once per file (scipy
+// for the triangulation and contourpy for the lines are loaded the first time).
+async function views({ id }) {
+  if (!viewsLoaded) {
+    await pyodide.loadPackage(["scipy", "contourpy"]);
+    scipyLoaded = true;
+    viewsLoaded = true;
+  }
+  const res = pyodide.runPython(`
+from aquascope import mesh_views as _views
+if _M is None:
+    raise _mesh.MeshError("No model result is open.")
+if _L is None:
+    _L = _views.mesh_lenses(_M)
+    _G = _views.field_grid(_M)
+_vmeta, _varr = _views.views_payload(_M, _L, _G)
+(json.dumps(_vmeta), _varr)
+`);
+  const meta = JSON.parse(res.get(0));
+  const arrays = takeArrays(res.get(1));
+  res.destroy();
+  post({ id, result: { meta, arrays } }, transferList(arrays));
+}
+
+function field({ id, what, step }) {
+  pyodide.globals.set("_what", String(what || "depth"));
+  pyodide.globals.set("_fstep", Number.isInteger(step) ? step : -1);
+  const res = pyodide.runPython(`
+if _G is None:
+    raise _mesh.MeshError("The views are not ready.")
+_f = _views.field_payload(_M, _G, _L, _what, None if _fstep < 0 else _fstep)
+(_f["lines"], {"image": _f["image"]})
+`);
+  const lines = res.get(0);
+  const arrays = takeArrays(res.get(1));
+  res.destroy();
+  post({ id, result: { what, step, lines: JSON.parse(lines), image: arrays.image } }, [arrays.image.buffer]);
+}
+
 self.onmessage = async (e) => {
   const m = e.data || {};
   try {
@@ -179,6 +222,8 @@ self.onmessage = async (e) => {
     if (m.type === "open") await openFile(m);
     else if (m.type === "frame") frame(m);
     else if (m.type === "series") series(m);
+    else if (m.type === "views") await views(m);
+    else if (m.type === "field") field(m);
     else if (["inside", "review", "prompt", "words"].includes(m.type)) reviewCall(m);
     else if (m.type === "close") {
       pyodide.runPython("_M.close() if _M is not None else None\n_M = None");

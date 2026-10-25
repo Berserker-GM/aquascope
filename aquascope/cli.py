@@ -1263,6 +1263,9 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     if args.file == "review" and args.review_file:
         _mesh_review(args)
         return
+    if args.file == "lenses" and args.review_file:
+        _mesh_lenses(args)
+        return
     res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
@@ -1383,6 +1386,41 @@ def _mesh_review(args: argparse.Namespace) -> None:
         print(f"      Source: {f['source']}")
     for e in res.get("errors") or []:
         print(f"  note: {e}")
+
+
+def _mesh_lenses(args: argparse.Namespace) -> None:
+    """`aquascope mesh lenses FILE` (#620): the hazard, arrival time, largest depth and speed the Explorer shows."""
+    from aquascope.mesh_views import lens_summary
+
+    res = lens_summary(args.review_file, crs=args.crs, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
+        sys.exit(1)
+    print(f"  {res['name']}: {res['cells']:,} cells, {res['time_steps']} time steps")
+    h = res.get("hazard")
+    if h:
+        print(f"  Flood hazard, {h['rule']} ({h['source']}):")
+        for c in h["classes"]:
+            print(f"    {c['code']}  {c['area_km2']:>9.4f} km2  {c['cells']:>7,} cells  {c['words']}")
+        print(f"    {h['url']}")
+    a = res.get("arrival") or {}
+    if a.get("last_h") is not None:
+        print(f"  Arrival ({a['rule']}): {a['wet_at_start']:,} cells wet from the start, the last after "
+              f"{a['last_h']:g} h; {a['reached']:,} cells reached")
+    for key, label in (("max_depth", "Largest depth"), ("max_speed", "Largest speed")):
+        x = res.get(key)
+        if x:
+            unit = f" {x['unit']}" if x.get("unit") else ""
+            when = f" at {x['time']}" if x.get("time") else ""
+            print(f"  {label}: {x['value']}{unit}{when}, {x['lat']}, {x['lon']} (cell {x['cell']})")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
 
 
 def cmd_basins(args: argparse.Namespace) -> None:
@@ -3969,6 +4007,13 @@ def cmd_modflow(args: argparse.Namespace) -> None:
                              cell_size=(cell[0] if cell and len(cell) == 1 else cell), start_date=args.start_date,
                              time_units=args.time_units, sidecars=args.sidecar)
     out = modflow_summary(res, args.time, args.layer)
+    views = None
+    if (args.views or args.wel) and not res.get("error"):
+        from aquascope.groundwater.views import model_views, views_summary
+
+        ref = args.reference if args.reference in (None, "highest") else int(args.reference)
+        views = model_views(res, args.time, args.layer, reference=0 if ref is None else ref, wells=args.wel)
+        out["views"] = views_summary(views)
     if args.geojson and not res.get("error"):
         Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
     if args.json:
@@ -3986,10 +4031,39 @@ def cmd_modflow(args: argparse.Namespace) -> None:
         print(f"  layer {f['layer']}, {when}: heads {lo} on {f['cells_with_head']:,} cells")
         for note in out.get("notes") or []:
             print(f"  {note}")
+        if views is not None:
+            _print_modflow_views(out["views"])
         if args.geojson:
             print(f"  wrote {args.geojson}")
     if res.get("error"):
         sys.exit(1)
+
+
+def _print_modflow_views(v: dict) -> None:
+    if v.get("error"):
+        print(f"  views: {v['error']}")
+        return
+    unit = " m" if (v.get("length_unit") or "") in ("meters", "metres", "m") else ""
+    if v.get("head"):
+        print(f"  contours every {v['head']['step']:g}{unit} ({v['head']['levels']} lines)")
+    fl = v.get("flow") or {}
+    if fl.get("towards"):
+        print(f"  flow mostly to the {fl['towards']} ({fl['bearing']:g} degrees), median gradient {fl['gradient']:.2g}")
+    dd = v.get("drawdown") or {}
+    if dd:
+        print(f"  drawdown from step {dd['reference']}" + (f" (wells' heads highest at step {dd['suggested_reference']})"
+                                                           if dd.get("suggested_reference") is not None else ""))
+    print(f"  wells {v.get('wells_how', '')}")
+    zones = {c["well"]: c["area_km2"] for c in v.get("capture") or []}
+    for w in v.get("wells") or []:
+        bits = [f"row {w['model_row']}, column {w['model_col']}, layer {w['layer']}",
+                "pumping" if w.get("pumping") else "not pumping"]
+        if w.get("drawdown") is not None:
+            bits.append(f"drawdown {w['drawdown']:g}{unit}")
+        if w["id"] in zones:
+            bits.append(f"capture zone {zones[w['id']]:g} km2")
+        print(f"    {w['id']}: " + ", ".join(bits))
+    print(f"  {v.get('limits', '')}")
 
 
 def _print_groundwater_surface(res: dict) -> None:
@@ -4705,9 +4779,10 @@ def main() -> None:
     p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
                             "times, the largest depth and speed")
     p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file; or 'review' then the "
-                        "file, to check the run (#564)")
+                        "file, to check the run (#564); or 'lenses' then the file, for the flood hazard, arrival "
+                        "time and largest depth and speed (#620)")
     p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
-                        help="With 'review': the model result to check")
+                        help="With 'review' or 'lenses': the model result")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
     p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
                         help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
@@ -5490,6 +5565,12 @@ def main() -> None:
     p_mf.add_argument("--time", type=int, default=-1, help="Which time step (index, default the last)")
     p_mf.add_argument("--layer", type=int, default=None, help="Which layer (1-based, default the first)")
     p_mf.add_argument("--geojson", default=None, help="Write that time and layer's cells with their head here")
+    p_mf.add_argument("--views", action="store_true", help="Also contours, flow direction, drawdown, wells and "
+                      "capture zones for that time and layer (#623, #624)")
+    p_mf.add_argument("--wel", default=None, help="The model's well file (.wel, MODFLOW-2005 or 6), for --views; "
+                      "without it the wells are found in the heads")
+    p_mf.add_argument("--reference", default=None, help="For --views: the step drawdown is measured from (index, "
+                      "default 0), or 'highest' for the step when the wells' heads are highest")
     p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────

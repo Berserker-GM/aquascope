@@ -58,9 +58,9 @@ when the model has dates. A click on a cell gives its head. See
 [the Explorer](explorer.md#groundwater).
 
 **No model at hand?** **Tools**, **Open model results**, **MODFLOW: the Freyberg model**
-fetches FloPy's transient Freyberg example (`freyberg.nam`, `.dis` and `.hds`, 10.8 MB,
-public domain) from FloPy's GitHub repository, pinned to one commit, and opens it like a
-drop. Its `.nam` places it.
+fetches FloPy's transient Freyberg example (`freyberg.nam`, `.dis`, `.hds` and `.wel`,
+11.1 MB, public domain) from FloPy's GitHub repository, pinned to one commit, and opens it
+like a drop. Its `.nam` places it; its `.wel` gives its six pumping wells.
 
 **A model whose files do not say where it is** is never refused. The first choice is
 **Place it at the centre of the map (approximate)**: one click, north up, at its true size
@@ -90,3 +90,68 @@ is missing (`needs`: `grid`, `origin`, `crs`).
 
 What it is not: a model run. It reads what MODFLOW wrote; heads are in the model's own
 length unit.
+
+## Contours, flow, drawdown and capture zones
+
+![Freyberg's six pumping wells from its .wel file: capture zones and pathlines over the head contours](img/models/gw-capture-freyberg.png)
+
+`aquascope.groundwater.views` (experimental, #623 and #624) reads one time step and one
+layer of a structured (DIS) grid the way a hydrogeologist reads a water table, and returns
+the geometry in lon/lat. The Explorer draws it; the CLI prints it.
+
+- **Head contours** at one round interval for the whole run (so the lines hold still from
+  step to step), heavier every fifth, drawn between cell centres (marching squares) and
+  joined into labelled lines, over a smooth head surface.
+- **Flow arrows**: the direction groundwater moves, down the head gradient. The gradient
+  is a central difference between neighbouring cell centres (one-sided next to inactive
+  cells), turned into map directions with the grid's own geometry, so a rotated grid
+  points the right way. The direction is Darcy's law (`q = -K grad h`) with the same
+  conductivity in every direction, because a head file does not hold K. The legend gives
+  the typical direction and gradient ("mostly to the east-south-east, about 1 in 220").
+- **Drawdown**: the head at a reference step minus the head now. The reference is the
+  first step unless you choose another; when the wells' heads are highest at another step
+  (a model that starts already pumping), the legend offers it, because the cone shows
+  best measured from a step when the wells were idle.
+- **Wells**: from a dropped `.wel` file (MODFLOW-2005 and NWT, or MODFLOW 6; lists in
+  `OPEN/CLOSE` files are not read, and the result says so), with each stress period's rate.
+  Without one, the cells whose drawdown is a local maximum: the drawdown used to find them
+  is each cell's fall from its highest head in the run to its lowest, so a cone shows
+  whether the run deepens it or lets it recover, and a candidate also has to be a head
+  minimum at its lowest. With a single step, the local head minima. The result says which.
+- **Pathlines and capture zones**: particles follow the head gradient within the layer
+  (a midpoint step of a quarter cell), the step's heads held still. Forward tracking ends
+  in a pumping well's cell; backward tracking from a ring around each well traces where
+  its water comes from, filling in the fan where neighbouring paths drift apart, and the
+  area those backward paths sweep is the well's capture zone, outlined, with its area.
+  Where two wells' swept areas overlap (their paths hug the divide between them), a
+  particle tracked forward from that spot decides which well it belongs to.
+
+What these are not: a head file holds no hydraulic conductivity, porosity or vertical
+flow, so the lines are streamlines of one step in one layer, not travel times, and water
+that leaves the layer up or down is not followed. A well screened in another layer is
+shown but does not capture water in this one. For travel times and 3D paths, run MODPATH
+on the model.
+
+The tests check the arrows, straight pathlines and evenly spaced straight contours on an
+analytic plane (a constant gradient, on a grid rotated 30 degrees too), and on the
+synthetic pumping well that the well is found at row 15, column 23, that the drawdown
+cone is centred there, and that the backward-tracked capture zone agrees with the cells
+whose forward paths end in the well.
+
+```bash
+aquascope modflow synthetic.hds --grid synthetic.dis --sidecar synthetic.nam --time 3 --views
+aquascope modflow freyberg.hds --grid freyberg.dis --sidecar freyberg.nam --wel freyberg.wel --time 300
+aquascope modflow model.hds --grid model.dis --views --reference highest --json
+```
+
+```python
+from aquascope.groundwater.surface import read_modflow_heads
+from aquascope.groundwater.views import model_views, views_summary
+
+res = read_modflow_heads("freyberg.hds", "freyberg.dis", sidecars=["freyberg.nam"])
+v = model_views(res, time_index=300, layer=1, wells="freyberg.wel")
+v["head"]["levels"]     # [{level, lines: [[[lon, lat], ...]]}]
+v["flow"]["towards"]    # "south-east"
+v["capture"]            # [{well, rings, area_km2, paths}]
+views_summary(v)        # the same without the geometry
+```
