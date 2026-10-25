@@ -921,6 +921,8 @@ def review_prompt(findings: list[dict[str, Any]], context: str = "") -> dict[str
         "number is thrown away. Use only the placeholders of that finding's own facts.",
         "Do not judge the model right or wrong, and do not add causes or advice the rules wording does not hold. "
         "Do not use a ranking word (deepest, largest, worst...) unless the rules wording uses it.",
+        "Keep every 'not', 'no', 'never' and 'unless' of the rules wording: 'worth a look if it is not a channel "
+        "or a pit you expect' never becomes 'if it is expected'.",
         'Reply with ONE JSON object: {"order": [ids], "notes": [{"id", "title", "reason"}]}.',
     ])
     if context:
@@ -969,6 +971,74 @@ def _wrong_bound(words: str, own: dict[str, dict[str, Any]]) -> str | None:
     return None
 
 
+# A "not" and the words that do its work. "un-" before a word ("unexpected") is read where the word is compared.
+_NEGATION = re.compile(r"\b(?:not|no|never|none|nor|without|unless|cannot)\b|n't\b", re.IGNORECASE)
+_CONDITION = re.compile(r"\b(?:if|unless)\b", re.IGNORECASE)
+_PLACEHOLDER_ANY = re.compile(r"\{\w+(?:\.\w+)?\}")
+_LITTLE = frozenset("""a an the it its it's is are was were be been this that these those there here you your we
+    our they their of in on at to for from by with and or as than then so do does did has have had can could may
+    might will would should what which who how where when whether e g i""".split())
+
+
+def _stems(text: str) -> list[str]:
+    """The content words of ``text`` in order, cut to a rough stem ("expected" and "expect" are one word)."""
+    out = []
+    for w in re.findall(r"[^\W\d_]+(?:'[^\W\d_]+)?", _PLACEHOLDER_ANY.sub(" ", text or "")):
+        w = w.lower()
+        if w in _LITTLE or _NEGATION.fullmatch(w) or w.endswith("n't"):
+            continue
+        for suffix in ("ing", "ed", "es", "s"):
+            if w.endswith(suffix) and len(w) - len(suffix) >= 4:
+                w = w[:-len(suffix)]
+                break
+        out.append(w)
+    return out
+
+
+def _clauses(text: str) -> list[str]:
+    return [c for c in re.split(r"[.!?;:,()]+(?=\s|$)|[;:,()]|\s[-\u2013\u2014]\s|\bbut\b", text or "") if c.strip()]
+
+
+def _negated(clause: str, stems: set[str]) -> bool:
+    """Whether ``clause`` holds a negation, an "un-" on one of ``stems`` ("unexpected") included."""
+    if _NEGATION.search(clause) or re.search(r"\bunless\b", clause, re.IGNORECASE):
+        return True
+    return any(w.startswith("un") and (w[2:] in stems or w[2:].startswith(tuple(stems)))
+               for w in (x.lower() for x in re.findall(r"[^\W\d_]+", clause)))
+
+
+def negation_flip(rules: str, words: str) -> str | None:
+    """The rules clause whose "not" ``words`` drop, or None. Each number can be right and the meaning turned
+    round: the rules say a deepest cell is "worth a look if it is not a channel or a pit you expect", and a
+    model wrote "investigate if it's an expected feature" (Gemini Nano, #590). A condition of the rules with a
+    negation ("if it is not ...", "unless ...") may not come back as one without it on the same words; a
+    negated statement ("never gets deeper", "no record for the run") may not come back with its words side by
+    side and no negation."""
+    for rule in _clauses(rules):
+        neg = _NEGATION.search(rule)
+        if not neg:
+            continue
+        scope = _stems(rule[neg.start():])
+        if not scope:
+            continue
+        cond = _CONDITION.search(rule)
+        for clause in _clauses(words):
+            if cond:
+                said = _CONDITION.search(clause)
+                if not said:
+                    continue
+                part = clause[said.start():]
+                if set(_stems(part)) & set(scope) and not _negated(part, set(scope)):
+                    return rule[cond.start():].strip()
+            else:
+                head = scope[:2]
+                got = _stems(clause)
+                hit = any(got[i:i + len(head)] == head for i in range(len(got)))
+                if hit and not _negated(clause, set(scope)):
+                    return rule[neg.start():].strip()
+    return None
+
+
 def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str] | None, str | None]:
     """A model's title and reason for one finding, held to its facts: filled text, or None and why not."""
     from aquascope.map_explain import _PLACEHOLDER, _fill, claim_lock, placeholder_touches
@@ -1004,6 +1074,9 @@ def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str]
     rank = [w for w in _RANKING.findall(words) if w.lower() not in said]
     if rank:
         return None, f"a ranking or judging word ({rank[0]})"
+    flipped = negation_flip(f"{f['rules_title']}. {f['rules_reason']}", words)
+    if flipped:
+        return None, f"drops the 'not' of the rules wording ({flipped!r})"
     if "{" in _PLACEHOLDER.sub("", words) or "}" in _PLACEHOLDER.sub("", words):
         return None, "a stray brace"
     return (_fill(title, own), _fill(reason, own)), None

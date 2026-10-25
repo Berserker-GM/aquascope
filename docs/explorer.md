@@ -228,7 +228,10 @@ choosing from a few more than ten. It never writes a number: every number, date,
 place and ranking is a slot (`{area}`, `{peak}`, `{month}`) that the package fills in,
 and wording with a digit, a percent sign, a number word or a word like "record" or
 "largest" outside the slots is refused, and so is a sign set against a slot ("-{peak}",
-"minus {area}"), so the rules' wording stays (the line says how many were refused). A slot's exact value written
+"minus {area}"), so the rules' wording stays. A wording must also keep what its finding says (`CLAIMS`): "much
+below normal" stays below, and "the models miss this river" is not turned into "questions about the gauge's
+measurement". The line says who worded the pins (the rules, when no wording of the model's was used) and gives the
+first refusal's reason. A slot's exact value written
 out ("September 2026" for `{month}`) counts as that slot, so a correct wording is not refused for it. The findings
 the model leaves out, or whose ids it mangles, follow in the rules' order, so none is dropped. The maintainer's keys are never used for visitors.
 
@@ -285,8 +288,11 @@ Who words the notes:
    Scout and the mesh review make); the line under the box says how many were refused and why. A note whose
    numbers are all in its facts can still claim more than they say: "96% of the land is significantly below
    normal" when the 96% is of land below *or* much below normal is refused, and so is a side of normal its
-   facts are not on. A value the model writes again after its placeholder ("54% (54%)", "km² km²") is
-   written once, and a sentence that only copies the prompt is dropped. When fewer than
+   facts are not on. A share of the mapped land is written as a share ("{f4} of the mapped land"): written
+   bare, as in "the river is mapped at 21% above normal" or "flow at least 81% below normal", it reads as a
+   change in flow that no fact holds, and the note is refused. A value the model writes again after its
+   placeholder ("54% (54%)", "km² km²", "on on Sat 7 Nov") is written once, and a sentence that only copies
+   the prompt is dropped. When fewer than
    three pass, notes in fixed wording on the other facts make up the rest. When none passes, the line
    says the model's wording was refused, with the reasons, not that no model was asked.
 
@@ -375,7 +381,10 @@ Who reads the line, in the same order as Ask the map:
    going the other way from your words ("20% more rain" is never -20), or one outside
    the limits is refused (the claim lock), and the line under the box says who read it. The values go into the sliders before the run, so you see
    exactly what runs. When a model's reading is refused, the line says which model and why,
-   and suggests only a way not yet tried.
+   and suggests only a way not yet tried. The model changes the whole year, so a line that names
+   a part of it ("summers get much hotter, maybe three degrees") runs as a year-round change and
+   the line says the season was not applied. A small value keeps its figures: 20 litres a second
+   reads "0.02 m³/s taken", never "0 m³/s".
 
 Every run is in the action log with its undo; a new run replaces the painting and undo
 puts the one before back. A second scenario on the same basin reuses the calibration

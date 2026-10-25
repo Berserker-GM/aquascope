@@ -1045,6 +1045,47 @@ def slots_back(words: str, slots: dict[str, str]) -> str:
     return "".join(parts)
 
 
+_HIGH = r"\b(?:above|high|higher|wet|wetter|swollen)\b"
+_LOW = r"\b(?:below|low|lower|dry|drier|drought)\b"
+#: What each finding claims, in words (#590): a model's reason must keep it, and neither its title nor its
+#: reason may say the opposite. ``says`` names the claim, ``need`` are patterns the reason must each match
+#: (a slot that holds the claim counts), ``not`` patterns neither may match. Gemini Nano wrote "poor agreement
+#: with a gauge's water flow, raising questions about the gauge's measurement" where the rules say the models
+#: miss this river: every number and slot was right, the finding was turned round.
+CLAIMS: dict[str, dict[str, Any]] = {
+    "status_much_above": {"says": "rivers much above normal", "need": [_HIGH], "not": [_LOW]},
+    "status_much_below": {"says": "rivers much below normal", "need": [_LOW], "not": [_HIGH]},
+    "gauges_today_much_above": {"says": "gauges much above normal", "need": [_HIGH], "not": [_LOW]},
+    "gauges_today_much_below": {"says": "gauges much below normal", "need": [_LOW], "not": [_HIGH]},
+    "floods_ahead": {"says": "a flow forecast", "need": [r"\b(?:forecast\w*|flood\w*|flow\w*|peak\w*|predict\w*|"
+                                                          r"expect\w*)\b|\{(?:rp|peak|day|issue)\}"], "not": []},
+    "floods_past": {"says": "floods reported", "need": [r"\bflood\w*|\{events\}"], "not": []},
+    "models_disagree": {
+        "says": "models miss this river",
+        "need": [r"\bmodel\w*|\{models?\}",
+                 r"\bmiss\w*|\bno better\b|\bnot (?:do )?(?:any )?better\b|\bworse\b|\bfail\w*|\bmean flow\b|"
+                 r"\bdo(?:es)? not (?:match|capture|reproduce|follow|track)\b|\{kge\}"],
+        "not": [r"\bquestions? (?:about|over) the gauge|\bgauge(?:'s)? (?:measurements?|data|records?) (?:is|are|may "
+                r"be|might be|could be) (?:wrong|faulty|unreliable|questionable|in error|off)\b|\bgauge errors?\b"],
+    },
+}
+
+
+def claim_kept(title: str, reason: str, template: str | None) -> str | None:
+    """Why a model's ``title`` and ``reason`` do not say what the finding of ``template`` says, or None
+    (:data:`CLAIMS`). Run on the words as written, slots unfilled, so a slot's value cannot stand in for them."""
+    claim = CLAIMS.get(template or "")
+    if not claim:
+        return None
+    for pattern in claim["not"]:
+        m = re.search(pattern, f"{title} {reason}", re.IGNORECASE)
+        if m:
+            return f"says {m.group(0).strip()!r}, the finding is {claim['says']}"
+    if not all(re.search(pattern, reason or "", re.IGNORECASE) for pattern in claim["need"]):
+        return f"leaves out what the finding says ({claim['says']})"
+    return None
+
+
 def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | None, str | None]:
     """A model's title or reason, held to the slots: the filled text, or None and why it was refused. Any digit,
     percent sign, number word or superlative outside a ``{slot}`` refuses it (those claims are the code's), and so
@@ -1090,7 +1131,9 @@ def wording_prompt(findings: list[dict[str, Any]], max_pins: int = MAX_PINS, con
         "Never write a number, a percent sign, a number word or a word like record, largest, highest or most. "
         "Every number, date, place and ranking comes from the slots: write {slot_name} where it goes, for example "
         "{area}, {month}, {peak}, {place}. The code fills them in; wording that breaks this rule is thrown away.",
-        "Do not add causes, forecasts or advice that the rules wording does not hold.",
+        "Do not add causes, forecasts or advice that the rules wording does not hold, and keep what each finding "
+        "says: when the rules say the models miss a river, the reason says the models miss it, not that the gauge "
+        "is in doubt; much below normal stays below, much above stays above.",
         'Reply with ONE JSON object: {"order": [ids], "notes": [{"id", "title", "reason"}]}.',
     ])
     if context:
@@ -1124,11 +1167,12 @@ def _loose_id(fid: Any) -> str:
 
 def apply_wording(findings: list[dict[str, Any]], reply: Any, *, max_pins: int = MAX_PINS,
                   by: str = "model") -> dict[str, Any]:
-    """Hold a model's reply to the claim lock: ``{"findings", "refused", "ordered"}``. The model's order is kept
-    for the ids it knows (the rules order fills the rest); each title and reason that passes
-    :func:`check_wording` replaces the template, the others keep it and are listed in ``refused``. An id the
-    model wrote with other punctuation still finds its finding, and the findings it left out of its order
-    follow in the rules' order (up to ``max_pins``), so none is dropped."""
+    """Hold a model's reply to the claim lock: ``{"findings", "refused", "ordered", "unknown"}``. The model's order
+    is kept for the ids it knows (the rules order fills the rest); each title and reason that passes
+    :func:`check_wording` and :func:`claim_kept` replaces the template, the others keep it and are listed in
+    ``refused``. An id the model wrote with other punctuation still finds its finding, and the findings it left
+    out of its order follow in the rules' order (up to ``max_pins``), so none is dropped. ``unknown`` lists up to
+    three ids the model wrote that are no finding here."""
     data = _reply_json(reply)
     byid = {f["id"]: f for f in findings}
     refused: list[str] = []
@@ -1148,6 +1192,10 @@ def apply_wording(findings: list[dict[str, Any]], reply: Any, *, max_pins: int =
         same = loose.get(_loose_id(x)) or []
         return same[0] if len(same) == 1 else None
 
+    named = [str(x) for x in data.get("order") or []] + [str(n.get("id")) for n in data.get("notes") or []
+                                                         if isinstance(n, dict)]
+    # The ids the model wrote that are no finding here (a gauge it was told of but is not in view): said, not lost.
+    unknown = [x for x in dict.fromkeys(named) if x and x != "None" and not known(x)][:3]
     order = [i for i in dict.fromkeys(known(x) for x in data.get("order") or []) if i][:max_pins]
     ordered = bool(order)
     # The findings the model left out follow in the rules' order: none is dropped for a missing or mangled id.
@@ -1165,12 +1213,15 @@ def apply_wording(findings: list[dict[str, Any]], reply: Any, *, max_pins: int =
         if n:
             title, why_t = check_wording(n.get("title"), f["slots"], 80)
             reason, why_r = check_wording(n.get("reason"), f["slots"], 400)
-            if title and reason:
+            # The numbers can all be right and the finding turned round: its words must keep its claim.
+            why_k = claim_kept(slots_back(str(n.get("title") or ""), f["slots"]),
+                               slots_back(str(n.get("reason") or ""), f["slots"]), f.get("template"))
+            if title and reason and not why_k:
                 f.update(title=title, reason=reason, by=by)
             else:
-                refused.append(f"{fid}: {why_t or why_r}")
+                refused.append(f"{fid}: {why_t or why_r or why_k}")
         out.append(f)
-    return {"findings": out, "refused": refused, "ordered": ordered}
+    return {"findings": out, "refused": refused, "ordered": ordered, "unknown": unknown}
 
 
 def model_wording(findings: list[dict[str, Any]], *, provider: str | None = None, model: str | None = None,

@@ -507,6 +507,51 @@ def test_the_claim_lock_refuses(mesh_of, title, reason, why):
     assert not out["ordered"] and [f["id"] for f in out["findings"]] == [f["id"] for f in res["findings"]]
 
 
+@pytest.mark.parametrize("reason", [
+    # Gemini Nano on the HEC-RAS Portsmouth run, 2026-10-25 and 2026-10-26, on the deepest-water pins. The rules
+    # say "Worth a look if it is not a channel or a pit you expect."
+    "Deepest water is {F1} at {F1.when}; investigate if it's an expected feature.",
+    "Deepest water of {F1}: check if expected (e.g. channel or pit).",
+])
+def test_a_wording_that_drops_the_rules_not_is_refused(mesh_of, reason):
+    m = mesh_of()
+    res = R.review(m, context=clean_context(m))
+    deep = found(res, "deepest")[0]
+    reason = reason.replace("F1", deep["facts"][0]["id"])
+    out = R.apply_words(res["findings"], {"order": [], "notes": [{"id": deep["id"], "title": "Deepest water",
+                                                                   "reason": reason}]}, by="device")
+    kept = next(f for f in out["findings"] if f["id"] == deep["id"])
+    assert kept["reason"] == deep["rules_reason"] and kept["by"] == "rules"
+    assert out["refused"] == [f"{deep['id']}: drops the 'not' of the rules wording "
+                              "('if it is not a channel or a pit you expect')"]
+
+
+@pytest.mark.parametrize("reason", [
+    "Deepest water is {F1} at {F1.when}; worth a look unless it is a channel or a pit you expect.",
+    "Deepest water is {F1}; check it if it is not an expected channel or pit.",
+    "Deepest water is {F1}; investigate if it is an unexpected feature.",
+])
+def test_a_wording_that_keeps_the_not_passes(mesh_of, reason):
+    m = mesh_of()
+    res = R.review(m, context=clean_context(m))
+    deep = found(res, "deepest")[0]
+    reason = reason.replace("F1", deep["facts"][0]["id"])
+    out = R.apply_words(res["findings"], {"order": [], "notes": [{"id": deep["id"], "title": "Deepest water",
+                                                                   "reason": reason}]}, by="device")
+    assert out["refused"] == []
+    assert "Keep every 'not'" in R.review_prompt(res["findings"])["system"]
+
+
+def test_a_negated_statement_said_without_its_not_is_refused():
+    rules = "Gauge Kingston: no record for the run. It has no observations during the run."
+    assert R.negation_flip(rules, "The gauge has a record for the run.") == "no record for the run"
+    assert R.negation_flip(rules, "No record at this gauge covers the run.") is None
+    assert R.negation_flip(rules, "The gauge has records outside the run period.") is None   # other words
+    film = "This cell never gets deeper than 0.02 m, under 0.03 m."
+    assert R.negation_flip(film, "This cell gets deeper than {f1}.") == "never gets deeper than 0.02 m"
+    assert R.negation_flip(film, "A thin film, at most {f1} deep.") is None
+
+
 def test_the_prompt_names_placeholders_not_numbers_to_type(mesh_of):
     res = _review_with_problems(mesh_of)
     p = R.review_prompt(res["findings"])

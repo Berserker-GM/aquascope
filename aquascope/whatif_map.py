@@ -109,7 +109,17 @@ def check_scenario(sc: Any) -> tuple[dict[str, Any], list[str]]:
 
 
 def _g(v: float) -> str:
-    return f"{abs(v):.1f}".rstrip("0").rstrip(".") if abs(v) % 1 else f"{abs(v):.0f}"
+    """``|v|`` to three significant figures, whole numbers from 100: a value that is not nought never reads
+    as "0" (0.02 m³/s taken, #590). The Explorer's ``whatif-core.js`` writes it the same way."""
+    from decimal import ROUND_HALF_UP, Decimal
+
+    a = abs(float(v))
+    if not a:
+        return "0"
+    places = max(0, 2 - math.floor(math.log10(a)))
+    # Half up on the float's exact value, as JavaScript's toFixed rounds (1234.5 is 1235 on both faces).
+    out = str(Decimal(a).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP))
+    return out.rstrip("0").rstrip(".") if "." in out else out
 
 
 def scenario_label(sc: dict[str, Any]) -> str:
@@ -162,6 +172,20 @@ _WORD_NUMBER = re.compile(r"\b(?:" + "|".join(sorted(map(re.escape, (w for w in 
 # Litres (or liters) per second, however written, is l/s; cubic metres per second is m3/s.
 _PER_SECOND = re.compile(r"\b(?:litres?|liters?|l)\s*(?:per|a|/)\s*(?:second|sec|s)\b|\blps\b")
 _CUMECS = re.compile(r"\bcubic\s+met(?:re|er)s?\s*(?:per|a|/)\s*(?:second|sec|s)\b")
+
+
+# A part of the year: the model runs a change over the whole year, so a line that names one says so (#590).
+_SEASON = re.compile(
+    r"\b(?:summers?|winters?|autumns?|springtime|monsoons?|(?:dry|wet|rainy|growing|melt|snowmelt)\s+seasons?|"
+    r"seasons?|seasonal(?:ly)?|january|february|march|april|june|july|august|september|october|november|december|"
+    r"(?:in|during|each|every|this|next|over)\s+(?:the\s+)?(?:spring|fall|may))\b", re.IGNORECASE)
+
+
+def season_words(text: str) -> list[str]:
+    """The words of ``text`` that name a part of the year ("summers", "in July", "the dry season"). A scenario is
+    run over the whole year, so the line under the box says these were not applied rather than widening them in
+    silence (#590: "summers get much hotter, maybe three degrees" ran as a year-round warming)."""
+    return list(dict.fromkeys(re.sub(r"\s+", " ", m.group(0)).strip() for m in _SEASON.finditer(str(text or ""))))
 
 
 def _normalise(text: str) -> str:
@@ -219,12 +243,14 @@ def parse_scenario(text: str) -> dict[str, Any]:
     """Read one line ("20% less rain and 2 degrees warmer", "take 5 m3/s for irrigation") into a scenario,
     with no model and no network.
 
-    Returns ``{"text", "matched", "scenario", "said", "rules", "unknown", "errors"}``: ``matched`` only when every
-    clause was read and at least one parameter changed; ``said`` is :func:`scenario_label` of the result.
+    Returns ``{"text", "matched", "scenario", "said", "rules", "unknown", "errors", "season"}``: ``matched`` only
+    when every clause was read and at least one parameter changed; ``said`` is :func:`scenario_label` of the
+    result; ``season`` the words that name a part of the year (:func:`season_words`), which the run does not
+    apply.
     """
     norm = _normalise(text)
     out: dict[str, Any] = {"text": str(text or "").strip(), "matched": False, "scenario": None, "said": "",
-                           "rules": [], "unknown": [], "errors": []}
+                           "rules": [], "unknown": [], "errors": [], "season": season_words(text)}
     if not norm:
         return out
     norm = re.sub(r"^(?:what if|what happens if|if|suppose|imagine)\s+", "", norm)
@@ -292,7 +318,8 @@ def _numbers_in(text: str) -> list[float]:
 
 
 def parse_scenario_reply(reply: Any, text: str = "") -> dict[str, Any]:
-    """A model's reply (text or parsed JSON) as a checked scenario: ``{"scenario", "errors", "said"}``.
+    """A model's reply (text or parsed JSON) as a checked scenario: ``{"scenario", "errors", "said", "season"}``
+    (``season``: the words of ``text`` that name a part of the year, :func:`season_words`, not applied).
 
     The claim lock: with the reader's ``text``, a non-zero number the model gives that is not in those words
     is refused and listed in ``errors``, and so is one the words say only once but the model uses twice, one
@@ -340,7 +367,8 @@ def parse_scenario_reply(reply: Any, text: str = "") -> dict[str, Any]:
     errors += more
     if not any(sc[k] for k in ("dp_pct", "dt_c", "demand_cms")) and not sc["dpet_pct"]:
         return {"scenario": None, "errors": errors or ["no change was read from the line"], "said": ""}
-    return {"scenario": sc, "errors": errors, "said": scenario_label(sc)}
+    # A part of the year the words name is not applied: said, so the run is not taken for a seasonal one.
+    return {"scenario": sc, "errors": errors, "said": scenario_label(sc), "season": season_words(text)}
 
 
 def model_scenario(text: str, *, provider: str | None = None, model: str | None = None, api_key: str | None = None,

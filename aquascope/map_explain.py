@@ -973,8 +973,10 @@ def _numbers(text: str) -> set[str]:
     text = text or ""
     out = {m.replace(",", "") for m in _NUMBER.findall(text)}
     out |= {m.lower() for m in _NUMBER_WORDS.findall(text)}
-    # Any other character that stands for a number: a fraction (½), a Roman numeral (Ⅻ), a superscript.
-    out |= {c for c in text if not "0" <= c <= "9" and unicodedata.numeric(c, None) is not None}
+    # Any other character that stands for a number: a fraction (½), a Roman numeral (Ⅻ), a superscript. A
+    # superscript two or three after a letter is a unit's (km², m³/s), not a number of its own.
+    out |= {c for i, c in enumerate(text) if not "0" <= c <= "9" and unicodedata.numeric(c, None) is not None
+            and not (c in "\u00b2\u00b3" and i and text[i - 1].isalpha())}
     return out
 
 
@@ -1032,6 +1034,17 @@ def _norm_value(text: str) -> str:
     return re.sub(r"\s+", " ", t).strip()
 
 
+def _drop_lead(before: str, value: str) -> str:
+    """``before`` without the words ``value`` opens with, when it ends with them ("peaks on " before "on Sat 7
+    Nov" is "peaks ")."""
+    lead = re.match(r"\s*((?:[^\W\d_]+\s+)*)", value + " ").group(1).split()
+    for k in range(len(lead), 0, -1):
+        tail = re.search(r"(?:^|(?<=\s))" + r"\s+".join(map(re.escape, lead[:k])) + r"\s*$", before, re.IGNORECASE)
+        if tail:
+            return before[:tail.start()]
+    return before
+
+
 def drop_repeats(words: str, pattern: re.Pattern[str], value_of: Any) -> str:
     """``words`` without what a model wrote again after a placeholder that already says it: a bracket holding
     the value ("{f3} ({f3})", "{f3} (54%)", "{f6} (4.6 times)") and the unit the value ends with ("{f4} km²"
@@ -1043,12 +1056,14 @@ def drop_repeats(words: str, pattern: re.Pattern[str], value_of: Any) -> str:
     for m in pattern.finditer(words):
         if m.start() < pos:
             continue
-        out.append(words[pos:m.end()])
-        pos = m.end()
         try:
             value = str(value_of(m) or "")
         except (KeyError, IndexError):
-            continue
+            value = ""
+        # The words the value opens with, written again just before it: "on {f9.when}" where the date reads
+        # "on Sat 7 Nov" would say "on on".
+        out.append(_drop_lead(words[pos:m.start()], value) + m.group(0))
+        pos = m.end()
         if not value:
             continue
         nv = _norm_value(value)
@@ -1085,7 +1100,7 @@ def _fill(words: str, facts: dict[str, dict[str, Any]]) -> str:
 
 # Words of the prompt a model may copy into a note ("This is located at a point on the map."): the sentence that
 # holds them says nothing about the river, so it goes.
-_ECHO = re.compile(r"\b(?:a point on the map|pinned,? unnamed|has no name yet|placeholders?)\b|"
+_ECHO = re.compile(r"\b(?:a point on the map|un-?named|has no name yet|placeholders?|pin: (?:yes|no))\b|"
                    r"\(write \{", re.IGNORECASE)
 
 
@@ -1143,6 +1158,27 @@ def class_claims(words: str, cited: list[dict[str, Any]]) -> str | None:
     return None
 
 
+#: The facts that are a share of the mapped land in view, not a flow: "21%" of the land, never "21% above normal".
+SHARE_KINDS = ("status_share", "status_area")
+# What a share is of, written right after its placeholder: "{f4} of the mapped land", "{f1} of the view".
+_SHARE_OF = re.compile(r"\s*(?:\)\s*)?of\s+(?:(?:the|this|all|its)\s+)?(?:[^\W\d_]+\s+){0,2}?"
+                       r"(?:land|lands|area|areas|view|map|region|basins?)\b", re.IGNORECASE)
+
+
+def share_claims(words: str, facts: dict[str, dict[str, Any]]) -> str | None:
+    """Why ``words`` write a share of the mapped land as something else, or None. A share fact ("21%", of the
+    mapped land in view) must be written as a share: ``{f4} of the mapped land``. Written bare it reads as a
+    flow ("the river is mapped at {f4} above normal", "flow at least {f1} below normal"), a claim no fact holds,
+    with every number in the facts."""
+    for m in _PLACEHOLDER.finditer(words or ""):
+        f = facts.get(m.group(1))
+        if m.group(2) or not f or f.get("kind") not in SHARE_KINDS:
+            continue
+        if not _SHARE_OF.match(words[m.end():]):
+            return f"writes {f['shown']} without 'of the mapped land': it is a share of the land in view, not a flow"
+    return None
+
+
 def notes_schema() -> dict[str, Any]:
     """The JSON Schema a model's notes are held to."""
     return {
@@ -1165,10 +1201,12 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
     for f in facts:
         name = (f.get("place") or {}).get("name")
         # No words for the model to copy into a note when the place has no name: only whether it can be pinned.
-        where = f"{name} (write {{{f['id']}.place}})" if name else ("pinned, unnamed" if f.get("place") else "none")
+        where = f"place: {name} (write {{{f['id']}.place}})" if name else f"pin: {'yes' if f.get('place') else 'no'}"
         when = f" when {f['when']} (write {{{f['id']}.when}})" if f.get("when") else ""
-        lines.append(f"{f['id']}: {f['label']} is {f['shown']} (write {{{f['id']}}}){when}; "
-                     f"layer {f['layer']}; place: {where}")
+        # A share is said as a share, with what it is a share of, so it is not read as a change in flow.
+        value = (f"{f['shown']} of the mapped land in view (a share of land, not a flow: write {{{f['id']}}} "
+                 "of the mapped land)" if f.get("kind") in SHARE_KINDS else f"{f['shown']} (write {{{f['id']}}})")
+        lines.append(f"{f['id']}: {f['label']} is {value}{when}; layer {f['layer']}; {where}")
     system = "\n".join([
         "You write short notes pinned on a world map of rivers, explaining what the reader sees.",
         "Here are facts taken from the map by code, each with the placeholder that stands for its value.",
@@ -1183,8 +1221,10 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
         "(only the ones listed above; a place without one has no name yet, so do not name it). "
         "Never write a number yourself, in digits or in words (twelve, half, twice): a note with a number "
         "its facts do not hold is thrown away.",
-        "Write each value once: the placeholder already holds its unit. Do not say where a fact is when its "
-        "place has no name: the pin shows it. "
+        "Write each value once: the placeholder already holds its unit, and a date its 'on'. Do not say where "
+        "a fact is when its place has no name: the pin shows it. "
+        "A percent of the mapped land is a share of land, not a flow or a change in flow: write it as "
+        "'{f1} of the mapped land is below normal', never '{f1} below normal' or 'flow at {f1}'. "
         "Say only what the facts say, in their words: below or much below normal is not much below normal. "
         "Do not guess causes, impacts or forecasts beyond them. "
         "Colours: much below normal is dark brown, below normal tan, above normal light teal, "
@@ -1253,7 +1293,7 @@ def check_model_notes(reply: Any, facts: list[dict[str, Any]], bbox: list[float]
         if stray:
             refused.append(f"note {i}: a number not in its facts ({', '.join(stray)})")
             continue
-        wrong = class_claims(title + " " + text, cited)
+        wrong = class_claims(title + " " + text, cited) or share_claims(title + " " + text, by_id)
         if wrong:
             refused.append(f"note {i}: {wrong}")
             continue

@@ -433,7 +433,7 @@ async function readLine(text) {
     const v = { ...sliderValues(read.scenario), dpet_pct: evap };
     showSliders(v);
     const notes = [...(read.errors || [])];
-    const held = heldWords(read.scenario, v);
+    const held = heldWords(read.scenario, v, read.season || (rules && rules.season) || []);
     if (held) notes.push(held);
     const refused = notes.length ? ` (${notes.join("; ")})` : "";
     $("wi-read").textContent = `Read by ${who}: ${scenarioWords(v)}${refused}`;
