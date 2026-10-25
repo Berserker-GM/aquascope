@@ -67,7 +67,7 @@ def test_the_bundle_packs_obs_per_source_and_variable_and_says_what_is_mirrored(
     for f in manifest["files"]:
         assert f["sha256"] == hashlib.sha256((out / f["name"]).read_bytes()).hexdigest()
         assert f["bytes"] == (out / f["name"]).stat().st_size
-    on_disk = json.loads((out / "MANIFEST.json").read_text())
+    on_disk = json.loads((out / "MANIFEST.json").read_text(encoding="utf-8"))
     assert on_disk["snapshot_date"] == "2026-10-25" and on_disk["revision"] == SHA
 
     assert manifest["catalogued"] == {"stations": 3, "sources": 2}
@@ -76,7 +76,7 @@ def test_the_bundle_packs_obs_per_source_and_variable_and_says_what_is_mirrored(
     scopes = {c["source"]: c["scope"] for c in manifest["sources"]}
     assert set(scopes) == {"usgs", "uk_ea"} and scopes["usgs"].startswith("catalogue and mirrored")
 
-    sources_md = (out / "SOURCES.md").read_text()
+    sources_md = (out / "SOURCES.md").read_text(encoding="utf-8")
     for key in ("usgs", "uk_ea"):
         assert key in sources_md
     assert "Environment Agency" in sources_md and "OGL-UK-3.0" in sources_md
@@ -95,7 +95,7 @@ def test_the_metadata_is_a_dataset_with_honest_counts_and_links(tmp_path):
     assert rel["isSupplementTo"] == "10.5281/zenodo.21903143"
     assert rel["isDerivedFrom"].endswith(f"/tree/{SHA}")
     assert {c["type"] for c in meta["contributors"]} == {"DataCollector"}
-    written = json.loads((tmp_path / "d/zenodo-metadata.json").read_text())
+    written = json.loads((tmp_path / "d/zenodo-metadata.json").read_text(encoding="utf-8"))
     assert written == {"metadata": meta}
 
 
@@ -107,7 +107,8 @@ def test_rows_of_sources_without_a_verified_licence_are_left_out_and_said(tmp_pa
     features = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [lon, 1]},
                  "properties": {"source": src, "station_id": sid}}
                 for src, sid, lon in (("usgs", "A", 2), ("brazil_ana", "D", -50), ("not_a_source", "X", 9))]
-    (archive / "stations.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": features}))
+    (archive / "stations.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": features}),
+                                              encoding="utf-8")
     pq.write_table(pa.table({"source": ["usgs", "brazil_ana", "brazil_ana"], "station_id": ["A", "D", "E"],
                              "q_mean": [1.0, 2.0, 3.0]}), archive / "signatures.parquet")
     out = tmp_path / "d"
@@ -118,7 +119,7 @@ def test_rows_of_sources_without_a_verified_licence_are_left_out_and_said(tmp_pa
     geo = json.loads(stations.schema.metadata[b"geo"])
     assert geo["columns"]["geometry"]["bbox"] == [0.0, 1.0, 3.0, 51.0], "bbox of the rows that remain"
     assert pq.read_table(out / "signatures.parquet").column("source").to_pylist() == ["usgs"]
-    kept = json.loads((out / "stations.geojson").read_text())["features"]
+    kept = json.loads((out / "stations.geojson").read_text(encoding="utf-8"))["features"]
     assert [f["properties"]["source"] for f in kept] == ["usgs"]
 
     left = {x["source"]: x for x in manifest["left_out"]}
@@ -128,7 +129,7 @@ def test_rows_of_sources_without_a_verified_licence_are_left_out_and_said(tmp_pa
     assert left["brazil_ana"]["stations_left_out"] == 1
     assert manifest["catalogued"] == {"stations": 3, "sources": 2}
     assert "brazil_ana" not in {c["source"] for c in manifest["sources"]}
-    text = (out / "SOURCES.md").read_text()
+    text = (out / "SOURCES.md").read_text(encoding="utf-8")
     assert "Left out until their reuse terms are verified" in text and "brazil_ana" in text
     assert "left out until their reuse terms are verified" in manifest["zenodo_metadata"]["description"].lower()
     assert "brazil_ana" in manifest["zenodo_metadata"]["description"]
@@ -156,7 +157,7 @@ def test_build_refuses_a_mutable_revision_and_a_non_empty_folder(tmp_path):
     with pytest.raises(ValueError, match="40-character"):
         zenodo.build(archive, tmp_path / "d", revision="main")
     (tmp_path / "busy").mkdir()
-    (tmp_path / "busy/x").write_text("x")
+    (tmp_path / "busy/x").write_text("x", encoding="utf-8")
     with pytest.raises(ValueError, match="not empty"):
         zenodo.build(archive, tmp_path / "busy", revision=SHA)
 
@@ -236,7 +237,7 @@ def test_a_first_deposit_makes_a_draft_uploads_every_file_and_sets_the_metadata(
     expected = {p.name for p in zenodo.bundle_files(bundle)}
     assert set(fake.uploads) == expected and "MANIFEST.json" in expected
     assert fake.uploads["MANIFEST.json"] == (bundle / "MANIFEST.json").read_bytes()
-    sent = json.loads((bundle / "zenodo-metadata.json").read_text())
+    sent = json.loads((bundle / "zenodo-metadata.json").read_text(encoding="utf-8"))
     sent["metadata"]["publication_date"] = fake.metadata["metadata"]["publication_date"]
     assert fake.metadata == sent
     assert fake.calls[0] == ("POST", "/deposit/depositions")
