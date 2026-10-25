@@ -196,7 +196,7 @@ export function viewLines(v, mode, { unit = "", stepLabel = (t) => `step ${t + 1
     }
   }
   if ((v.wells || []).length) {
-    out.push(v.wells_from === "wel" ? `${plural(v.wells.length, "well")} from your .wel file, ${pumping.length} pumping now.`
+    out.push(v.wells_from === "wel" ? `${plural(v.wells.length, "well")} from the model's .wel file, ${pumping.length} pumping now.`
       : `${plural(v.wells.length, "well")} found in the heads (no .wel file): where the drawdown peaks.`);
   }
   return out;
@@ -211,7 +211,7 @@ export function wellCardOf(v, w, { unit = "", timeUnits = "days", when = "" } = 
       : `Screened in layer ${w.layer}: shown here, but it does not draw water from this layer.`)
     : (w.pumping ? "Found in the heads: water flows into this cell at this step." : "Found in the heads; not drawing water at this step.");
   return {
-    what: w.from === "wel" ? "Well, from your .wel file" : "Well, found in the heads",
+    what: w.from === "wel" ? "Well, from the model's .wel file" : "Well, found in the heads",
     title: `Well ${w.id}`,
     sub: `row ${w.model_row ?? w.row}, column ${w.model_col ?? w.col}, layer ${w.layer}${when ? ` · ${when}` : ""}`,
     status: { text: status, color: null },
