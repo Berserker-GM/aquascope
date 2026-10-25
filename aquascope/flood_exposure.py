@@ -580,7 +580,7 @@ def exposure(m: Mesh, *, buildings: list[dict[str, Any]] | None = None, roads: l
     out: dict[str, Any] = {"times": times, "hours": [round(float(h), 4) for h in hours_since_start(times)],
                            "threshold": thr, "threshold_m": round(_to_m(m, thr), 4),
                            "units": {"depth": m.units.get("depth"), "length": "m"},
-                           "peak_step": m.peak_step(), "name": m.name, "limits": dict(LIMITS),
+                           "name": m.name, "limits": dict(LIMITS),
                            "sources": {}}
 
     if buildings is not None:

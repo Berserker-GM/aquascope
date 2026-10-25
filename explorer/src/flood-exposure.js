@@ -276,6 +276,7 @@ function registerRow() {
 function clearAll() {
   running++;
   res = null;
+  read = null;
   status = "";
   fc = null;
   clearLayers();

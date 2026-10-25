@@ -82,7 +82,6 @@ def test_a_section_reads_the_ground_and_the_water_along_the_line(mesh_of):
     assert f["deepest"] == pytest.approx(depth_at(3, 4, 3), abs=1e-3) and f["deepest_step"] == 3
     assert f["widest_step"] in range(1, STEPS)
     assert f["widest_wet_m"] == pytest.approx(4500, rel=0.05)   # from column 0's centre to the column 4/5 edge
-    assert s["peak_step"] == 3
     json_safe = all(v is None or math.isfinite(v) for row in s["levels"] for v in row)
     assert json_safe
 

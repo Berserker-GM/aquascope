@@ -251,7 +251,7 @@ def section(m: Mesh, line: Any, *, spacing_m: float | None = None) -> dict[str, 
 
     Returns ``distance_m`` (from the line's start), ``lon``/``lat`` and ``cell`` of each point read (-1 off
     the mesh), ``ground`` (None without bed levels), ``levels`` (one list per model step, None where dry or off
-    the mesh), ``max_level`` (the highest water level of the run at each point), ``times``, ``peak_step``, the
+    the mesh), ``max_level`` (the highest water level of the run at each point), ``times``, the
     units and a few facts: the length, the share of the line on the mesh, the widest wet width and the deepest
     water along the line, each with its step.
     """
@@ -309,7 +309,7 @@ def section(m: Mesh, line: Any, *, spacing_m: float | None = None) -> dict[str, 
         "cell": [int(c) for c in cells],
         "ground": _plain(ground) if bed is not None else None, "ground_is": _ground_words(m),
         "levels": [_plain(row) for row in levels], "max_level": _plain(max_level),
-        "times": list(m.times), "peak_step": m.peak_step(),
+        "times": list(m.times),
         "units": {"length": _length_unit(m), "distance": "m"},
         "variable": m.variable, "facts": facts, "notes": notes, "name": m.name,
     }
