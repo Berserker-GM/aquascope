@@ -232,7 +232,7 @@ function set3d(on) {
     if (!state.hillshade) { state.hillshade = true; setHillshade(true); }
     const box = currentMesh() && currentMesh().meta.bbox;
     const cam = { pitch: 60, bearing: before3d.bearing || -20, duration: 900 };
-    if (box) map.fitBounds([[box[0], box[1]], [box[2], box[3]]], { ...cam, padding: (globalThis.innerWidth || 1024) <= 520 ? 28 : 90, maxZoom: 15.5 });
+    if (box) map.fitBounds([[box[0], box[1]], [box[2], box[3]]], { ...cam, padding: (globalThis.innerWidth || 1024) <= 520 ? 24 : 50, maxZoom: 16 });
     else map.easeTo(cam);
   } else {
     const b = before3d || { terrain: false, hillshade: state.hillshade, pitch: 0, bearing: 0 };

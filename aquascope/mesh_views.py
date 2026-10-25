@@ -415,8 +415,9 @@ def smooth_field(grid: FieldGrid, values: np.ndarray, *, kind: str = "depth",
 
     ``kind`` says how a missing (NaN) cell counts: ``"depth"`` takes it as zero (a dry cell) and draws only where
     the interpolated depth is at least 1 cm; ``"speed"`` takes it as zero and draws where ``depth`` (the matching
-    per-cell depth) would be drawn; ``"strict"`` (water surface, arrival time) draws only where all three cells
-    have a value. ``raw`` returns the depth before the 1 cm cut, NaN only outside the mesh (for the wet edge)."""
+    per-cell depth) would be drawn; ``"strict"`` (water surface, arrival time) interpolates where all three cells
+    have a value and elsewhere takes the value of the pixel's own cell (NaN when it has none). ``raw`` returns the
+    depth before the 1 cm cut, NaN only outside the mesh (for the wet edge)."""
     v = np.asarray(values, dtype="f4")
     if v.size != grid.n_cells:
         raise MeshError(f"{v.size} values for a mesh of {grid.n_cells} cells.")
@@ -433,8 +434,11 @@ def smooth_field(grid: FieldGrid, values: np.ndarray, *, kind: str = "depth",
         dd = (grid.w * np.where(np.isfinite(dg), dg, 0.0)).sum(axis=1)
         out[~(dd >= DRY_DEPTH)] = np.nan
     elif kind == "strict":
+        # Next to a cell without a value, a pixel takes its own cell's (the nearest centre of its three), so the gap
+        # keeps the cell's shape instead of eating every triangle that touches it.
         bad = (~np.isfinite(g) & (grid.w > 1e-6)).any(axis=1)
-        out[bad] = np.nan
+        own = g[np.arange(g.shape[0]), np.argmax(grid.w, axis=1)]
+        out[bad] = own[bad]
     else:
         raise MeshError(f"Unknown field kind {kind!r}.")
     img = np.full(grid.width * grid.height, np.nan, dtype="f4")
@@ -539,12 +543,19 @@ def wet_edge(grid: FieldGrid, values: np.ndarray, *, digits: int = 6) -> dict[st
 
 
 def depth_levels(m: Mesh, lenses: Lenses | None = None) -> list[float]:
-    """The depth contour levels of a mesh, the same at every step: round intervals up to the largest depth."""
+    """The depth contour levels of a mesh, the same at every step: a round interval chosen so the depths most of the
+    mesh reaches (up to their 90th percentile) get about five lines, carried on up to the deepest water but never
+    more than ten lines, so a deep channel does not bury a shallow floodplain's lines or stack its own."""
     mv = np.asarray(m.max_value, dtype="f8")
     fin = mv[np.isfinite(mv)]
     if not fin.size or m.variable != "depth":
         return []
-    return contour_levels(0.0, float(np.quantile(fin, 0.995)), most=6)
+    bulk = contour_levels(0.0, float(np.quantile(fin, 0.9)), most=5)
+    top = float(np.quantile(fin, 0.995))
+    if len(bulk) < 2:
+        return contour_levels(0.0, top, most=6)
+    step = bulk[1] - bulk[0]
+    return [round(k * step, 6) for k in range(1, 11) if k * step < top]
 
 
 def views_payload(m: Mesh, lenses: Lenses, grid: FieldGrid) -> tuple[dict[str, Any], dict[str, np.ndarray]]:
