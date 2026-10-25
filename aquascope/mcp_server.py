@@ -846,6 +846,20 @@ def mesh_review(path: str, crs: str | None = None, offline: bool = False,
     return review_file(path, crs=crs, context=not offline, geometry=geometry)
 
 
+def mesh_lenses(path: str, crs: str | None = None, geometry: str | None = None) -> dict[str, Any]:
+    """The flood lenses of a model result on a mesh (#620): a HEC-RAS 2D plan HDF5 file or a UGRID NetCDF file on
+    this machine. Returns the area and cells in each flood hazard class H1 to H6 (the combined hazard curves of
+    the Australian Disaster Resilience Guideline 7-3, 2014, Tables 1 and 2, from depth and speed at every output
+    step, with the source and its link), the arrival time (the first output step with at least 0.1 m of water:
+    how many cells were wet from the start and when the last place floods, in hours), and the largest depth and
+    speed with the model time and place of each. A file without bed levels has no hazard or arrival time; one
+    without velocities has no hazard (notes say so). Numbers come from code (aquascope.mesh_views); ok is false
+    with a plain error for a file it cannot read. geometry is the HEC-RAS geometry file for a stripped plan."""
+    from aquascope.mesh_views import lens_summary
+
+    return lens_summary(path, crs=crs, geometry=geometry)
+
+
 def swmm_summary(inp: str | None = None, out: str | None = None, crs: str | None = None, top: int = 5,
                  element: str | None = None) -> dict[str, Any]:
     """What an EPA SWMM model and its results hold (#560): a .inp file, its binary .out results file, or both,
@@ -1603,6 +1617,7 @@ def build_server():
     server.tool()(explain_view)
     server.tool()(mesh_summary)
     server.tool()(mesh_review)
+    server.tool()(mesh_lenses)
     server.tool()(whatif_map)
     server.tool()(swmm_summary)
     server.tool()(list_analyses)

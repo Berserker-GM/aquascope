@@ -31,7 +31,7 @@ const ARROWS = "mesh-arrows";
 const SEL = "mesh-sel";
 const ARROW_ICON = "mesh-arrow";
 const NBINS = 32;
-const ARROW_PX = 34;
+const ARROW_PX = 46;
 const EDGE_MINZOOM = 12.5;
 const CREDIT = "Your file, read in your browser by aquascope.io.mesh. Nothing is uploaded.";
 
@@ -111,6 +111,22 @@ export function setReviewSection(fn) { reviewSection = fn; }
 /** Redraw the legend row (the review calls it when its result changes). */
 export function refreshMeshLegend() { if (mesh) refreshLegend("mesh"); }
 
+// ── for the flood views (#619, #620, mesh-views.js): smooth depth, contours, 3D and the lenses ────────────
+// The views hook: { opened(), paint({ view, step, frame }) -> null | { smooth: true } | { colourOf(i) },
+// key() -> html | null (in place of the blue ramp), section() -> html, act(name, el) -> bool, card(i) -> spec
+// fields | null, summary() -> text | null, visible(on) }.
+let views = null;
+export function setMeshViews(hook) { views = hook; }
+
+/** What is on show: the view ("max" or "step"), the step, its frame, whether the model is visible. */
+export const meshState = () => (mesh ? { view, step, frame, visible, scale: mesh.scale, sample: mesh.sample } : null);
+
+/** Paint the model again (the views call it when a smooth picture arrives or the lens changes). */
+export function repaintMesh() { if (mesh) { paint(); syncSelection(); } }
+
+/** The model's layer ids, for the views to stack theirs among them. */
+export const MESH_LAYERS = { IMG, HIT, EDGES, SEL, ARROWS };
+
 /** The layer the review's cell flags go under: the arrows, so they stay readable on top. */
 export const meshFlagsBefore = () => (map && map.getLayer(ARROWS) ? ARROWS : beforeId());
 
@@ -188,6 +204,7 @@ export async function openModelFile(file, crs = null, geometry = null, { sample 
   addLayers();
   zoomTo(1400);
   paint();
+  if (views) views.opened();
   if (meta.times.length) {
     takeClock(step);
     if (meta.has_velocity) loadFrame(step).then(() => drawArrows());
@@ -247,7 +264,11 @@ function paint() {
   if (!mesh.picture) setupPicture();
   const pic = mesh.picture;
   const vals = values();
+  const over = views ? views.paint({ view, step, frame }) : null;   // the flood views (#619, #620)
+  if (map.getLayer(IMG)) map.setPaintProperty(IMG, "raster-opacity", over && over.smooth ? 0 : 0.92);
+  if (over && over.smooth) { refreshLegend("mesh"); return; }
   for (let i = 0; i < pic.cellColour.length; i++) {
+    if (over && over.colourOf) { pic.cellColour[i] = over.colourOf(i); continue; }
     const b = binOf(vals[i], mesh.scale, NBINS);
     pic.cellColour[i] = b < 0 ? 0 : pic.colours[b];
   }
@@ -257,7 +278,8 @@ function paint() {
   if (!src) {
     map.addSource(IMG, { type: "canvas", canvas: pic.canvas, coordinates: pic.fr.corners, animate: false });
     map.addLayer({ id: IMG, type: "raster", source: IMG, layout: { visibility: vis() },
-      paint: { "raster-opacity": 0.92, "raster-fade-duration": 0, "raster-resampling": "linear" } }, beforeId());
+      paint: { "raster-opacity": over && over.smooth ? 0 : 0.92, "raster-fade-duration": 0, "raster-resampling": "linear" } },
+    map.getLayer(HIT) ? HIT : beforeId());   // under the edges and the arrows
   } else {
     // A still canvas source uploads its pixels when it plays: play for one frame.
     src.play();
@@ -539,6 +561,7 @@ function cardSpec(i, { keepSeries = false } = {}) {
       onClick: () => showLargest(), hidden: view !== "step" }],
   };
   if (!keepSeries) spec.spark = meta.times.length ? { pending: true, label: `${variableWords(meta.variable)} over the run` } : null;
+  if (views) Object.assign(spec, views.card(i) || {});   // the lens on show says its value (#620)
   return spec;
 }
 
@@ -601,10 +624,11 @@ function keyHtml() {
     ? (view === "max"
       ? '<button type="button" class="fd-go" data-act="steps">Step through the run</button>'
       : '<button type="button" class="fd-go" data-act="largest">Show the largest</button>') : "";
-  return `<p class="fd-tag">${escapeHtml(legendLine(meta, { step: view === "step" ? step : null }))}</p>` +
+  const lensKey = views ? views.key() : null;
+  return (lensKey || (`<p class="fd-tag">${escapeHtml(legendLine(meta, { step: view === "step" ? step : null }))}</p>` +
     `<div class="fd-ramp" role="img" aria-label="${escapeHtml(words)} from ${escapeHtml(String(scale.lo))} to ${escapeHtml(String(scale.hi))}${unit ? ` ${escapeHtml(unit)}` : ""}, light to deep blue" style="background:${rampCss()}"></div>` +
-    `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>` +
-    velocity + notes +
+    `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>`)) +
+    (views ? views.section() : "") + velocity + notes +
     `<p class="mv-actions">${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
     `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
@@ -626,6 +650,8 @@ function registerRow() {
     mark: () => `<i class="fd-mark" style="background:${rampCss()}"></i>`,
     summary: () => {
       if (!mesh) return "";
+      const lensWords = views ? views.summary() : null;
+      if (lensWords) return lensWords;
       return view === "step" ? modelTime(mesh.meta.times[step], { year: false }) : `largest ${variableWords(mesh.meta.variable)}`;
     },
     on: () => visible,
@@ -633,6 +659,7 @@ function registerRow() {
     toggle: (on) => setVisible(on),
     body: keyHtml,
     act: (name, el) => {
+      if (views && views.act(name, el)) return;
       if (name === "arrows") { arrowsOn = el.checked; if (map.getLayer(ARROWS)) map.setLayoutProperty(ARROWS, "visibility", arrowsOn ? vis() : "none"); drawArrows(); }
       else if (name === "particles") { particlesOn = el.checked; if (particlesOn) startParticles(); else stopParticles(); }
       else if (name === "steps") { if (!modelClockOn()) takeClock(step); setModelStep(step); }
@@ -650,6 +677,7 @@ function setVisible(on) {
   for (const id of [IMG, HIT, EDGES, SEL]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis());
   if (map.getLayer(ARROWS)) map.setLayoutProperty(ARROWS, "visibility", arrowsOn ? vis() : "none");
   if (!visible) stopParticles(); else startParticles();
+  if (views) views.visible(visible);
   refreshLegend("mesh");
 }
 

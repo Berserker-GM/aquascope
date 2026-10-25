@@ -17,6 +17,9 @@ The same reader (`aquascope.io.mesh`) is behind every face:
 - **Review my model results** (#564): `aquascope mesh review FILE`, the MCP tool
   `mesh_review(path, crs, offline, geometry)`, and **Review these results** in the Explorer
   ([below](#review-my-model-results)).
+- **Smooth depth, contours and flood lenses** (#619, #620): `aquascope mesh lenses FILE`, the
+  MCP tool `mesh_lenses(path, crs, geometry)`, and the lens buttons on the model's legend row
+  in the Explorer ([below](#smooth-depth-contours-and-the-flood-lenses)).
 
 ```bash
 aquascope mesh BaldEagleDamBrk.p18.hdf
@@ -70,6 +73,71 @@ reader says so.
 - **250,000 cells.** What costs memory is the mesh itself: its outlines and two arrays per
   time step. A synthetic mesh of 249,218 triangles opens in the Explorer in about five
   seconds from the drop, Python's start included.
+
+## Smooth depth, contours and the flood lenses
+
+`aquascope.mesh_views` (experimental) turns a result into what RAS Mapper and Crayfish show
+an engineer. Every number is computed there; the Explorer, `aquascope mesh lenses FILE` and
+the MCP tool `mesh_lenses` only show it.
+
+- **Smooth depth.** The cell values on a regular Web Mercator grid of about five pixels per
+  cell, interpolated linearly between cell centres on their Delaunay triangulation (scipy),
+  then softened by about half a cell so the triangles' creases do not show. A dry cell
+  counts as zero depth, so the edge of the water tapers between the last wet and the first
+  dry centre and is drawn as a line at 1 cm. A result file has no sub-grid terrain, so this is
+  an interpolation of the cell values, not RAS Mapper's terrain-based depth.
+- **Depth contours.** Lines at a round interval (1, 2, 2.5 or 5 times a power of ten) chosen
+  so the depths most of the mesh reaches, up to their 90th percentile, get about five lines,
+  carried on to the deepest water but never more than ten. The levels stay the same at every
+  step, so a line moves with the water as the run plays. Traced with contourpy.
+- **Arrival time.** The first output step with at least 0.1 m of water, in hours after the
+  run's first output step: AquaScope's choice, deeper than the 1 cm that reads as wet, so a
+  film does not count, and stated wherever it is shown. Cells wet from the start arrive at
+  0 h. Lines of equal arrival are drawn at a round interval (0.25 h up to a week), traced
+  halfway to the next output time, because arrival only changes between output steps. A line
+  that no place reaches since the line before (it would lie on that one) is left out.
+- **Largest depth and largest speed** over the run, with the output step of each.
+
+**Flood hazard, H1 to H6.** The combined flood hazard curves of the Australian Disaster
+Resilience Guideline 7-3, *Technical flood risk management guideline: Flood hazard*
+(Australian Institute for Disaster Resilience, 2014), Table 1 (what each class means) and
+Table 2 (its limits, which the guideline says are modelled after Smith and Wasko 2012), with the
+background to the curves in Smith, Davey and Cox (2014), *Flood hazard*, UNSW Water Research
+Laboratory Technical Report 2014/07
+([the guideline](https://knowledge.aidr.org.au/media/1891/guideline-7-3-technical-flood-risk-management.pdf),
+CC BY-NC 4.0). A place is in the lowest class whose three limits it meets:
+
+| Class | D × V (m²/s) | Depth D (m) | Speed V (m/s) | Table 1 |
+|---|---|---|---|---|
+| H1 | ≤ 0.3 | ≤ 0.3 | ≤ 2.0 | Generally safe for vehicles, people and buildings. |
+| H2 | ≤ 0.6 | ≤ 0.5 | ≤ 2.0 | Unsafe for small vehicles. |
+| H3 | ≤ 0.6 | ≤ 1.2 | ≤ 2.0 | Unsafe for vehicles, children and the elderly. |
+| H4 | ≤ 1.0 | ≤ 2.0 | ≤ 2.0 | Unsafe for vehicles and people. |
+| H5 | ≤ 4.0 | ≤ 4.0 | ≤ 4.0 | Unsafe for vehicles and people. All building types vulnerable to structural damage. Some less robust building types vulnerable to failure. |
+| H6 | > 4.0 | | | Unsafe for vehicles and people. All building types considered vulnerable to failure. |
+
+The guideline asks for hazard "at all stages of the flood hydrograph", so each cell is
+classified at every output step and keeps its highest class. The card gives the step at
+which that class was worst (the largest D × V within it), with the depth and speed then. A run of more than 40 million cell values is classified once
+from the largest depth and the largest speed, which may not happen together, and a note
+says it can overstate. Files in feet are converted to metres first. A file without
+velocities has no hazard; one without bed levels has no hazard and no arrival time.
+
+```bash
+aquascope mesh lenses SyntheticValley.p01.hdf
+aquascope mesh lenses Flood_model.p01_BC12_S6_R6.hdf --json
+```
+
+```python
+from aquascope.io.mesh import read_mesh
+from aquascope import mesh_views
+
+m = read_mesh("my_run.p01.hdf")
+lenses = mesh_views.mesh_lenses(m)          # hazard, arrival_h, max_depth, max_speed, ... per cell
+grid = mesh_views.field_grid(m)              # once per mesh
+depth = mesh_views.smooth_field(grid, m.frame(10)["value"])          # (rows, cols), NaN where dry
+lines = mesh_views.contour_lines(grid, depth, mesh_views.depth_levels(m), unit="m")   # GeoJSON
+```
 
 ## Review my model results
 
