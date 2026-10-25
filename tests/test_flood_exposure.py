@@ -309,3 +309,11 @@ def test_reading_errors_are_said_and_the_rest_counts(m, monkeypatch):
 def test_a_model_too_large_to_read_for_is_refused():
     with pytest.raises(M.MeshError, match="km²"):
         X.read_sources([0, 0, 1, 1])
+
+
+def test_the_threshold_can_be_given_in_metres(m):
+    wet = square(*ll(m, cell(3, 1)))
+    a = X.exposure(m, buildings=[wet], threshold_m=1.0)
+    assert a["buildings"]["per_step"] == [0, 0, 1, 1, 1, 0, 0, 0]
+    assert a["threshold"] == 1.0 and a["threshold_m"] == 1.0
+    assert set(X.THRESHOLDS_M) == {M.DRY_DEPTH, 0.15, 0.30}

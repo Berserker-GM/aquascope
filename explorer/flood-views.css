@@ -91,7 +91,10 @@
 .fv-spark { display: block; margin-top: 3px; max-width: 100%; height: auto; }
 .fv-count { fill: none; stroke: #d9480f; stroke-width: 1.3; }
 .fv-count-area { fill: #d9480f; fill-opacity: .12; }
-.fx-thr { margin: .3rem 0 0; font-size: .68rem; color: var(--muted); }
+.fx-thr { margin: .45rem 0 0; font-size: .68rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; }
+.fx-thr label { display: inline-flex; align-items: center; gap: .2rem; color: var(--ink); cursor: pointer; }
+.fx-thr input { margin: 0; accent-color: #d9480f; }
+.fx-thr-words { margin: .2rem 0 0; font-size: .66rem; color: var(--muted); line-height: 1.3; }
 .fx-err { margin: .3rem 0 0; font-size: .68rem; color: var(--err-ink); }
 .fx-more { margin-top: .35rem; font-size: .68rem; color: var(--muted); }
 .fx-more summary { cursor: pointer; color: var(--ink); }

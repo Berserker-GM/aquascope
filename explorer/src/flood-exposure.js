@@ -32,6 +32,10 @@ let running = 0;
 let visible = true;
 let bound = false;
 let fc = null;           // { buildings, roads } feature collections
+let read = null;         // what the light worker read, kept so a new threshold only counts again
+// The depth that counts, in metres: 0.15 m by default, where the Environment Agency's surface water map says
+// water typically passes the kerb (a rain-on-grid run wets every cell, so "any water" would count everything).
+let thrM = 0.15;
 
 const now = () => meshStepNow() || { view: "max", step: 0 };
 const vis = () => (visible ? "visible" : "none");
@@ -57,11 +61,11 @@ export async function whatGetsFlooded() {
   openLegendRow("mesh", false);   // one key open at a time: the model's folds while this one counts
   openLegendRow(ROW, true);
   try {
-    const read = await withTimeout(callLight("flood_exposure", { bbox: m.meta.bbox }, { priority: 2 }), READ_WAIT_MS, "Reading the sources");
+    read = await withTimeout(callLight("flood_exposure", { bbox: m.meta.bbox }, { priority: 2 }), READ_WAIT_MS, "Reading the sources");
     if (my !== running || !currentMesh() || currentMesh().meta.name !== name) return null;
     status = "Counting what the water reaches at every step, in your browser…";
     refreshLegend(ROW);
-    const out = await meshAsk("exposure", { read });
+    const out = await meshAsk("exposure", { read, threshold: thrM });
     if (my !== running || !currentMesh() || currentMesh().meta.name !== name) return null;
     res = out;
     status = "";
@@ -76,6 +80,25 @@ export async function whatGetsFlooded() {
   } catch (err) {
     if (my === running) { status = `Could not count what gets flooded: ${err.message || err}`; refreshLegend(ROW); }
     return null;
+  }
+}
+
+// Another depth threshold: count again over what was read, and redraw.
+async function recount(m) {
+  if (!read || !Number.isFinite(m) || m === thrM) return;
+  thrM = m;
+  const my = ++running;
+  try {
+    const out = await meshAsk("exposure", { read, threshold: thrM });
+    if (my !== running) return;
+    res = out;
+    buildFeatures();
+    for (const [id, data] of [[BLD, fc.buildings], [ROADS, fc.roads]]) { const src = map && map.getSource(id); if (src) src.setData(data); }
+    syncStep();
+    announce(`Counted again for water deeper than ${thrM} m.`);
+  } catch (err) {
+    status = `Could not count again: ${err.message || err}`;
+    refreshLegend(ROW);
   }
 }
 
@@ -181,7 +204,7 @@ function summarySpec() {
     chart: { label: `${res.buildings ? "Buildings" : res.roads ? "Road length" : "People"} flooded over the run`,
       svg: countSvg(series, { w: 300, h: 60, step: view === "max" ? -1 : step }),
       alt: `Flooded count at each step, highest at ${clock(res.times[p.step])}`,
-      key: escapeHtml(`At the peak, ${clock(res.times[p.step], { day: true })}: ${peakBits.join(", ")}. Water deeper than ${res.threshold} ${res.units.depth || "m"} counts.`) },
+      key: escapeHtml(`At the peak, ${clock(res.times[p.step], { day: true })}: ${peakBits.join(", ")}. Water deeper than ${res.threshold_m} m counts.`) },
     note: "Estimates: footprints and population grids are approximate, and a bridge above the water still counts as a flooded road.",
     credit: sourceLines(res).map((s) => s.text).join(" · "),
   };
@@ -220,9 +243,13 @@ function body() {
   const limits = Object.entries(res.limits || {}).filter(([k]) => res[k === "people" ? "population" : k])
     .map(([k, v]) => `<li><b>${escapeHtml(k[0].toUpperCase() + k.slice(1))}.</b> ${escapeHtml(v)}</li>`).join("");
   const srcs = sourceLines(res).map((s) => `<li>${escapeHtml(s.text)}. <a href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Attribution</a></li>`).join("");
-  const thr = `Water deeper than ${res.threshold} ${res.units.depth || "m"} counts.`;
+  const opts = (res.thresholds_m || []).map((t) => `<label title="${escapeHtml(t.words)}"><input type="radio" name="fx-thr" ` +
+    `data-act="thr" value="${t.m}"${Math.abs(t.m - res.threshold_m) < 1e-6 ? " checked" : ""}> ${t.m < 0.1 ? "any" : `${t.m.toFixed(2)} m`}</label>`).join("");
+  const chosen = (res.thresholds_m || []).find((t) => Math.abs(t.m - res.threshold_m) < 1e-6);
   return `<p class="fx-when">${escapeHtml(when)}</p><ul class="fx-rows">${rows}</ul>${errs}` +
-    `<details class="fx-more"><summary>Sources and limits</summary><p class="fx-thr">${escapeHtml(thr)}</p><ul class="fx-src">${srcs}</ul>` +
+    `<div class="fx-thr"><span>Counts water deeper than</span>${opts}</div>` +
+    (chosen ? `<p class="fx-thr-words">${escapeHtml(chosen.words)}${chosen.m >= 0.1 ? ` <a href="${escapeHtml(res.threshold_source)}" target="_blank" rel="noopener">Source</a>` : ""}</p>` : "") +
+    `<details class="fx-more"><summary>Sources and limits</summary><ul class="fx-src">${srcs}</ul>` +
     `<ul class="fx-lim">${limits}</ul></details>` +
     `<p class="mv-actions"><button type="button" class="fd-go" data-act="summary">Summary</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>`;
@@ -238,8 +265,9 @@ function registerRow() {
     shown: () => Boolean(currentMesh()) && Boolean(res || status),
     toggle: (on) => setVisible(on),
     body,
-    act: (name) => {
-      if (name === "summary") openSummary();
+    act: (name, el) => {
+      if (name === "thr") void recount(Number(el.value));
+      else if (name === "summary") openSummary();
       else if (name === "clear") clearAll();
     },
   });

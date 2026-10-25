@@ -14,7 +14,8 @@
 // reply held to the claim lock).
 // For the section, the hydrograph and what gets flooded (#621, #622: aquascope.flood_section and
 // aquascope.flood_exposure): { type: "section", id, line }, { type: "hydrograph", id, cell, threshold } and
-// { type: "exposure", id, read, threshold } (read: the buildings, roads and population a light worker read).
+// { type: "exposure", id, read, threshold } (read: the buildings, roads and population a light worker read;
+// threshold: the depth that counts as flooded, in metres).
 // Messages out: { type: "progress", text }, { type: "ready" }, { id, result } or { id, error }.
 
 let pyodide = null;
@@ -159,7 +160,7 @@ if _q["type"] == "section":
 elif _q["type"] == "hydrograph":
     _o = _fs.hydrograph(_M, _q["cell"], threshold=_q["threshold"])
 else:
-    _o = _fx.exposure_payload(_M, _q["read"], threshold=_q["threshold"])
+    _o = _fx.exposure_payload(_M, _q["read"], threshold_m=_q["threshold"])
 json.dumps(_o)
 `);
   post({ id, result: JSON.parse(out) });

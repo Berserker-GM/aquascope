@@ -10,7 +10,11 @@ buildings, roads and population around it, :func:`exposure` counts, at every mod
 * **people**: each population grid square is split into 3 x 3 parts that share its people evenly, and a part
   counts when the cell under it is flooded.
 
-The threshold defaults to the readers' own dry depth (:data:`aquascope.io.mesh.DRY_DEPTH`): any water.
+The threshold defaults to the readers' own dry depth (:data:`aquascope.io.mesh.DRY_DEPTH`): any water. A
+rain-on-grid model wets every cell with a film, so :data:`THRESHOLDS_M` offers the two depths the Environment
+Agency's surface water map explains ("What is the updated Flood Map for Surface Water?", November 2013,
+https://www.cumbria.gov.uk/eLibrary/view.asp?ID=61733): at 0.15 m flooding typically exceeds kerb height and
+can flood property in some areas; at 0.30 m it is likely to flood property, from average threshold levels.
 
 The open sources, all read from the browser over HTTPS range requests (no key, CORS open, checked
 2026-10-25 from the Explorer's origin):
@@ -49,8 +53,8 @@ from aquascope.flood_section import MeshIndex, _bed, _typical_cell_m, hours_sinc
 from aquascope.io.mesh import DRY_DEPTH, Mesh, MeshError
 
 __all__ = [
-    "LIMITS", "SOURCES", "exposure", "exposure_for_mesh", "exposure_payload", "ghsl_tile_url", "overture_files",
-    "read_overture", "read_population", "read_sources", "wkb_parts",
+    "LIMITS", "SOURCES", "THRESHOLDS_M", "exposure", "exposure_for_mesh", "exposure_payload", "ghsl_tile_url",
+    "overture_files", "read_overture", "read_population", "read_sources", "wkb_parts",
 ]
 
 IS_EMSCRIPTEN = sys.platform == "emscripten"
@@ -80,6 +84,14 @@ SOURCES: dict[str, dict[str, str]] = {
         "link": "https://doi.org/10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE",
     },
 }
+
+#: Depth thresholds a reader can choose, in metres, with the words for each and where they come from.
+THRESHOLDS_M: dict[float, str] = {
+    DRY_DEPTH: "any water",
+    0.15: "over the kerb: can flood property in some areas (Environment Agency, 2013)",
+    0.30: "likely to flood property, from average threshold levels (Environment Agency, 2013)",
+}
+THRESHOLD_SOURCE = "https://www.cumbria.gov.uk/eLibrary/view.asp?ID=61733"
 
 #: What each estimate cannot tell.
 LIMITS: dict[str, str] = {
@@ -434,6 +446,23 @@ def read_population(bbox: list[float], *, fetch: Any = None) -> dict[str, Any]:
 # ── the counts ──────────────────────────────────────────────────────────────
 
 
+def _ft(m: Mesh) -> bool:
+    return str(m.units.get("depth") or "").lower().startswith("ft")
+
+
+def _to_m(m: Mesh, x: float) -> float:
+    return x * 0.3048 if _ft(m) else x
+
+
+def _threshold(m: Mesh, threshold: float | None, threshold_m: float | None) -> float:
+    """The depth that counts as flooded, in the file's own length unit (``threshold``), or given in metres."""
+    if threshold is not None:
+        return float(threshold)
+    if threshold_m is not None:
+        return float(threshold_m) / 0.3048 if _ft(m) else float(threshold_m)
+    return DRY_DEPTH
+
+
 def _wet_matrix(m: Mesh, cells: np.ndarray, threshold: float) -> np.ndarray:
     """(steps, len(cells)) True where the depth in that cell passes the threshold."""
     n = len(m.times)
@@ -530,7 +559,8 @@ def _road_pieces(roads: list[dict[str, Any]], idx: MeshIndex, spacing_m: float) 
 
 
 def exposure(m: Mesh, *, buildings: list[dict[str, Any]] | None = None, roads: list[dict[str, Any]] | None = None,
-             population: dict[str, Any] | None = None, threshold: float | None = None) -> dict[str, Any]:
+             population: dict[str, Any] | None = None, threshold: float | None = None,
+             threshold_m: float | None = None) -> dict[str, Any]:
     """Buildings, road length and people under the model's water at every step and at the peak.
 
     ``buildings`` and ``roads`` are features as :func:`read_overture` returns them (``parts`` of coordinate
@@ -542,12 +572,13 @@ def exposure(m: Mesh, *, buildings: list[dict[str, Any]] | None = None, roads: l
         raise MeshError("What gets flooded needs depths, and this file has no bed levels: only the water surface.")
     if not m.times:
         raise MeshError("This file has no time steps, only its maxima.")
-    thr = DRY_DEPTH if threshold is None else float(threshold)
+    thr = _threshold(m, threshold, threshold_m)
     idx = MeshIndex(m)
     times = list(m.times)
     n_steps = len(times)
     out: dict[str, Any] = {"times": times, "hours": [round(float(h), 4) for h in hours_since_start(times)],
-                           "threshold": thr, "units": {"depth": m.units.get("depth"), "length": "m"},
+                           "threshold": thr, "threshold_m": round(_to_m(m, thr), 4),
+                           "units": {"depth": m.units.get("depth"), "length": "m"},
                            "peak_step": m.peak_step(), "name": m.name, "limits": dict(LIMITS),
                            "sources": {}}
 
@@ -694,7 +725,8 @@ def _arrays(feats: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
             for f in feats]
 
 
-def exposure_payload(m: Mesh, read: dict[str, Any], *, threshold: float | None = None) -> dict[str, Any]:
+def exposure_payload(m: Mesh, read: dict[str, Any], *, threshold: float | None = None,
+                     threshold_m: float | None = None) -> dict[str, Any]:
     """:func:`exposure` over what :func:`read_sources` read, with each source's name, licence and credit, the
     limits of each count and the reading errors, as plain JSON types ready to draw."""
     pop = read.get("population")
@@ -702,7 +734,9 @@ def exposure_payload(m: Mesh, read: dict[str, Any], *, threshold: float | None =
         pop = {**pop, "lon": np.asarray(pop["lon"], "f8"), "lat": np.asarray(pop["lat"], "f8"),
                "people": np.asarray(pop["people"], "f8")}
     res = exposure(m, buildings=_arrays(read.get("buildings")), roads=_arrays(read.get("roads")), population=pop,
-                   threshold=threshold)
+                   threshold=threshold, threshold_m=threshold_m)
+    res["threshold_source"] = THRESHOLD_SOURCE
+    res["thresholds_m"] = [{"m": k, "words": v} for k, v in THRESHOLDS_M.items()]
     for w in ("buildings", "roads", "population"):
         if w in res:
             res["sources"][w] = {**SOURCES[w], **read.get("info", {}).get(w, {})}
