@@ -200,7 +200,9 @@ def test_a_first_deposit_makes_a_draft_uploads_every_file_and_sets_the_metadata(
     expected = {p.name for p in zenodo.bundle_files(bundle)}
     assert set(fake.uploads) == expected and "MANIFEST.json" in expected
     assert fake.uploads["MANIFEST.json"] == (bundle / "MANIFEST.json").read_bytes()
-    assert fake.metadata == json.loads((bundle / "zenodo-metadata.json").read_text())
+    sent = json.loads((bundle / "zenodo-metadata.json").read_text())
+    sent["metadata"]["publication_date"] = fake.metadata["metadata"]["publication_date"]
+    assert fake.metadata == sent
     assert fake.calls[0] == ("POST", "/deposit/depositions")
     assert not any(path.endswith("/publish") for _, path in fake.calls), "a draft unless asked"
     assert fake.auth == {"Bearer t0k"}

@@ -411,6 +411,8 @@ def deposit(
                           "ZENODO_TOKEN to it).")
     files = bundle_files(bundle)
     metadata = json.loads((bundle / "zenodo-metadata.json").read_text(encoding="utf-8"))
+    # Sent explicitly, so a new version does not keep the date inherited from the previous one.
+    metadata["metadata"].setdefault("publication_date", date.today().isoformat())
     api = SANDBOX_API if sandbox else ZENODO_API
     own = client is None
     http = client or httpx.Client(timeout=httpx.Timeout(120.0, write=1800.0), follow_redirects=True)
