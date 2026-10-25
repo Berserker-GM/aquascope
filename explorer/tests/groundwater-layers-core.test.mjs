@@ -58,14 +58,14 @@ test("the section's values and its range over every time", () => {
 
 test("the section draws bands, the water table, deeper heads, the gap and states its exaggeration", () => {
   const d = sectionSvg(sec, 0, { width: 600, height: 200, unit: "m" });
-  assert.match(d.svg, /^<svg class="gwv-svg"/);
-  assert.equal((d.svg.match(/class="gwv-band"/g) || []).length, 4);   // two layers, two runs (a gap at 200-400 m)
-  assert.match(d.svg, /class="gwv-wt"/);
+  assert.match(d.svg, /^<svg class="gwl-svg"/);
+  assert.equal((d.svg.match(/class="gwl-band"/g) || []).length, 4);   // two layers, two runs (a gap at 200-400 m)
+  assert.match(d.svg, /class="gwl-wt"/);
   assert.match(d.svg, /Layer 2 head/);
   assert.match(d.svg, /Water table/);
-  assert.match(d.svg, /class="gwv-nohead"/);                           // the last cell has no head in any layer
+  assert.match(d.svg, /class="gwl-nohead"/);                           // the last cell has no head in any layer
   assert.ok(d.noHead);
-  assert.match(d.svg, /class="gwv-bend"/);
+  assert.match(d.svg, /class="gwl-bend"/);
   assert.match(d.svg, />A</);
   assert.match(d.svg, />A′</);
   // 600 m over 476 px against ~70 m over 156 px: the drawing stretches the vertical about 4.5 times
@@ -94,8 +94,8 @@ const hyd = {
 
 test("the hydrograph: one line per layer with a head, the time marked", () => {
   const h = hydrographSvg(hyd, 1, { unit: "m" });
-  assert.equal((h.svg.match(/class="gwv-hline"/g) || []).length, 2);
-  assert.match(h.svg, /class="gwv-now"/);
+  assert.equal((h.svg.match(/class="gwl-hline"/g) || []).length, 2);
+  assert.match(h.svg, /class="gwl-now"/);
   assert.match(h.svg, /Jan 2024/);
   assert.match(h.key, /Layer 1/);
   assert.doesNotMatch(h.key, /Layer 3/);
@@ -115,8 +115,8 @@ const budget = {
 test("the budget chart stacks terms in above zero and out below, and its table", () => {
   const d = budgetSvg(budget, 1, { width: 500, height: 180 });
   assert.equal(d.n, 2);
-  assert.match(d.svg, /class="gwv-col"/);
-  assert.match(d.svg, /class="gwv-zero"/);
+  assert.match(d.svg, /class="gwl-col"/);
+  assert.match(d.svg, /class="gwl-zero"/);
   assert.match(d.svg, /in ↑/);
   // 2 times: recharge in twice, wells out twice, storage out twice and in once
   assert.equal((d.svg.match(/<rect x=/g) || []).length, 7);

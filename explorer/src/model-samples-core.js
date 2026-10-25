@@ -20,7 +20,7 @@ export const SAMPLES = [
     kind: "modflow",
     title: "MODFLOW: the Freyberg model",
     about: "FloPy's transient Freyberg example: 3 layers of 40 x 20 cells, 1,097 daily heads from January 2015. " +
-      "Its name file says where it is.",
+      "Its name file says where it is, and its well file where it pumps.",
     files: [
       { name: "freyberg.nam", url: `${FLOPY_RAW}freyberg.nam`, bytes: 573,
         sha256: "9e3747ce6d6229caec55a9357285a96cb4608dae11d90dd165a23e0bb394a2bd" },
@@ -28,6 +28,9 @@ export const SAMPLES = [
         sha256: "1ef61a467a219c036e58902ce11297e06b4eeb5f2f9d2ea40245b421a248a471" },
       { name: "freyberg.hds", url: `${FLOPY_RAW}freyberg.hds`, bytes: 10676004,
         sha256: "0b3e911ef35f625d2d046e05a20bc1300341b41028220c5b25ace6f5a267ceef" },
+      // its six pumping wells, for the drawdown, pathlines and capture zones (#624)
+      { name: "freyberg.wel", url: `${FLOPY_RAW}freyberg.wel`, bytes: 327112,
+        sha256: "dd322655eadff3f618f0835c9277af30720197bd48328aae2d6772f26eef2686" },
     ],
     credit: "The Freyberg model, from FloPy's examples (USGS; public domain in the US, CC0 1.0 elsewhere).",
     link: `https://github.com/modflowpy/flopy/tree/${FLOPY_COMMIT}/${FLOPY_DIR}`,

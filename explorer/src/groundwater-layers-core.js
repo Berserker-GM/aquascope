@@ -202,7 +202,7 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
         up.push(`${f(X(segs[s].from_m))},${f(Y(tp))}`, `${f(X(segs[s].to_m))},${f(Y(tp))}`);
         dn.unshift(`${f(X(segs[s].to_m))},${f(Y(bt))}`, `${f(X(segs[s].from_m))},${f(Y(bt))}`);
       }
-      if (up.length) parts.push(`<polygon class="gwv-band" points="${[...up, ...dn].join(" ")}" fill="${LAYER_FILLS[i % LAYER_FILLS.length]}"/>`);
+      if (up.length) parts.push(`<polygon class="gwl-band" points="${[...up, ...dn].join(" ")}" fill="${LAYER_FILLS[i % LAYER_FILLS.length]}"/>`);
     }
   }
   // the saturated ground, layer by layer: below the water table, in every layer down to the deepest with a head
@@ -218,7 +218,7 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
         if (tp === null || bt === null) continue;
         const top = Math.min(wt, tp);
         if (top <= bt) continue;
-        parts.push(`<rect class="gwv-sat" x="${f(X(segs[s].from_m))}" y="${f(Y(top))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(bt) - Y(top))}" fill="${SATURATED_FILLS[i % SATURATED_FILLS.length]}"/>`);
+        parts.push(`<rect class="gwl-sat" x="${f(X(segs[s].from_m))}" y="${f(Y(top))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(bt) - Y(top))}" fill="${SATURATED_FILLS[i % SATURATED_FILLS.length]}"/>`);
       }
     }
   }
@@ -234,7 +234,7 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
       for (let i = nl - 1; i >= 0 && bt === null; i--) bt = sectionValue(sec, "bottom", t, i, s);
       if (tp === null || bt === null) continue;
       noHead = true;
-      parts.push(`<rect class="gwv-nohead" x="${f(X(segs[s].from_m))}" y="${f(Y(tp))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(bt) - Y(tp))}" fill="url(#gwv-hatch)"/>`);
+      parts.push(`<rect class="gwl-nohead" x="${f(X(segs[s].from_m))}" y="${f(Y(tp))}" width="${f(Math.max(0.5, X(segs[s].to_m) - X(segs[s].from_m)))}" height="${f(Y(bt) - Y(tp))}" fill="url(#gwl-hatch)"/>`);
     }
   }
   // layer outlines, drawn over the tint
@@ -245,14 +245,14 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
         const bt = sectionValue(sec, "bottom", t, i, s);
         if (bt !== null) pts.push(`${f(X(segs[s].from_m))},${f(Y(bt))}`, `${f(X(segs[s].to_m))},${f(Y(bt))}`);
       }
-      if (pts.length) parts.push(`<polyline class="gwv-edge" points="${pts.join(" ")}"/>`);
+      if (pts.length) parts.push(`<polyline class="gwl-edge" points="${pts.join(" ")}"/>`);
       if (i === 0) {
         const tops = [];
         for (const s of g) {
           const tp = sectionValue(sec, "top", t, 0, s);
           if (tp !== null) tops.push(`${f(X(segs[s].from_m))},${f(Y(tp))}`, `${f(X(segs[s].to_m))},${f(Y(tp))}`);
         }
-        if (tops.length) parts.push(`<polyline class="gwv-ground" points="${tops.join(" ")}"/>`);
+        if (tops.length) parts.push(`<polyline class="gwl-ground" points="${tops.join(" ")}"/>`);
       }
     }
   }
@@ -266,7 +266,7 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
       if (best.h > 22 && s > segs.length / 6) break;
     }
     if (best && best.h >= 11) {
-      parts.push(`<text class="gwv-lname" x="${f(Math.max(L + 4, X(segs[best.s].from_m) + 4))}" y="${f(best.y + 3.5)}">Layer ${sec.layers[i]}</text>`);
+      parts.push(`<text class="gwl-lname" x="${f(Math.max(L + 4, X(segs[best.s].from_m) + 4))}" y="${f(best.y + 3.5)}">Layer ${sec.layers[i]}</text>`);
     }
   }
   // the heads: the water table bold, the deeper layers' heads dashed (each through its cells' middles)
@@ -290,48 +290,48 @@ export function sectionSvg(sec, t, { width = 720, height = 220, unit = "m", titl
   const ends = [];
   for (let i = wtLayer + 1; i < nl; i++) {
     const ls = line((s) => sectionValue(sec, "head", t, i, s));
-    for (const p of ls) parts.push(`<polyline class="gwv-head" stroke="${layerLine(i)}" points="${p}"/>`);
+    for (const p of ls) parts.push(`<polyline class="gwl-head" stroke="${layerLine(i)}" points="${p}"/>`);
     const last = [...segs.keys()].reverse().find((s) => sectionValue(sec, "head", t, i, s) !== null);
     if (last !== undefined) ends.push({ y: Y(sectionValue(sec, "head", t, i, last)), text: `Layer ${sec.layers[i]} head`, color: layerLine(i) });
   }
   const wl = line((s) => sectionValue(sec, "wt", t, 0, s));
-  for (const p of wl) parts.push(`<polyline class="gwv-wt" points="${p}"/>`);
+  for (const p of wl) parts.push(`<polyline class="gwl-wt" points="${p}"/>`);
   const lastWt = [...segs.keys()].reverse().find((s) => sectionValue(sec, "wt", t, 0, s) !== null);
   if (lastWt !== undefined) ends.push({ y: Y(sectionValue(sec, "wt", t, 0, lastWt)), text: "Water table", color: WATER, bold: true });
   // the water table symbol, an open triangle standing on the line
   const sym = segs.findIndex((s, k) => k >= segs.length * 0.18 && sectionValue(sec, "wt", t, 0, k) !== null);
   if (sym >= 0) {
     const cx = X((segs[sym].from_m + segs[sym].to_m) / 2), cy = Y(sectionValue(sec, "wt", t, 0, sym));
-    parts.push(`<path class="gwv-sym" d="M${f(cx - 5)},${f(cy - 9)} L${f(cx + 5)},${f(cy - 9)} L${f(cx)},${f(cy - 1.5)} Z"/>`);
+    parts.push(`<path class="gwl-sym" d="M${f(cx - 5)},${f(cy - 9)} L${f(cx + 5)},${f(cy - 9)} L${f(cx)},${f(cy - 1.5)} Z"/>`);
   }
   // end labels, nudged apart
   ends.sort((a, b) => a.y - b.y);
   for (let k = 1; k < ends.length; k++) if (ends[k].y - ends[k - 1].y < 11) ends[k].y = ends[k - 1].y + 11;
   for (const e of ends) {
-    parts.push(`<text class="gwv-end${e.bold ? " b" : ""}" x="${f(L + pw + 5)}" y="${f(Math.max(T + 6, Math.min(T + ph, e.y)) + 3.5)}" fill="${e.color}">${esc(e.text)}</text>`);
+    parts.push(`<text class="gwl-end${e.bold ? " b" : ""}" x="${f(L + pw + 5)}" y="${f(Math.max(T + 6, Math.min(T + ph, e.y)) + 3.5)}" fill="${e.color}">${esc(e.text)}</text>`);
   }
   // axes
   const axis = [];
   for (const v of niceTicks(ylo, yhi, 4)) {
-    axis.push(`<line class="gwv-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
-      `<text class="gwv-tick" x="${L - 5}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(String(v))}</text>`);
+    axis.push(`<line class="gwl-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
+      `<text class="gwl-tick" x="${L - 5}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(String(v))}</text>`);
   }
   for (const m of niceTicks(0, sec.length_m, 5)) {
-    axis.push(`<text class="gwv-tick" x="${f(X(m))}" y="${height - 8}" text-anchor="middle">${esc(distWords(m))}</text>`);
+    axis.push(`<text class="gwl-tick" x="${f(X(m))}" y="${height - 8}" text-anchor="middle">${esc(distWords(m))}</text>`);
   }
-  axis.push(`<text class="gwv-unit" x="6" y="${T - 6}">${esc(unit || "elevation")}</text>`,
-    `<text class="gwv-ab" x="${L}" y="${T - 5}">A</text>`, `<text class="gwv-ab" x="${L + pw}" y="${T - 5}" text-anchor="end">A′</text>`);
+  axis.push(`<text class="gwl-unit" x="6" y="${T - 6}">${esc(unit || "elevation")}</text>`,
+    `<text class="gwl-ab" x="${L}" y="${T - 5}">A</text>`, `<text class="gwl-ab" x="${L + pw}" y="${T - 5}" text-anchor="end">A′</text>`);
   for (const v of (sec.vertices_m || []).slice(1, -1)) {
-    axis.push(`<line class="gwv-bend" x1="${f(X(v))}" x2="${f(X(v))}" y1="${T}" y2="${T + ph}"/>`);
+    axis.push(`<line class="gwl-bend" x1="${f(X(v))}" x2="${f(X(v))}" y1="${T}" y2="${T + ph}"/>`);
   }
   const mper = Number(sec.metres_per_unit) || 1;
   const ve = (ph / ((yhi - ylo) * mper)) / (pw / sec.length_m);   // vertical pixels per metre over horizontal
-  const svg = `<svg class="gwv-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(title || "Cross-section")}">` +
-    `<defs><clipPath id="gwv-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath>` +
-    '<pattern id="gwv-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
-    '<rect width="6" height="6" class="gwv-hatch-bg"/><line x1="0" y1="0" x2="0" y2="6" class="gwv-hatch-ln"/></pattern></defs>' +
-    `${axis.join("")}<g clip-path="url(#gwv-clip)">${parts.filter((x) => !x.startsWith("<text class=\"gwv-end")).join("")}</g>` +
-    `${parts.filter((x) => x.startsWith("<text class=\"gwv-end")).join("")}<line class="gwv-cursor" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/></svg>`;
+  const svg = `<svg class="gwl-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(title || "Cross-section")}">` +
+    `<defs><clipPath id="gwl-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath>` +
+    '<pattern id="gwl-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+    '<rect width="6" height="6" class="gwl-hatch-bg"/><line x1="0" y1="0" x2="0" y2="6" class="gwl-hatch-ln"/></pattern></defs>' +
+    `${axis.join("")}<g clip-path="url(#gwl-clip)">${parts.filter((x) => !x.startsWith("<text class=\"gwl-end")).join("")}</g>` +
+    `${parts.filter((x) => x.startsWith("<text class=\"gwl-end")).join("")}<line class="gwl-cursor" x1="0" x2="0" y1="${T}" y2="${T + ph}" visibility="hidden"/></svg>`;
   return { svg, ve, x0: L, x1: L + pw, top: T, bottom: T + ph, noHead };
 }
 
@@ -374,25 +374,25 @@ export function hydrographSvg(h, t, { width = 300, height = 128, unit = "m" } = 
   const f = (v) => v.toFixed(1);
   const parts = [];
   for (const v of niceTicks(lo, hi, 3)) {
-    parts.push(`<line class="gwv-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
-      `<text class="gwv-tick" x="${L - 4}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(String(v))}</text>`);
+    parts.push(`<line class="gwl-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
+      `<text class="gwl-tick" x="${L - 4}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(String(v))}</text>`);
   }
   const lab = (k) => dateWords((h.dates && h.dates[k]) || h.times[k]);
-  parts.push(`<text class="gwv-tick" x="${L}" y="${height - 5}">${esc(lab(0))}</text>`,
-    `<text class="gwv-tick" x="${L + pw}" y="${height - 5}" text-anchor="end">${esc(lab(n - 1))}</text>`);
-  if (t >= 0 && t < n) parts.push(`<line class="gwv-now" x1="${f(X(t))}" x2="${f(X(t))}" y1="${T}" y2="${T + ph}"/>`);
+  parts.push(`<text class="gwl-tick" x="${L}" y="${height - 5}">${esc(lab(0))}</text>`,
+    `<text class="gwl-tick" x="${L + pw}" y="${height - 5}" text-anchor="end">${esc(lab(n - 1))}</text>`);
+  if (t >= 0 && t < n) parts.push(`<line class="gwl-now" x1="${f(X(t))}" x2="${f(X(t))}" y1="${T}" y2="${T + ph}"/>`);
   (h.series || []).forEach((s, i) => {
     if (s.min === null || s.min === undefined) return;
     const pts = [];
     s.head.forEach((v, k) => { if (v !== null) pts.push(`${f(X(k))},${f(Y(v))}`); });
-    parts.push(`<polyline class="gwv-hline" stroke="${layerLine(s.layer - 1)}" points="${pts.join(" ")}"/>`);
+    parts.push(`<polyline class="gwl-hline" stroke="${layerLine(s.layer - 1)}" points="${pts.join(" ")}"/>`);
     const v = s.head[t];
     if (v !== null && v !== undefined) parts.push(`<circle cx="${f(X(t))}" cy="${f(Y(v))}" r="2.6" fill="${layerLine(s.layer - 1)}"/>`);
     void i;
   });
-  const svg = `<svg class="gwv-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img">` +
-    `<text class="gwv-unit" x="2" y="${T + 2}">${esc(unit)}</text>${parts.join("")}</svg>`;
-  const key = series.map((s) => `<span class="gwv-key"><i style="background:${layerLine(s.layer - 1)}"></i>Layer ${s.layer}</span>`).join("");
+  const svg = `<svg class="gwl-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" role="img">` +
+    `<text class="gwl-unit" x="2" y="${T + 2}">${esc(unit)}</text>${parts.join("")}</svg>`;
+  const key = series.map((s) => `<span class="gwl-key"><i style="background:${layerLine(s.layer - 1)}"></i>Layer ${s.layer}</span>`).join("");
   return { svg, key };
 }
 
@@ -428,10 +428,10 @@ export function budgetSvg(b, t, { width = 720, height = 200, title = "" } = {}) 
   const f = (v) => v.toFixed(2);
   const parts = [];
   for (const v of niceTicks(-mx, mx, 4)) {
-    parts.push(`<line class="gwv-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
-      `<text class="gwv-tick" x="${L - 5}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(rateWords(Math.abs(v)))}</text>`);
+    parts.push(`<line class="gwl-grid" x1="${L}" x2="${L + pw}" y1="${f(Y(v))}" y2="${f(Y(v))}"/>`,
+      `<text class="gwl-tick" x="${L - 5}" y="${f(Y(v) + 3.5)}" text-anchor="end">${esc(rateWords(Math.abs(v)))}</text>`);
   }
-  if (t >= 0 && t < n) parts.push(`<rect class="gwv-col" x="${f(L + t * bw)}" y="${T}" width="${f(bw)}" height="${ph}"/>`);
+  if (t >= 0 && t < n) parts.push(`<rect class="gwl-col" x="${f(L + t * bw)}" y="${T}" width="${f(bw)}" height="${ph}"/>`);
   for (let k = 0; k < n; k++) {
     let up = 0, dn = 0;
     const x = L + k * bw + gap / 2, w = Math.max(0.6, bw - gap);
@@ -442,15 +442,15 @@ export function budgetSvg(b, t, { width = 720, height = 200, title = "" } = {}) 
       if (vout > 0) { parts.push(`<rect x="${f(x)}" y="${f(Y(-dn))}" width="${f(w)}" height="${f(Y(-dn - vout) - Y(-dn))}" fill="${c}"/>`); dn += vout; }
     });
   }
-  parts.push(`<line class="gwv-zero" x1="${L}" x2="${L + pw}" y1="${f(Y(0))}" y2="${f(Y(0))}"/>`,
-    `<text class="gwv-side" x="${L - 5}" y="${f(Y(0) - 14)}" text-anchor="end">in ↑</text>`,
-    `<text class="gwv-side" x="${L - 5}" y="${f(Y(0) + 22)}" text-anchor="end">out ↓</text>`);
+  parts.push(`<line class="gwl-zero" x1="${L}" x2="${L + pw}" y1="${f(Y(0))}" y2="${f(Y(0))}"/>`,
+    `<text class="gwl-side" x="${L - 5}" y="${f(Y(0) - 14)}" text-anchor="end">in ↑</text>`,
+    `<text class="gwl-side" x="${L - 5}" y="${f(Y(0) + 22)}" text-anchor="end">out ↓</text>`);
   const lab = (k) => dateWords((b.dates && b.dates[k]) || b.times[k]) || `period ${b.kstpkper[k][1]}, step ${b.kstpkper[k][0]}`;
   const ticks = n <= 1 ? [0] : [0, Math.round((n - 1) / 2), n - 1];
-  ticks.forEach((k, j) => parts.push(`<text class="gwv-tick" x="${f(L + (k + 0.5) * bw)}" y="${height - 6}" text-anchor="${j === 0 ? "start" : j === ticks.length - 1 ? "end" : "middle"}">${esc(lab(k))}</text>`));
-  const svg = `<svg class="gwv-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(title || "Water budget")}">` +
-    `<text class="gwv-unit" x="4" y="${T}">${esc(b.unit)}</text>${parts.join("")}</svg>`;
-  const key = b.terms.map((term, i) => `<span class="gwv-key"><i style="background:${termColor(term.label, i)}"></i>${esc(term.label)}</span>`).join("");
+  ticks.forEach((k, j) => parts.push(`<text class="gwl-tick" x="${f(L + (k + 0.5) * bw)}" y="${height - 6}" text-anchor="${j === 0 ? "start" : j === ticks.length - 1 ? "end" : "middle"}">${esc(lab(k))}</text>`));
+  const svg = `<svg class="gwl-svg" viewBox="0 0 ${width} ${height}" width="100%" height="${height}" preserveAspectRatio="none" role="img" aria-label="${esc(title || "Water budget")}">` +
+    `<text class="gwl-unit" x="4" y="${T}">${esc(b.unit)}</text>${parts.join("")}</svg>`;
+  const key = b.terms.map((term, i) => `<span class="gwl-key"><i style="background:${termColor(term.label, i)}"></i>${esc(term.label)}</span>`).join("");
   return { svg, key, x0: L, x1: L + pw, n };
 }
 

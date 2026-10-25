@@ -23,7 +23,7 @@ import {
   headRange, layerLine, prismFeatures, rateWords, sectionAt, sectionRange, sectionSvg, veWords,
 } from "./groundwater-layers-core.js?v=__BUILD__";
 
-const L = { prisms: "gwv-3d", line: "gwv-line", pts: "gwv-line-pts", catcher: "gwv-catch" };
+const L = { prisms: "gwl-3d", line: "gwl-line", pts: "gwl-line-pts", catcher: "gwl-catch" };
 const EMPTY = { type: "FeatureCollection", features: [] };
 const WORLD = { type: "Feature", properties: {}, geometry: { type: "Polygon",
   coordinates: [[[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]]] } };
@@ -218,7 +218,7 @@ function lineData(pts, hover = null) {
 
 function endMarker(text, lngLat) {
   const el = document.createElement("div");
-  el.className = "gwv-mark";
+  el.className = "gwl-mark";
   el.textContent = text;
   return new globalThis.maplibregl.Marker({ element: el, anchor: "bottom", offset: [0, -6] }).setLngLat(lngLat).addTo(map);
 }
@@ -344,14 +344,14 @@ function ensureDock() {
   if (dock && document.contains(dock)) return dock;
   const host = document.querySelector(".map-wrap") || document.body;
   dock = document.createElement("section");
-  dock.className = "gwv-dock";
+  dock.className = "gwl-dock";
   dock.setAttribute("aria-label", "Model views");
   dock.hidden = true;
   host.appendChild(dock);
   dock.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-gwv]");
+    const b = e.target.closest("[data-gwl]");
     if (!b) return;
-    const act = b.dataset.gwv;
+    const act = b.dataset.gwl;
     if (act === "close") { closeDock(); return; }
     if (act === "tab-section") { dockTab = "section"; renderDock(); }
     else if (act === "tab-budget") { dockTab = "budget"; renderDock(); }
@@ -394,8 +394,8 @@ function budgetIndex() {
 }
 
 function tabsHtml() {
-  const tab = (id, label, on) => `<button type="button" class="gwv-tab${on ? " on" : ""}" data-gwv="tab-${id}" aria-pressed="${on}">${label}</button>`;
-  return `<div class="gwv-tabs" role="group" aria-label="View">${haveGeo() ? tab("section", "Cross-section", dockTab === "section") : ""}` +
+  const tab = (id, label, on) => `<button type="button" class="gwl-tab${on ? " on" : ""}" data-gwl="tab-${id}" aria-pressed="${on}">${label}</button>`;
+  return `<div class="gwl-tabs" role="group" aria-label="View">${haveGeo() ? tab("section", "Cross-section", dockTab === "section") : ""}` +
     `${haveBudget() ? tab("budget", "Water budget", dockTab === "budget") : ""}</div>`;
 }
 
@@ -403,33 +403,33 @@ function sectionBody() {
   const unit = lengthUnit(current.meta);
   if (drawing) {
     const n = drawing.pts.length;
-    return `<p class="gwv-hint"><strong>Draw the section.</strong> Click points across the model, from A to A′; ` +
+    return `<p class="gwl-hint"><strong>Draw the section.</strong> Click points across the model, from A to A′; ` +
       `double-click or press Enter to finish, Esc to cancel. ${n ? `${n} point${n === 1 ? "" : "s"}.` : ""}</p>` +
-      `<p class="gwv-acts">${n >= 2 ? '<button type="button" class="btn primary" data-gwv="done">Cut the section</button> ' : ""}` +
-      '<button type="button" class="btn" data-gwv="cancel">Cancel</button></p>';
+      `<p class="gwl-acts">${n >= 2 ? '<button type="button" class="btn primary" data-gwl="done">Cut the section</button> ' : ""}` +
+      '<button type="button" class="btn" data-gwl="cancel">Cancel</button></p>';
   }
-  if (sectionBusy) return '<p class="gwv-hint muted">Cutting through the layers…</p>';
-  if (sectionError) return `<p class="gwv-err">${escapeHtml(sectionError)}</p><p class="gwv-acts"><button type="button" class="btn" data-gwv="draw">Draw again</button></p>`;
+  if (sectionBusy) return '<p class="gwl-hint muted">Cutting through the layers…</p>';
+  if (sectionError) return `<p class="gwl-err">${escapeHtml(sectionError)}</p><p class="gwl-acts"><button type="button" class="btn" data-gwl="draw">Draw again</button></p>`;
   if (!section) {
-    return '<p class="gwv-hint">Draw a line across the model to see every layer under it: tops and bottoms, heads ' +
-      'and the water table, through time.</p><p class="gwv-acts"><button type="button" class="btn primary" data-gwv="draw">Draw a section</button></p>';
+    return '<p class="gwl-hint">Draw a line across the model to see every layer under it: tops and bottoms, heads ' +
+      'and the water table, through time.</p><p class="gwl-acts"><button type="button" class="btn primary" data-gwl="draw">Draw a section</button></p>';
   }
   const width = Math.max(420, Math.min(900, Math.round((dock.clientWidth || 760) - 24)));
   const d = sectionSvg(section, headStep(), { width, height: 214, unit, title: "Cross-section A to A′" });
   dock.__sec = d;
   dock.__secWidth = width;
-  return `<div class="gwv-plot" data-plot="section">${d.svg}<div class="gwv-read" hidden></div></div>` +
-    `<p class="gwv-foot"><span>${escapeHtml(distWords(section.length_m))} from A to A′, ${section.segments.length} cells` +
+  return `<div class="gwl-plot" data-plot="section">${d.svg}<div class="gwl-read" hidden></div></div>` +
+    `<p class="gwl-foot"><span>${escapeHtml(distWords(section.length_m))} from A to A′, ${section.segments.length} cells` +
     ` · Vertical exaggeration ${escapeHtml(veWords(d.ve))}</span>` +
-    `<span class="gwv-keys"><span class="gwv-key"><i class="gwv-k-wt"></i>Water table</span>` +
-    `<span class="gwv-key"><i class="gwv-k-sat"></i>Saturated</span>` +
-    (d.noHead ? '<span class="gwv-key"><i class="gwv-k-none"></i>No head (inactive or dry)</span>' : "") +
-    section.layers.slice(1).map((lay, i) => `<span class="gwv-key"><i class="gwv-k-dash" style="border-color:${layerLine(i + 1)}"></i>Layer ${lay} head</span>`).join("") +
-    `</span><span class="gw-segs gwv-depth" role="group" aria-label="Vertical range">` +
-    `<button type="button" class="gw-seg${closeLook ? "" : " on"}" data-gwv="whole" aria-pressed="${!closeLook}">Whole depth</button>` +
-    `<button type="button" class="gw-seg${closeLook ? " on" : ""}" data-gwv="near" aria-pressed="${closeLook}">Around the heads</button></span>` +
-    `<button type="button" class="gw-link" data-gwv="draw">Draw another</button></p>` +
-    `<p class="gwv-note muted">${escapeHtml(section.water_table_rule)} ${escapeHtml((section.notes || []).join(" "))}</p>`;
+    `<span class="gwl-keys"><span class="gwl-key"><i class="gwl-k-wt"></i>Water table</span>` +
+    `<span class="gwl-key"><i class="gwl-k-sat"></i>Saturated</span>` +
+    (d.noHead ? '<span class="gwl-key"><i class="gwl-k-none"></i>No head (inactive or dry)</span>' : "") +
+    section.layers.slice(1).map((lay, i) => `<span class="gwl-key"><i class="gwl-k-dash" style="border-color:${layerLine(i + 1)}"></i>Layer ${lay} head</span>`).join("") +
+    `</span><span class="gw-segs gwl-depth" role="group" aria-label="Vertical range">` +
+    `<button type="button" class="gw-seg${closeLook ? "" : " on"}" data-gwl="whole" aria-pressed="${!closeLook}">Whole depth</button>` +
+    `<button type="button" class="gw-seg${closeLook ? " on" : ""}" data-gwl="near" aria-pressed="${closeLook}">Around the heads</button></span>` +
+    `<button type="button" class="gw-link" data-gwl="draw">Draw another</button></p>` +
+    `<p class="gwl-note muted">${escapeHtml(section.water_table_rule)} ${escapeHtml((section.notes || []).join(" "))}</p>`;
 }
 
 function budgetBody() {
@@ -443,12 +443,12 @@ function budgetBody() {
   const rows = r.rows.map((x) => `<tr><th><i style="background:${x.color}"></i>${escapeHtml(x.label)}</th>` +
     `<td>${x.in ? escapeHtml(rateWords(x.in)) : ""}</td><td>${x.out ? escapeHtml(rateWords(x.out)) : ""}</td></tr>`).join("");
   const disc = r.discrepancy === null || r.discrepancy === undefined ? "" : `${Number(r.discrepancy).toFixed(2)}%`;
-  return `<div class="gwv-budget"><div class="gwv-plot" data-plot="budget">${d.svg}<div class="gwv-read" hidden></div>` +
-    `<p class="gwv-foot"><span class="gwv-keys">${d.key}</span></p></div>` +
-    `<div class="gwv-table"><p class="gwv-when">${escapeHtml(r.when)}</p><table><thead><tr><th></th><th>In</th><th>Out</th></tr></thead>` +
+  return `<div class="gwl-budget"><div class="gwl-plot" data-plot="budget">${d.svg}<div class="gwl-read" hidden></div>` +
+    `<p class="gwl-foot"><span class="gwl-keys">${d.key}</span></p></div>` +
+    `<div class="gwl-table"><p class="gwl-when">${escapeHtml(r.when)}</p><table><thead><tr><th></th><th>In</th><th>Out</th></tr></thead>` +
     `<tbody>${rows}</tbody><tfoot><tr><th>Total</th><td>${escapeHtml(rateWords(r.total_in))}</td><td>${escapeHtml(rateWords(r.total_out))}</td></tr></tfoot></table>` +
-    `<p class="gwv-note muted">${escapeHtml(b.unit)}. Discrepancy ${escapeHtml(disc)}. ${escapeHtml((b.notes || []).join(" "))}</p></div></div>` +
-    `<p class="gwv-note muted">${escapeHtml(b.method)}${b.internal && b.internal.length ? ` Flows between cells (${escapeHtml(b.internal.join(", ").toLowerCase())}) are not budget terms and are left out.` : ""}</p>`;
+    `<p class="gwl-note muted">${escapeHtml(b.unit)}. Discrepancy ${escapeHtml(disc)}. ${escapeHtml((b.notes || []).join(" "))}</p></div></div>` +
+    `<p class="gwl-note muted">${escapeHtml(b.method)}${b.internal && b.internal.length ? ` Flows between cells (${escapeHtml(b.internal.join(", ").toLowerCase())}) are not budget terms and are left out.` : ""}</p>`;
 }
 
 function placeDock() {
@@ -490,14 +490,14 @@ function renderDock() {
   if (dockTab === "budget" && !haveBudget()) dockTab = "section";
   const when = dockTab === "budget" && haveBudget() ? "" : escapeHtml(stepWords());
   const title = dockTab === "budget" ? "Water budget" : section ? "Cross-section A–A′" : "Cross-section";
-  dock.innerHTML = `<header class="gwv-head"><h2>${title}</h2>${when ? `<span class="gwv-time">${when}</span>` : ""}` +
-    `${tabsHtml()}<button type="button" class="gwv-x" data-gwv="close" aria-label="Close">×</button></header>` +
-    `<div class="gwv-body">${dockTab === "budget" ? budgetBody() : sectionBody()}</div>`;
+  dock.innerHTML = `<header class="gwl-head"><h2>${title}</h2>${when ? `<span class="gwl-time">${when}</span>` : ""}` +
+    `${tabsHtml()}<button type="button" class="gwl-x" data-gwl="close" aria-label="Close">×</button></header>` +
+    `<div class="gwl-body">${dockTab === "budget" ? budgetBody() : sectionBody()}</div>`;
 }
 
 // The hover: a line through the plot, and what is under it (the section's cell and layers, the budget's time).
 function onDockHover(e) {
-  const plot = e.target.closest && e.target.closest(".gwv-plot");
+  const plot = e.target.closest && e.target.closest(".gwl-plot");
   if (!plot) { hoverOff(); return; }
   const svg = plot.querySelector("svg");
   if (!svg) return;
@@ -507,8 +507,8 @@ function onDockHover(e) {
   const w = kind === "section" ? dock.__secWidth : dock.__budWidth;
   if (!d || !w) return;
   const x = ((e.clientX - box.left) / box.width) * w;
-  const read = plot.querySelector(".gwv-read");
-  const cursor = svg.querySelector(".gwv-cursor");
+  const read = plot.querySelector(".gwl-read");
+  const cursor = svg.querySelector(".gwl-cursor");
   if (x < d.x0 || x > d.x1) { hoverOff(); return; }
   const unit = lengthUnit(current.meta);
   const u = unit ? ` ${unit}` : "";
@@ -539,8 +539,8 @@ function onDockHover(e) {
 
 function hoverOff() {
   if (!dock) return;
-  for (const r of dock.querySelectorAll(".gwv-read")) r.hidden = true;
-  const c = dock.querySelector(".gwv-cursor");
+  for (const r of dock.querySelectorAll(".gwl-read")) r.hidden = true;
+  const c = dock.querySelector(".gwl-cursor");
   if (c) c.setAttribute("visibility", "hidden");
   hoverOnLine(null);
 }
@@ -560,13 +560,13 @@ function hoverOnLine(m) {
   const at = [pts[i][0] + f * (pts[i + 1][0] - pts[i][0]), pts[i][1] + f * (pts[i + 1][1] - pts[i][1])];
   if (!hoverMarker) {
     const el = document.createElement("div");
-    el.className = "gwv-dot";
+    el.className = "gwl-dot";
     hoverMarker = new globalThis.maplibregl.Marker({ element: el }).setLngLat(at).addTo(map);
   } else hoverMarker.setLngLat(at);
 }
 
 function onBudgetPick(e) {
-  const plot = e.target.closest && e.target.closest('.gwv-plot[data-plot="budget"]');
+  const plot = e.target.closest && e.target.closest('.gwl-plot[data-plot="budget"]');
   if (!plot || !haveBudget() || !current || !current.meta.dates) return;
   const d = dock.__bud, w = dock.__budWidth;
   const box = plot.querySelector("svg").getBoundingClientRect();
@@ -605,24 +605,24 @@ export async function layersCellChart(cardId, c) {
 export function layersLegendHtml() {
   if (!current || !views) return "";
   const seg = (act, label, on, title = "") => `<button type="button" class="gw-seg${on ? " on" : ""}" data-act="${act}" aria-pressed="${on}"${title ? ` title="${escapeHtml(title)}"` : ""}>${label}</button>`;
-  let html = '<div class="gwv-ctl">';
+  let html = '<div class="gwl-ctl">';
   if (haveGeo()) {
-    html += `<div class="gw-segs" role="group" aria-label="Plan or 3D">${seg("gwv-2d", "Plan", !view3d)}${seg("gwv-3d", "3D layers", view3d)}</div>`;
+    html += `<div class="gw-segs" role="group" aria-label="Plan or 3D">${seg("gwl-2d", "Plan", !view3d)}${seg("gwl-3d", "3D layers", view3d)}</div>`;
   }
-  const btn = (act, label, on) => `<button type="button" class="gwv-btn${on ? " on" : ""}" data-act="${act}">${label}</button>`;
-  html += `${haveGeo() ? btn("gwv-section", "Cross-section", dockOpen() && dockTab === "section") : ""}` +
-    `${haveBudget() ? btn("gwv-budget", "Water budget", dockOpen() && dockTab === "budget") : ""}</div>`;
+  const btn = (act, label, on) => `<button type="button" class="gwl-btn${on ? " on" : ""}" data-act="${act}">${label}</button>`;
+  html += `${haveGeo() ? btn("gwl-section", "Cross-section", dockOpen() && dockTab === "section") : ""}` +
+    `${haveBudget() ? btn("gwl-budget", "Water budget", dockOpen() && dockTab === "budget") : ""}</div>`;
   if (views.busy) html += '<p class="gw-line muted">Reading the layers…</p>';
   if (view3d && haveGeo()) {
     const g = views.geo;
-    html += `<div class="gwv-3dctl"><span>Vertical exaggeration</span><span class="gw-segs" role="group" aria-label="Vertical exaggeration">` +
-      exaggerationChoices(g.exaggeration).map((v) => seg(`gwv-ve-${v}`, `x${v}`, v === ve)).join("") + "</span></div>";
+    html += `<div class="gwl-3dctl"><span>Vertical exaggeration</span><span class="gw-segs" role="group" aria-label="Vertical exaggeration">` +
+      exaggerationChoices(g.exaggeration).map((v) => seg(`gwl-ve-${v}`, `x${v}`, v === ve)).join("") + "</span></div>";
     if (g.layers.length > 1) {
-      html += `<div class="gwv-3dctl"><span>Layers</span><span class="gw-segs" role="group" aria-label="Layers shown">` +
-        g.layers.map((lay, i) => seg(`gwv-layer-${i}`, String(lay), shown.has(i), `Show layer ${lay}`)).join("") + "</span></div>";
+      html += `<div class="gwl-3dctl"><span>Layers</span><span class="gw-segs" role="group" aria-label="Layers shown">` +
+        g.layers.map((lay, i) => seg(`gwl-layer-${i}`, String(lay), shown.has(i), `Show layer ${lay}`)).join("") + "</span></div>";
     }
-    html += `<div class="gwv-3dctl"><span>Spacing</span><span class="gw-segs" role="group" aria-label="Layer spacing">` +
-      `${seg("gwv-stack", "Stacked", !exploded)}${seg("gwv-explode", "Pulled apart", exploded)}</span></div>`;
+    html += `<div class="gwl-3dctl"><span>Spacing</span><span class="gw-segs" role="group" aria-label="Layer spacing">` +
+      `${seg("gwl-stack", "Stacked", !exploded)}${seg("gwl-explode", "Pulled apart", exploded)}</span></div>`;
     const u = lengthUnit(current.meta);
     html += `<p class="gw-line muted">Layer tops and bottoms from the grid file, ${ve === 1 ? "at true scale" : `${ve} times taller than they are`}` +
       `${exploded ? ", pulled apart to show each top" : ""}. Base ${escapeHtml(g.base.toFixed(1))}${u ? ` ${u}` : ""}. Grey: dry now.</p>`;
@@ -637,14 +637,14 @@ export function layersLegendHtml() {
 
 /** A legend button of ours: handled here (true), or not ours (false). */
 export function layersAct(name) {
-  if (!name.startsWith("gwv-")) return false;
-  if (name === "gwv-3d") set3d(true);
-  else if (name === "gwv-2d") set3d(false);
-  else if (name === "gwv-section") { if (dockOpen() && dockTab === "section") closeDock(); else { openDock("section"); if (!section) startDrawing(); } }
-  else if (name === "gwv-budget") { if (dockOpen() && dockTab === "budget") closeDock(); else openDock("budget"); }
-  else if (name.startsWith("gwv-ve-")) { ve = Number(name.slice(7)) || 1; paint3d(); }
-  else if (name === "gwv-explode" || name === "gwv-stack") { exploded = name === "gwv-explode"; paint3d(); }
-  else if (name.startsWith("gwv-layer-")) {
+  if (!name.startsWith("gwl-")) return false;
+  if (name === "gwl-3d") set3d(true);
+  else if (name === "gwl-2d") set3d(false);
+  else if (name === "gwl-section") { if (dockOpen() && dockTab === "section") closeDock(); else { openDock("section"); if (!section) startDrawing(); } }
+  else if (name === "gwl-budget") { if (dockOpen() && dockTab === "budget") closeDock(); else openDock("budget"); }
+  else if (name.startsWith("gwl-ve-")) { ve = Number(name.slice(7)) || 1; paint3d(); }
+  else if (name === "gwl-explode" || name === "gwl-stack") { exploded = name === "gwl-explode"; paint3d(); }
+  else if (name.startsWith("gwl-layer-")) {
     const i = Number(name.slice(10));
     if (shown.has(i) && shown.size > 1) shown.delete(i); else shown.add(i);
     paint3d();

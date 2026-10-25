@@ -133,6 +133,8 @@ benchmark:
   `groundwater`.
 - **MCP:** the 36 tools those modules expose (`snap_to_river`, `reach_record`, `flow_forecast`, `map_command`,
   `mesh_review`, `water_balance`, ...; the full list is `aquascope.experimental.MCP_TOOLS`).
+- **Added since 0.27.0:** `aquascope.mesh_views` (smooth depth, contours and flood lenses, #619, #620), its MCP
+  tool `mesh_lenses` and `aquascope mesh lenses`.
 
 Experimental means:
 

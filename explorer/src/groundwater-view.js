@@ -34,6 +34,9 @@ import {
 import {
   initGwLayers, setCellOpener, layersAct, layersCellChart, layersDrawing, layersFrame, layersLegendHtml, layersLoaded, layersRemoved,
 } from "./groundwater-layers.js?v=__BUILD__";
+import {
+  clearModelViews, modelViewsAct, modelViewsBody, modelViewsKey, modelViewsState, showModelViews, updateModelViews,
+} from "./groundwater-views.js?v=__BUILD__";
 
 const ARCHIVE = "https://huggingface.co/datasets/Rekin226/aquascope-gauges/resolve/main/";
 const BUNDLE = `${ARCHIVE}obs/groundwater_level/${GW_SOURCE}.parquet`;
@@ -327,7 +330,7 @@ function onWellClick(e) {
 
 function onModelClick(e) {
   if (!model || !modelShown() || layersDrawing()) return;
-  if (map.queryRenderedFeatures(e.point, { layers: ["points", "clusters"].filter((id) => map.getLayer(id)) }).length) return;
+  if (map.queryRenderedFeatures(e.point, { layers: ["points", "clusters", "gwv-wells"].filter((id) => map.getLayer(id)) }).length) return;
   const f = (e.features || [])[0];
   if (!f) return;
   cellCard(Number(f.properties.c), e.lngLat, model.l);
@@ -379,6 +382,7 @@ function paintModel() {
   setLayerVisibility();
   layersFrame(model);
   refreshLegend("modflow");
+  void updateModelViews(model, { shown: modelShown() });   // contours, arrows, drawdown, capture (#623, #624)
 }
 
 function setModelStep(t) {
@@ -417,6 +421,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     const out = await call("groundwater", {
       op: "modflow", hds: await read(sorted.hds), grid: sorted.grid ? await read(sorted.grid) : null,
       gridName: sorted.grid ? sorted.grid.name : null, sidecars: await Promise.all(sorted.sidecars.map(read)), place,
+      wel: sorted.wel ? await read(sorted.wel) : null,
     });
     if (out.error) {
       if (out.needs) { pending = { files, sample }; placeForm(out, sorted); return; }
@@ -529,13 +534,14 @@ function pickFiles() {
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
-  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis,.cbc,.bud,.cbb";
+  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis,.wel,.cbc,.bud,.cbb";
   input.addEventListener("change", () => { if (input.files && input.files.length) void loadModel([...input.files]); });
   input.click();
 }
 
 function removeModel() {
   model = null;
+  clearModelViews();
   layersRemoved();
   if (state.mapOk && map) {
     for (const id of [L.model, L.modelEdge]) if (map.getSource(id)) map.getSource(id).setData(EMPTY);
@@ -634,7 +640,8 @@ function modelBody() {
   const r = modelRange();
   const dated = Boolean(m.dates && n > 1);
   return `<p class="gw-head">${escapeHtml(model.name)}: ${escapeHtml(m.text.toLowerCase())}, ${escapeHtml(timeLabel(m, model.t))}</p>` +
-    rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m)) +
+    (modelViewsKey(model, rampKey) ?? rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m))) +
+    modelViewsBody(model) +
     `<div class="gw-model-ctl">` +
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +
@@ -663,7 +670,7 @@ function registerModelRow() {
       ? `${isApproximate(model.meta) ? `${APPROX_LABEL} · ` : ""}${timeLabel(model.meta, model.t)}` : ""),
     on: () => modelShown(),
     empty: () => !model && !modelBusy,
-    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); refreshLegend("modflow"); },
+    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); showModelViews(modelOn); refreshLegend("modflow"); },
     body: modelBody,
     shown: () => Boolean(model || modelBusy),
     act: (name) => {
@@ -672,6 +679,7 @@ function registerModelRow() {
       else if (name === "fit" && model) { const b = edgeOf(model.rings); map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, duration: 1000 }); }
       else if (name === "play" && model && model.meta.dates) playModel();
       else if (name === "place" && model) placeExactly();
+      else modelViewsAct(name, model);
     },
   });
 }
@@ -738,6 +746,7 @@ export function initGroundwater() {
   // Debug hooks (harmless in production, like the rest of window.__aq): the surface and the cell under a point.
   dbg.groundwater = () => res;
   dbg.gwCell = (lon, lat) => (res && res.grid ? gridCellAt(res.grid, lon, lat) : null);
+  dbg.gwViews = modelViewsState;   // the model views on show (#623, #624)
   registerRow();
   const fromUrl = readGwParam(location.hash);
   if (fromUrl !== null) state.groundwater = fromUrl;

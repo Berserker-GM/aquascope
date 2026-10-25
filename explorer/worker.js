@@ -12,7 +12,7 @@ let ready = null;
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
 const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review",
-  "whatif_words"]);
+  "whatif_words", "flood_exposure"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1284,6 +1284,31 @@ json.dumps(_out, default=str)
   }
 }
 
+// ── What gets flooded (#622): aquascope.flood_exposure.read_sources reads the buildings and roads (Overture Maps
+// GeoParquet, pyarrow loaded here on first use) and the population grid (GHS-POP COG tiles) around the model; the
+// counting runs in mesh-worker.js, beside the file.
+let pyarrowLoaded = false;
+async function floodExposureOp({ id, bbox, what }) {
+  if (!pyarrowLoaded) {
+    post("progress", { text: "Loading pyarrow to read Overture's GeoParquet…" });
+    await pyodide.loadPackage(["pyarrow"]);
+    pyarrowLoaded = true;
+  }
+  self.__aqExposure = JSON.stringify({ bbox: bbox || null, what: what || ["buildings", "roads", "population"] });
+  try {
+    const out = await pyodide.runPythonAsync(`
+import json
+from js import __aqExposure
+from aquascope import flood_exposure as _fx
+_a = json.loads(__aqExposure)
+json.dumps(_fx.read_sources(_a["bbox"], what=tuple(_a["what"])))
+`);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqExposure = null;
+  }
+}
+
 // ── Explain what is on screen (#562): aquascope.map_explain, the same functions as `aquascope layers explain`
 // and the MCP tool explain_view. op "facts" reads the view into facts and template notes (the month's status
 // file is fetched here and handed over as bytes); "check" holds a model's notes to the facts (the claim lock);
@@ -1368,6 +1393,7 @@ json.dumps(_out)
     }
     return;
   }
+  if (op === "views") { await groundwaterViews(m); return; }
   if (op !== "modflow") throw new Error(`unknown groundwater op ${op}`);
   if (!pyprojLoaded) {
     // Placing a projected grid needs pyproj (3.8 MB, once, only when a model is dropped).
@@ -1379,7 +1405,8 @@ json.dumps(_out)
   const hds = write("heads", m.hds);
   const grid = m.grid ? write(`grid-${String(m.gridName || "grid").replace(/[^A-Za-z0-9._-]/g, "_")}`, m.grid) : null;
   const sidecars = (m.sidecars || []).map((b, i) => write(`sidecar-${i}`, b));
-  self.__aqGw = JSON.stringify({ hds, grid, sidecars, place: m.place || {} });
+  const wel = m.wel ? write("wells", m.wel) : null;
+  self.__aqGw = JSON.stringify({ hds, grid, sidecars, wel, place: m.place || {} });
   const code = `
 import json
 import numpy as np
@@ -1388,6 +1415,7 @@ from aquascope.groundwater.surface import read_modflow_heads as _read, modflow_s
 _a = json.loads(__aqGw)
 _p = _a["place"]
 _GW_RINGS = _GW_HEADS = None
+_GW_RES = _GW_WELLS = None
 try:
     _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"), rotation=_p.get("rotation"),
                  crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"),
@@ -1400,6 +1428,15 @@ try:
         _GW_HEADS = _h.tobytes()
     _out = _summary(_res)
     _out.pop("frame", None)
+    if not _res.get("error"):
+        _GW_RES = _res  # kept for the views (#623, #624): contours, arrows, drawdown, pathlines, capture zones
+        if _a.get("wel"):
+            from aquascope.groundwater.views import read_wells as _read_wells
+            try:
+                _GW_WELLS = _read_wells(_a["wel"])
+                _out["wells_file"] = {"format": _GW_WELLS["format"], "wells": len(_GW_WELLS["wells"])}
+            except ValueError as exc:
+                _out.setdefault("notes", []).append(f"The well file could not be read: {exc}")
     _out["times"], _out["dates"] = _res.get("times"), _res.get("dates")
     _out["kstpkper"] = _res.get("kstpkper")
 except (ValueError, ImportError) as exc:
@@ -1412,7 +1449,7 @@ json.dumps(_out, default=str)
     const take = (name) => { const p = pyodide.globals.get(name); const u8 = p.toJs(); p.destroy(); return u8; };
     const rings = take("_GW_RINGS"), offs = take("_GW_OFFS"), heads = take("_GW_HEADS");
     const shape = pyodide.globals.get("_GW_SHAPE").toJs();
-    pyodide.runPython("_GW_RINGS = _GW_HEADS = _GW_OFFS = _res = None");
+    pyodide.runPython("_GW_RINGS = _GW_HEADS = _GW_OFFS = _res = None");  // _GW_RES stays, for the views
     const result = {
       ...meta, shape,
       rings: new Float64Array(rings.buffer, rings.byteOffset, rings.byteLength / 8),
@@ -1422,7 +1459,38 @@ json.dumps(_out, default=str)
     self.postMessage({ type: "result", id, result }, [rings.buffer, offs.buffer, heads.buffer]);
   } finally {
     self.__aqGw = null;
-    for (const f of [hds, grid, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* already gone */ } }
+    for (const f of [hds, grid, wel, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* already gone */ } }
+  }
+}
+
+// What a hydrogeologist reads off the heads (#623, #624), for one step and layer of the model op "modflow" read:
+// aquascope.groundwater.views.model_views, the same function as `aquascope modflow --views`. Geometry comes back in
+// lon/lat, small enough for JSON.
+async function groundwaterViews(m) {
+  const { id } = m;
+  self.__aqGv = JSON.stringify({ t: Number(m.t) || 0, layer: m.layer ?? null, reference: m.reference ?? 0,
+    show: Array.isArray(m.show) ? m.show : null });
+  const code = `
+import json
+from js import __aqGv
+from aquascope.groundwater.views import model_views as _views, model_wells as _model_wells
+_a = json.loads(__aqGv)
+try:
+    if globals().get("_GW_RES") is None:
+        raise ValueError("no model is open")
+    _key = (_a["layer"], id(_GW_RES), id(globals().get("_GW_WELLS")))
+    if globals().get("_GW_WELLS_KEY") != _key:
+        _GW_WELLS_FOR = _model_wells(_GW_RES, _a["layer"], globals().get("_GW_WELLS"))
+        _GW_WELLS_KEY = _key
+    _v = _views(_GW_RES, _a["t"], _a["layer"], reference=_a["reference"], wells=_GW_WELLS_FOR, show=_a["show"])
+except ValueError as exc:
+    _v = {"kind": "modflow_views", "error": str(exc)}
+json.dumps(_v)
+`;
+  try {
+    post("result", { id, result: JSON.parse(await pyodide.runPythonAsync(code)) });
+  } finally {
+    self.__aqGv = null;
   }
 }
 
@@ -1464,9 +1532,13 @@ _a = json.loads(__aqGwv)
 _p = _a["place"]
 _out = {}
 _GWV_TOP = _GWV_BOTM = None
-_res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"), rotation=_p.get("rotation"),
-             crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"),
-             approximate_at=_p.get("approximate_at"))
+# The map's read (op "modflow" of "groundwater", kept as _GW_RES for the #623/#624 views) is the same model:
+# use it rather than holding a second copy of the heads; read again only when it is not there.
+_res = globals().get("_GW_RES")
+if _res is None:
+    _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"),
+                 rotation=_p.get("rotation"), crs=_p.get("crs"), cell_size=_p.get("cell_size"),
+                 start_date=_p.get("start_date"), approximate_at=_p.get("approximate_at"))
 _GWV = {"res": _res, "layers": None, "budget": None}
 if _res.get("error"):
     _out["error"] = _res["error"]
@@ -1599,6 +1671,7 @@ self.onmessage = async (e) => {
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
     if (m.type === "mesh_review") return await meshReviewOp(m);
+    if (m.type === "flood_exposure") return await floodExposureOp(m);
     if (m.type === "whatif" || m.type === "whatif_words") return await whatIf(m);
     if (m.type === "groundwater") return await groundwater(m);
     if (m.type === "gw_layers") return await gwLayers(m);
