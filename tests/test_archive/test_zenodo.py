@@ -74,7 +74,8 @@ def test_the_bundle_packs_obs_per_source_and_variable_and_says_what_is_mirrored(
     assert manifest["mirrored"]["stations"] == 2 and manifest["mirrored"]["sources"] == 2
     assert manifest["mirrored"]["per_variable"] == {"discharge": 2, "water_level": 1}
     scopes = {c["source"]: c["scope"] for c in manifest["sources"]}
-    assert scopes["brazil_ana"] == "catalogue only" and scopes["usgs"].startswith("catalogue and mirrored")
+    assert scopes["brazil_ana"].startswith("catalogue only; reuse terms not verified")
+    assert scopes["usgs"].startswith("catalogue and mirrored")
 
     sources_md = (out / "SOURCES.md").read_text()
     for key in ("usgs", "uk_ea", "brazil_ana"):

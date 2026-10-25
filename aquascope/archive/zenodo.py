@@ -314,7 +314,9 @@ def build(archive: Path, out: Path, *, revision: str, snapshot_date: str | None 
             "license": meta.license if meta else "unverified",
             "attribution": (meta.attribution if meta else "") or "",
             "homepage": meta.homepage if meta else None,
-            "scope": "catalogue and mirrored observations" if key in mirrored else "catalogue only",
+            "scope": "catalogue and mirrored observations" if key in mirrored else (
+                "catalogue only" if meta and meta.license != "unknown"
+                else "catalogue only; reuse terms not verified, station metadata as the agency lists it"),
             "catalogued": catalogued.get(key, 0),
             "mirrored": len(mirrored.get(key, ())),
         })
