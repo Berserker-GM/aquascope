@@ -95,7 +95,7 @@ test("the legend says what is drawn, briefly", () => {
   assert.match(cap[2], /found in the heads/);
   assert.match(viewLines({ ...v, wells: [] }, "capture")[0], /No well pumps/);
   assert.deepEqual(viewLines(null, "head"), ["Drawing…"]);
-  for (const line of [...head, ...dd, ...cap]) assert.ok(!line.includes("—"), "no em dashes");
+  for (const line of [...head, ...dd, ...cap]) assert.ok(!line.includes("\u2014"), "no em dashes");
 });
 
 test("gradients and rates in a reader's words", () => {
