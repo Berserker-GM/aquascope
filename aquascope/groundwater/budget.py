@@ -13,7 +13,7 @@ Pyodide), in each of the layouts MODFLOW writes:
 
 in single or double precision (found from the file, not assumed). The layouts are those of the MODFLOW-2005
 documentation (Harbaugh, 2005, USGS Techniques and Methods 6-A16, https://doi.org/10.3133/tm6A16; its Output Control
-page, https://water.usgs.gov/ogw/modflow/MODFLOW-2005-Guide/output_control.htm), and IMETH 6 as FloPy's
+input page, where COMPACT BUDGET is set, https://water.usgs.gov/ogw/modflow/MODFLOW-2005-Guide/oc.htm), and IMETH 6 as FloPy's
 ``CellBudgetFile`` reads MODFLOW 6's files (https://flopy.readthedocs.io/en/latest/source/flopy.utils.binaryfile.html);
 a test checks the reader against FloPy where FloPy is installed.
 

@@ -394,6 +394,12 @@ def cross_section(res: dict[str, Any], layers: dict[str, Any], line: Any, *,
         notes.append("Parts of the line outside the model are left blank.")
     if int(g.get("block") or 1) > 1:
         notes.append(f"Cut through blocks of {g['block']} x {g['block']} cells (their mean), as the map draws them.")
+    with np.errstate(invalid="ignore"):
+        above = np.isfinite(wt) & np.isfinite(top[0]) & (wt > top[0][None, :])
+    if above.any():
+        notes.append("Where the line stands above the top of the model, the uppermost layer's head is above that layer's "
+                     "top: the layer is confined there (or its top is not the ground), so the line is its head, a "
+                     "potentiometric surface, not a free water table.")
     return {
         "kind": "modflow_section", "segments": segments, "top": top, "bottom": bottom, "heads": heads,
         "water_table": wt, "length_m": round(total, 1), "vertices_m": [round(float(v), 1) for v in cum],

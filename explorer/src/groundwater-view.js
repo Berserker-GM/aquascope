@@ -32,7 +32,7 @@ import {
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
 import {
-  initGwLayers, setCellOpener, layersAct, layersCellChart, layersDrawing, layersFrame, layersLegendHtml, layersLoaded, layersRemoved,
+  initGwLayers, setCellOpener, layers3d, layersAct, layersCellChart, layersDrawing, layersFrame, layersLegendHtml, layersLoaded, layersRemoved,
 } from "./groundwater-layers.js?v=__BUILD__";
 import {
   clearModelViews, modelViewsAct, modelViewsBody, modelViewsKey, modelViewsState, showModelViews, updateModelViews,
@@ -382,7 +382,8 @@ function paintModel() {
   setLayerVisibility();
   layersFrame(model);
   refreshLegend("modflow");
-  void updateModelViews(model, { shown: modelShown() });   // contours, arrows, drawdown, capture (#623, #624)
+  // contours, arrows, drawdown, capture (#623, #624): the plan view's, so not under the 3D stack (#625)
+  void updateModelViews(model, { shown: modelShown() && !layers3d() });
 }
 
 function setModelStep(t) {
@@ -640,8 +641,8 @@ function modelBody() {
   const r = modelRange();
   const dated = Boolean(m.dates && n > 1);
   return `<p class="gw-head">${escapeHtml(model.name)}: ${escapeHtml(m.text.toLowerCase())}, ${escapeHtml(timeLabel(m, model.t))}</p>` +
-    (modelViewsKey(model, rampKey) ?? rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m))) +
-    modelViewsBody(model) +
+    ((layers3d() ? null : modelViewsKey(model, rampKey)) ?? rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m))) +
+    (layers3d() ? "" : modelViewsBody(model)) +
     `<div class="gw-model-ctl">` +
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +
@@ -670,7 +671,7 @@ function registerModelRow() {
       ? `${isApproximate(model.meta) ? `${APPROX_LABEL} · ` : ""}${timeLabel(model.meta, model.t)}` : ""),
     on: () => modelShown(),
     empty: () => !model && !modelBusy,
-    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); showModelViews(modelOn); refreshLegend("modflow"); },
+    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); showModelViews(modelOn && !layers3d()); refreshLegend("modflow"); },
     body: modelBody,
     shown: () => Boolean(model || modelBusy),
     act: (name) => {
@@ -756,7 +757,7 @@ export function initGroundwater() {
     toggle.addEventListener("change", (e) => setGroundwater(e.target.checked));
   }
   bindModelControls();
-  initGwLayers({ fill: L.model, line: L.modelLine });
+  initGwLayers({ fill: L.model, line: L.modelLine, viewChanged: () => { if (model) paintModel(); } });
   setCellOpener((c, lngLat, l) => { if (model) cellCard(c, lngLat, l); });
   actions.openModflowFiles = openModflowFiles;   // Tools, Open model results, and its MODFLOW sample (model-samples.js)
   if (!state.mapOk || !map) return;

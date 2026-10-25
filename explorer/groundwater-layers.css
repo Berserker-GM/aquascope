@@ -98,7 +98,8 @@
 .gwl-dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; border: 2.5px solid #1d6fb8; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); }
 
 @media (max-width: 900px) {
-  .gwl-dock { width: calc(100% - 2 * var(--gap)); min-width: 0; bottom: 110px; }
+  /* over the Ask, Explain and Scout buttons (z 8) while it is open: they sit on its numbers otherwise */
+  .gwl-dock { width: calc(100% - 2 * var(--gap)); min-width: 0; bottom: 110px; z-index: 9; }
   .gwl-budget { flex-direction: column; }
   .gwl-table { flex: 1 1 auto; width: 100%; }
 }

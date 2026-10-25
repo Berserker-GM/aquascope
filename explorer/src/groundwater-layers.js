@@ -111,6 +111,10 @@ export function layersFrame(model) {
 
 /** Whether a line is being drawn (a click on the model then adds a point, it does not open a card). */
 export const layersDrawing = () => Boolean(drawing);
+/** Whether the 3D stack stands (the plan view's contours, arrows and zones of #623/#624 then step aside: drawn on
+ * the ground, they would show through the stack's top as clutter, out of place). */
+export const layers3d = () => view3d;
+let onView = null;
 
 // ── 3D ──────────────────────────────────────────────────────────────────────
 
@@ -182,7 +186,7 @@ function set3d(on) {
     saved2d = { pitch: map.getPitch(), bearing: map.getBearing() };
     paint3d();
     const bearing = -28;
-    const cam = map.cameraForBounds(modelBounds(), { bearing, padding: { top: 90, bottom: 170, left: visibleLeft() + 40, right: 60 } });
+    const cam = map.cameraForBounds(modelBounds(), { bearing, padding: { top: 90, bottom: dockOpen() ? Math.round(dock.getBoundingClientRect().height) + 60 : 170, left: visibleLeft() + 40, right: 60 } });
     if (cam) map.easeTo({ center: cam.center, zoom: cam.zoom - 0.35, bearing, pitch: 58, duration: 1000 });
     else map.easeTo({ pitch: 58, bearing, duration: 900 });
   } else {
@@ -192,6 +196,7 @@ function set3d(on) {
     if (saved2d) map.easeTo({ pitch: saved2d.pitch, bearing: saved2d.bearing, duration: 700 });
     saved2d = null;
   }
+  if (onView) onView(view3d);
   refreshLegend("modflow");
 }
 
@@ -474,9 +479,15 @@ function stepWords() {
 // Keep the model in the part of the map the dock leaves free (in plan view; a 3D camera is the reader's).
 function clearOfDock() {
   if (!dockOpen() || view3d || !state.mapOk || !map || !current) return;
+  // Still flying to the model (a budget dropped with the heads opens the dock as the map zooms in): wait for it,
+  // or this would stop the flight wherever it had got to, often still at the globe.
+  if (map.isMoving()) { map.once("moveend", () => clearOfDock()); return; }
   const h = dock.getBoundingClientRect().height;
+  // On a phone the dock fills most of the map: leave the model at least 160 px above it rather than zooming out
+  // until it is a speck.
+  const free = map.getContainer().clientHeight - 70 - 160;
   const cam = map.cameraForBounds(modelBounds(), { bearing: map.getBearing(),
-    padding: { top: 70, bottom: Math.round(h) + 150, left: visibleLeft() + 24, right: 40 } });
+    padding: { top: 70, bottom: Math.max(40, Math.min(Math.round(h) + 150, free)), left: visibleLeft() + 24, right: 40 } });
   if (cam) map.easeTo({ center: cam.center, zoom: Math.min(cam.zoom, map.getZoom()), duration: 700 });
 }
 
@@ -654,8 +665,9 @@ export function layersAct(name) {
 }
 
 /** Ids of groundwater-view.js's plan layers (hidden under the 3D stack). */
-export function initGwLayers({ fill, line } = {}) {
+export function initGwLayers({ fill, line, viewChanged = null } = {}) {
   ids = { fill: fill || ids.fill, line: line || ids.line };
+  onView = viewChanged;
   window.addEventListener("resize", () => { if (dockOpen()) renderDock(); });
   // Debug hooks (harmless, like the rest of window.__aq): what the views hold, and a section cut from code.
   dbg.gwLayers = {

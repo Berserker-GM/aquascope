@@ -167,14 +167,15 @@ Experimental (see [Stability](stability.md#experimental)), added after 0.27.0 fo
 
 - `read_layer_elevations(grid)`: each layer's top and bottom (`TOP`, `BOTM`, `IDOMAIN`) from a
   MODFLOW 6 `.dis`/`.disv` or `.dis.grb`, or a MODFLOW-2005 `.dis` (a confining bed under a
-  layer, `LAYCBD`, is skipped). Checked against FloPy's `ModflowDis` on the Freyberg example.
+  layer, `LAYCBD`, is left as a gap: the next layer starts at its bottom). Checked against FloPy's `ModflowDis` on the Freyberg example.
 - `model_layers(res, grid)`: those elevations on the cells as `read_modflow_heads` draws them
   (block means on a big grid), the model's base and crest, and a vertical exaggeration for a
   3D view: 1, 2 or 5 times a power of ten, so the stack stands about 12% of the model's width.
 - `cross_section(res, layers, [[lon, lat], ...])`: the cells a line crosses, in order, with
   where it enters and leaves each (found to half a metre), every layer's top, bottom and head
   at every saved time, and the water table, read as the head of the uppermost layer that has
-  one. Distances are on a local plane around the line (well under 1% from the geodesic over
+  one (where that head is above the layer's top, a confined layer, the notes say the line is
+  a potentiometric surface, not a water table). Distances are on a local plane around the line (well under 1% from the geodesic over
   a model's few tens of kilometres).
 - `cell_hydrograph(res, cell, layers)`: one cell's head over time in every layer, with its
   lowest value and when, and the layer's top and bottom.
@@ -187,8 +188,9 @@ Experimental (see [Stability](stability.md#experimental)), added after 0.27.0 fo
   ([Harbaugh, 2005](https://doi.org/10.3133/tm6A16)). Flows between cells (`FLOW RIGHT FACE`,
   `FLOW-JA-FACE` and the like) and MODFLOW 6's `DATA-` records are not budget terms and are
   left out. Rates are in the model's length cubed per its time unit. The layouts are those of
-  the MODFLOW-2005 documentation (its
-  [Output Control page](https://water.usgs.gov/ogw/modflow/MODFLOW-2005-Guide/output_control.htm))
+  the MODFLOW-2005 documentation (Harbaugh, 2005, and its
+  [Output Control input page](https://water.usgs.gov/ogw/modflow/MODFLOW-2005-Guide/oc.htm), where
+  `COMPACT BUDGET` is set)
   and of FloPy's
   [`CellBudgetFile`](https://flopy.readthedocs.io/en/latest/source/flopy.utils.binaryfile.html);
   a test checks the reader against FloPy where FloPy is installed.

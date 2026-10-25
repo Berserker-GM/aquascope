@@ -284,6 +284,14 @@ def test_section_through_the_well_row(layered):
     assert out["time_index"] == 13 and len(out["heads_at_time"]) == 3
 
 
+def test_a_head_above_the_top_is_said_to_be_no_water_table(layered):
+    _, res, lay = layered
+    line = _row_line(res, 15)
+    assert not any("potentiometric" in n for n in gv.cross_section(res, lay, line)["notes"])
+    confined = {**res, "heads": np.asarray(res["heads"], float) + 100.0}   # every head far above the ground
+    assert any("potentiometric" in n for n in gv.cross_section(confined, lay, line)["notes"])
+
+
 def test_section_with_a_bend_and_through_inactive_cells(layered):
     _, res, lay = layered
     a, b = _row_line(res, 2)
