@@ -23,6 +23,7 @@ import { modflowShown } from "./groundwater-view.js?v=__BUILD__";
 import {
   SEVERITY, checkRows, flaggedCells, gaugesInBox, reviewLine, reviewPin, reviewTarget, reviewWho, runSpan,
 } from "./mesh-review-core.js?v=__BUILD__";
+import { refusedNote } from "./scout-core.js?v=__BUILD__";
 
 const FLAGS = "mesh-flags";
 const FLAGS_LINE = "mesh-flags-line";
@@ -222,7 +223,8 @@ export async function reviewModel({ say: sayOut = null, anywhere = false } = {})
     drawFlags();
     refreshMeshLegend();
     const n = lastPins.length;
-    const notes = refused.length ? [`${refused.length} wording${refused.length === 1 ? "" : "s"} refused by the claim lock, rules kept`] : [];
+    // The count and the first refusal's reason (#590), as Scout's line gives them.
+    const notes = refused.length ? [refusedNote(refused)] : [];
     tell(`<b class="ma-who">Review</b><span class="ma-how">${escapeHtml(who)}, ${escapeHtml(how)}</span>` +
       `<span>${escapeHtml(reviewLine(res, n, meta.name))}</span>` +
       (notes.length ? `<span class="ma-note">${escapeHtml(notes.join("; "))}</span>` : ""), res.counts && res.counts.problem ? "warn" : "ok");

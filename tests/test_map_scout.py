@@ -574,3 +574,44 @@ def test_findings_left_out_or_mangled_by_the_model_are_kept():
     assert out[1]["by"] == "device" and out[1]["title"].endswith(": a big flood")
     # max_pins still caps the list.
     assert len(ms.apply_wording(fs, reply, max_pins=2)["findings"]) == 2
+
+
+# ── on the device, round 2 (#590): a wording keeps what its finding says ─────────────────────────────────────
+
+
+def test_a_wording_that_turns_the_finding_round_is_refused():
+    # Gemini Nano, Europe, 2026-10-26, on a "models miss this river" finding: every slot right, the claim
+    # reversed onto the gauge.
+    f = ms.models_disagree_findings([_skill("big", -0.6, 300.0, lat=45, lon=0)])[0]
+    for reason in ("{model} shows poor agreement with a gauge's water flow, raising questions about the gauge's "
+                   "measurement.",
+                   "{model} has a KGE of {kge} here, raising questions about the gauge's measurement."):
+        res = ms.apply_wording([f], {"order": [f["id"]], "notes": [
+            {"id": f["id"], "title": "{gauge_short}: model and gauge disagree", "reason": reason}]}, by="device")
+        out = res["findings"][0]
+        assert out["by"] == "rules" and out["reason"] == f["reason"], reason
+        assert "models miss this river" in res["refused"][0], res["refused"]
+    # The claim kept, in other words, passes; so does the rules' own advice to check the gauge.
+    ok = ms.apply_wording([f], {"order": [f["id"]], "notes": [
+        {"id": f["id"], "title": "{gauge_short}: the models miss it",
+         "reason": "The best of {models}, {model}, scores a KGE of {kge}: no better than the gauge's mean flow. "
+                   "Check what the gauge measures before trusting either."}]}, by="device")
+    assert ok["refused"] == [] and ok["findings"][0]["by"] == "device"
+
+
+def test_a_wording_on_the_other_side_of_normal_is_refused():
+    assert ms.claim_kept("{place}: rivers run dry", "Rivers across {area} were low in {month}.",
+                         "status_much_below") is None
+    assert "much below normal" in ms.claim_kept("{place}: rivers high", "Rivers across {area} were high.",
+                                                "status_much_below")
+    assert "leaves out" in ms.claim_kept("{place}", "Something about {area} in {month}.", "status_much_above")
+    assert ms.claim_kept("x", "y", None) is None and ms.claim_kept("x", "y", "unknown") is None
+    assert "the models miss" in ms.wording_prompt([])["system"]
+
+
+def test_ids_the_model_wrote_that_are_no_finding_are_listed():
+    # Europe, 2026-10-26: Nano's order held only "USGS-01646500", a selected gauge off screen.
+    fs = _three()
+    res = ms.apply_wording(fs, {"order": ["USGS-01646500"], "notes": []}, by="device")
+    assert res["unknown"] == ["USGS-01646500"] and res["refused"] == []
+    assert all(f["by"] == "rules" for f in res["findings"])

@@ -290,3 +290,31 @@ def test_a_basin_over_the_limit_says_why_before_a_run():
     assert wm._too_large(1_379.0) is None
     why = wm._too_large(143_851.0)
     assert why.startswith("143,851 km2 drain to this reach") and "100,000 km2" in why
+
+
+# ── on the device, round 2 (#590): nothing reads as nought, no season widened in silence ─────────────────────
+
+
+def test_a_small_demand_keeps_its_figures():
+    # Gemini Nano read "the factory takes twenty litres a second" as 0.02 m³/s, right; the status line and the map
+    # log said "0 m³/s taken".
+    out = wm.parse_scenario_reply({"dp_pct": None, "dt_c": None, "dpet_pct": None, "demand_cms": 0.02},
+                                  "what if the factory takes twenty litres a second")
+    assert out["scenario"]["demand_cms"] == pytest.approx(0.02) and not out["errors"], out
+    assert out["said"] == "0.02 m³/s taken"
+    assert wm.scenario_label({"demand_cms": 0.001}) == "0.001 m³/s taken"
+    assert wm.scenario_label({"dp_pct": -100 / 3, "dt_c": 1.25}) == "33.3% less rain, 1.25 °C warmer"
+    assert wm.scenario_label({"demand_cms": 1234.5, "dp_pct": 20}) == "20% more rain, 1235 m³/s taken"
+    assert wm.scenario_label({}) == "no change"
+
+
+def test_a_season_the_words_name_is_said_not_widened():
+    # Nano, 2026-10-26: "summers ... three degrees" read as +3 °C and run over the whole year without a word.
+    out = wm.parse_scenario_reply({"dp_pct": None, "dt_c": 3, "dpet_pct": None, "demand_cms": None},
+                                  "summers get much hotter, maybe three degrees")
+    assert out["scenario"]["dt_c"] == 3.0 and out["season"] == ["summers"]
+    assert wm.parse_scenario("20% less rain in the dry season")["season"] == ["dry season"]
+    assert wm.parse_scenario("20% less rain and 2 degrees warmer")["season"] == []
+    # Words that only look like a season are not one: "rain may fall", "rain falls by a fifth".
+    assert wm.season_words("rain may fall 20%, and it falls by a fifth") == []
+    assert wm.season_words("in May rain falls 10%, less in the fall") == ["in May", "in the fall"]
