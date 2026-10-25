@@ -93,6 +93,8 @@ length unit.
 
 ## Contours, flow, drawdown and capture zones
 
+![Freyberg's six pumping wells from its .wel file: capture zones and pathlines over the head contours](img/models/gw-capture-freyberg.png)
+
 `aquascope.groundwater.views` (experimental, #623 and #624) reads one time step and one
 layer of a structured (DIS) grid the way a hydrogeologist reads a water table, and returns
 the geometry in lon/lat. The Explorer draws it; the CLI prints it.
