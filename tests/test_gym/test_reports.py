@@ -1,4 +1,4 @@
-"""HydroGym report-quality scoring (#382): score_report over a synthetic workspace (a traced and an untraced
+"""AquaScope Bench report-quality scoring (#382): score_report over a synthetic workspace (a traced and an untraced
 number, a failed gate named and unnamed in the limitations, a direction inversion, a findings block with a
 resolving and a non-resolving basis) and the three references against their recorded studies. Nothing here
 touches the network or a model."""

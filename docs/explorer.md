@@ -1450,7 +1450,7 @@ so when a record is shorter.
 
 Discharge records in m3/s with a catchment area get a **Rainfall-runoff model**
 card. "Calibrate GR4J" fetches daily precipitation and FAO-56 ET0 at the gauge
-from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and HydroGym
+from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and AquaScope Bench
 use), converts the record to mm/d over the station's catchment area (agency,
 else BasinATLAS), and calibrates the four GR4J parameters by differential
 evolution (population 20, 40 generations, KGE on the first 65 % of the record
