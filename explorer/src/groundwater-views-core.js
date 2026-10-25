@@ -103,7 +103,7 @@ export function contourFeatures(block, unit = "", { drawdown = false } = {}) {
 /** Flow arrows as points with their bearing and size. */
 export function arrowFeatures(flow) {
   return ((flow && flow.arrows) || []).map((a) => ({
-    type: "Feature", properties: { b: a.bearing, s: Math.round(a.size * 0.6 * 100) / 100 },
+    type: "Feature", properties: { b: a.bearing, s: Math.round((0.5 + 0.45 * a.size) * 100) / 100 },
     geometry: { type: "Point", coordinates: [a.lon, a.lat] },
   }));
 }

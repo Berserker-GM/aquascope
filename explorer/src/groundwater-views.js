@@ -24,6 +24,9 @@ const L = {
 const VECTORS = ["zones", "paths", "contours", "arrows", "wells"];
 const ARROW = "gwv-arrow";
 const CELLS = "gw-model";       // groundwater-view.js's cell fill: see-through while the smooth surface is on
+const GRID = "gw-model-line";   // and its cell edges: only a hint, close in, over the smooth surface
+const GRID_OPACITY = ["interpolate", ["linear"], ["zoom"], 10, 0, 13, 0.35];
+const GRID_FAINT = ["interpolate", ["linear"], ["zoom"], 13, 0, 16, 0.18];
 
 let cur = null;                  // { model, mode, ref, v, key, busy, queued, url, ranges }
 let bound = false;
@@ -110,7 +113,13 @@ function ensureLayers() {
 function setVisible(on) {
   if (!state.mapOk || !map) return;
   for (const id of Object.values(L)) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", vis(on));
-  if (map.getLayer(CELLS)) map.setPaintProperty(CELLS, "fill-opacity", on && map.getLayer(L.smooth) ? 0 : 0.86);
+  cellsUnder(on && Boolean(map.getLayer(L.smooth)));
+}
+
+// The cells stay for the click and the card; under the smooth surface they are see-through and their edges faint.
+function cellsUnder(smooth) {
+  if (map.getLayer(CELLS)) map.setPaintProperty(CELLS, "fill-opacity", smooth ? 0 : 0.86);
+  if (map.getLayer(GRID)) map.setPaintProperty(GRID, "line-opacity", smooth ? GRID_FAINT : GRID_OPACITY);
 }
 
 function clearAll() {
@@ -118,7 +127,7 @@ function clearAll() {
   for (const k of VECTORS) if (map.getSource(L[k])) map.getSource(L[k]).setData(EMPTY_FC);
   if (map.getLayer(L.smooth)) map.removeLayer(L.smooth);
   if (map.getSource(L.smooth)) map.removeSource(L.smooth);
-  if (map.getLayer(CELLS)) map.setPaintProperty(CELLS, "fill-opacity", 0.86);
+  cellsUnder(false);
 }
 
 // ── the smooth surface ──────────────────────────────────────────────────────
@@ -158,7 +167,7 @@ async function paintSurface(model) {
   }
   if (cur.url) setTimeout(((old) => () => URL.revokeObjectURL(old))(cur.url), 1000);
   cur.url = url;
-  if (map.getLayer(CELLS)) map.setPaintProperty(CELLS, "fill-opacity", 0);
+  cellsUnder(true);
 }
 
 // ── asking Python, one request in flight ────────────────────────────────────
@@ -216,7 +225,7 @@ export function clearModelViews() {
 
 // ── the legend ──────────────────────────────────────────────────────────────
 
-function stepLabel(model) { return (t) => timeLabel(model.meta, t); }
+function stepLabel(model) { return (t) => String(timeLabel(model.meta, t)).replace("T", " "); }
 
 /** The ramp key the legend shows: the model's own for the head, the change ramp for the drawdown (else null, and
  * groundwater-view.js draws its head key). */
@@ -242,7 +251,7 @@ export function modelViewsBody(model) {
     const btns = [];
     if (model.t !== cur.ref) btns.push(`<button type="button" class="gw-link" data-act="gwv-ref-here">Measure from this step</button>`);
     if (Number.isInteger(d.suggested_reference) && d.suggested_reference !== cur.ref) {
-      btns.push(`<button type="button" class="gw-link" data-act="gwv-ref-best">from ${escapeHtml(timeLabel(model.meta, d.suggested_reference))}, when the wells' heads are highest</button>`);
+      btns.push(`<button type="button" class="gw-link" data-act="gwv-ref-best">from ${escapeHtml(stepLabel(model)(d.suggested_reference))}, when the wells' heads are highest</button>`);
     }
     if (cur.ref !== 0) btns.push(`<button type="button" class="gw-link" data-act="gwv-ref-first">from the first step</button>`);
     if (btns.length) html += `<p class="gw-line">${btns.join(" · ")}</p>`;

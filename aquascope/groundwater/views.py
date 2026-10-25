@@ -50,7 +50,7 @@ RING_PATHS = 24
 #: The most backward paths per well.
 MAX_PATHS = 480
 #: Pathlines drawn per well (a readable subset of the backward fan).
-PATHS_SHOWN = 14
+PATHS_SHOWN = 9
 #: The most wells found without a .wel file.
 MAX_FOUND = 12
 
@@ -646,8 +646,9 @@ def _fan(field: dict[str, np.ndarray], i: int, j: int, *, max_paths: int = MAX_P
 
 
 def _outline_rings(mask: np.ndarray, scale: int) -> list[list[tuple[float, float]]]:
-    """Closed outlines of a 0/1 mask on a grid ``scale`` times finer than the cells, in cell indexes."""
-    m = np.pad(mask.astype(float), 1)
+    """Closed outlines of a mask (0/1, or a smoothed 0 to 1) on a grid ``scale`` times finer than the cells, at
+    0.5, in cell indexes."""
+    m = np.pad(np.asarray(mask, float), 1)
     lines = _join(_segments(m, 0.5))
     rings = []
     for line in lines:
@@ -678,7 +679,7 @@ def _rasterise(paths: list[np.ndarray], nrow: int, ncol: int, scale: int) -> np.
 
 
 def capture_zones(field: dict[str, np.ndarray], wells: list[tuple[int, int]], plane: Plane, *,
-                  scale: int = 2) -> list[dict[str, Any]]:
+                  scale: int = 3) -> list[dict[str, Any]]:
     """Each pumping well's capture zone, from backward tracking: the area its backward paths sweep, outlined.
 
     ``wells``: 0-based (row, column) of the pumping wells in this layer. Returns per well {rings (lon/lat), area_km2,
@@ -702,7 +703,9 @@ def capture_zones(field: dict[str, np.ndarray], wells: list[tuple[int, int]], pl
         if keep:
             m = lab == keep
         rings = []
-        for ring in _outline_rings(m, scale):
+        # the outline of the swept area, softened by a third of a cell so it reads as a zone, not as pixels
+        soft = ndimage.gaussian_filter(m.astype(float), sigma=scale / 3)
+        for ring in _outline_rings(soft, scale):
             fi = np.array([p[0] for p in ring])
             fj = np.array([p[1] for p in ring])
             lon, lat = plane.lonlat(fi, fj)
