@@ -321,7 +321,7 @@ Not blocking:
 
 ### Round 2 fixes
 
-Two more pull requests take the remaining defects: **C** is this one, on `fix/ondevice-ask-labels-590`
+Two more pull requests take the remaining defects: **C** is #642 on `fix/ondevice-ask-labels-590`
 (the Ask panel, Ask the map, the context line, the device sessions), **D** is #641 on
 `fix/ondevice-roles-round2-590` (Explain, Scout, What if, the review). Each was tested with the
 recorded replies above as fixtures, in pytest and node, and C also in headless Chrome with a stubbed
