@@ -100,17 +100,6 @@ export const currentMesh = () => (mesh ? { meta: mesh.meta, arrays: mesh.arrays 
 /** A call to the mesh worker, where the file is open. */
 export const meshAsk = (type, payload = {}) => ask(type, payload);
 
-const clearedHooks = new Set();
-/** Run fn(name) when the model on the map is removed or replaced. */
-export function onMeshCleared(fn) { clearedHooks.add(fn); return () => clearedHooks.delete(fn); }
-
-let reviewSection = () => "";
-/** The review's part of the legend row (mesh-review.js sets it). */
-export function setReviewSection(fn) { reviewSection = fn; }
-
-/** Redraw the legend row (the review calls it when its result changes). */
-export function refreshMeshLegend() { if (mesh) refreshLegend("mesh"); }
-
 // ── for the section, the hydrograph and what gets flooded (#621, #622: flood-section.js, flood-exposure.js) ──
 
 const stepHooks = new Set();
@@ -127,6 +116,17 @@ export function addMeshTool(tool) { if (!meshTools.some((t) => t.id === tool.id)
 const cellHooks = new Set();
 /** Run fn(cell, cardId) when a cell's card opens. */
 export function onMeshCell(fn) { cellHooks.add(fn); return () => cellHooks.delete(fn); }
+
+const clearedHooks = new Set();
+/** Run fn(name) when the model on the map is removed or replaced. */
+export function onMeshCleared(fn) { clearedHooks.add(fn); return () => clearedHooks.delete(fn); }
+
+let reviewSection = () => "";
+/** The review's part of the legend row (mesh-review.js sets it). */
+export function setReviewSection(fn) { reviewSection = fn; }
+
+/** Redraw the legend row (the review calls it when its result changes). */
+export function refreshMeshLegend() { if (mesh) refreshLegend("mesh"); }
 
 /** The layer the review's cell flags go under: the arrows, so they stay readable on top. */
 export const meshFlagsBefore = () => (map && map.getLayer(ARROWS) ? ARROWS : beforeId());
@@ -625,13 +625,19 @@ function keyHtml() {
     `<div class="fd-ramp" role="img" aria-label="${escapeHtml(words)} from ${escapeHtml(String(scale.lo))} to ${escapeHtml(String(scale.hi))}${unit ? ` ${escapeHtml(unit)}` : ""}, light to deep blue" style="background:${rampCss()}"></div>` +
     `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit || "")}</em></div>` +
     velocity + notes +
-    `<p class="mv-actions">${meshTools.map((t) => `<button type="button" class="fd-go" data-act="tool:${escapeHtml(t.id)}" ` +
-      `title="${escapeHtml(t.title || "")}">${escapeHtml(t.label)}</button>`).join("")}${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
+    `<p class="mv-actions">${reviewBtn}${stepBtn}<button type="button" class="fd-go" data-act="zoom">Zoom to</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>` +
     `<p class="fd-src" title="${escapeHtml(meta.model)}, ${escapeHtml(meta.crs.label)}">${escapeHtml(modelShort(meta.model))} · ${escapeHtml(crsShort(meta.crs.label))} · ` +
     `stays in your browser</p>` +
     (mesh.sample ? `<p class="fd-src">${escapeHtml(mesh.sample.credit)} <a href="${escapeHtml(mesh.sample.link)}" ` +
-      `target="_blank" rel="noopener">Source</a></p>` : "") + reviewSection(meta.name);
+      `target="_blank" rel="noopener">Source</a></p>` : "") + reviewSection(meta.name) + toolsHtml();
+}
+
+// The tools other modules add (the section, what gets flooded: #621, #622), on a line of their own.
+function toolsHtml() {
+  if (!meshTools.length) return "";
+  return `<p class="mv-actions mv-tools"><span>Look closer</span>${meshTools.map((t) => `<button type="button" class="fd-go" ` +
+    `data-act="tool:${escapeHtml(t.id)}" title="${escapeHtml(t.title || "")}">${escapeHtml(t.label)}</button>`).join("")}</p>`;
 }
 
 // "NAD83 / Pennsylvania North (ftUS) (EPSG:2271)" -> "EPSG:2271"
