@@ -434,7 +434,7 @@ def test_daily_file_published_and_read_back(offline, tmp_path, monkeypatch):
     monkeypatch.setattr(ms, "load_gauges_today", lambda base=None: today)
     monkeypatch.setattr(ms, "load_skill", lambda base=None: [_skill("big", -0.6, 300.0)])
     info = ms.daily(tmp_path, places=False)
-    doc = json.loads((tmp_path / "scout" / "latest.json").read_text())
+    doc = json.loads((tmp_path / "scout" / "latest.json").read_text(encoding="utf-8"))
     assert info["picks"] == len(doc["picks"]) and (tmp_path / "scout" / f"{doc['date']}.json").exists()
     assert doc["inputs"]["status_month"] == "2026-09" and doc["counts"]["status"] == 2
     status = next(f for f in doc["findings"] if f["kind"] == "status" and f.get("side") == "much_above")
