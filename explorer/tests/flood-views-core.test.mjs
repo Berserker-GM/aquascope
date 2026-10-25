@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildingWords, clock, countsAt, exposureRows, exposureSummary, hoursWords, hydroKey, hydrographSvg, lengthWords, niceTicks,
+  buildingWords, clock, tickDigits, countsAt, exposureRows, exposureSummary, hoursWords, hydroKey, hydrographSvg, lengthWords, niceTicks,
   peopleWords, sectionHeading, sectionIndexAt, sectionLevels, sectionNote, sectionReadout, sectionSvg, sourceLines, wetAt, wetFilter,
 } from "../src/flood-views-core.js";
 
@@ -20,6 +20,18 @@ test("axis ticks are round and cover the range", () => {
   assert.deepEqual(niceTicks(0, 10, 5), [0, 2, 4, 6, 8, 10]);
   assert.deepEqual(niceTicks(257.3, 263.1, 4), [258, 260, 262]);
   assert.deepEqual(niceTicks(1, 1), [1]);
+});
+
+test("axis labels carry the decimals their step needs", () => {
+  assert.equal(tickDigits([0, 0.05, 0.1]), 2);
+  assert.equal(tickDigits([0, 0.5, 1]), 1);
+  assert.equal(tickDigits([0, 0.25, 0.5]), 2);
+  assert.equal(tickDigits([0, 2.5, 5]), 1);
+  assert.equal(tickDigits([258, 260, 262]), 0);
+  const svg = hydrographSvg({ ...HY, depth: [null, 0.04, 0.11, 0.08, null, null], peak: { ...HY.peak, depth: 0.11 } });
+  const labels = [...svg.matchAll(/class="fv-tick" x="29"[^>]*>([^<]+)</g)].map((m) => m[1]);
+  assert.ok(labels.length >= 3);
+  assert.equal(new Set(labels).size, labels.length);   // no two ticks read the same
 });
 
 test("words for lengths, hours and clock times", () => {

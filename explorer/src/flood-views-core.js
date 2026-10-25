@@ -21,6 +21,16 @@ export function niceTicks(lo, hi, n = 5) {
   return out;
 }
 
+/** The decimals an axis needs so its ticks read apart: 0.05 steps -> 2, 0.5 -> 1, 2.5 -> 1, 2 -> 0. */
+export function tickDigits(ticks) {
+  if (!ticks || ticks.length < 2) return 1;
+  const step = Math.abs(ticks[1] - ticks[0]);
+  if (!(step > 0)) return 1;
+  if (step >= 1) return Number.isInteger(Number(step.toFixed(6))) ? 0 : 1;
+  const d = Math.ceil(-Math.log10(step) - 1e-9);
+  return Math.min(4, Number.isInteger(Number((step * 10 ** d).toFixed(6))) ? d : d + 1);
+}
+
 /** A number for an axis or a line: no more digits than it needs. */
 export function num(x, digits) {
   if (x === null || x === undefined || !Number.isFinite(Number(x))) return "–";
@@ -112,10 +122,11 @@ export function sectionSvg(sec, { step = 0, view = "step", w = 640, h = 220, hov
   const yt = niceTicks(f.lo, f.hi, Math.max(3, Math.round((h - 50) / 38)));
   const xt = niceTicks(0, f.total, Math.max(3, Math.round((w - 70) / 90)));
   const km = f.total >= 2000;
+  const yd = tickDigits(yt);
   parts.push(...yt.map((v) => `<line class="fv-grid" x1="${f.pad.l}" x2="${w - f.pad.r}" y1="${r1(f.y(v))}" y2="${r1(f.y(v))}"/>` +
-    `<text class="fv-tick" x="${f.pad.l - 6}" y="${r1(f.y(v) + 3.5)}" text-anchor="end">${esc(num(v, Math.abs(v) >= 100 ? 0 : 1))}</text>`));
+    `<text class="fv-tick" x="${f.pad.l - 6}" y="${r1(f.y(v) + 3.5)}" text-anchor="end">${esc(num(v, yd))}</text>`));
   parts.push(...xt.map((v) => `<line class="fv-tickmark" x1="${r1(f.x(v))}" x2="${r1(f.x(v))}" y1="${bottom}" y2="${bottom + 4}"/>` +
-    `<text class="fv-tick" x="${r1(f.x(v))}" y="${bottom + 15}" text-anchor="middle">${esc(km ? num(v / 1000, 1) : num(v, 0))}</text>`));
+    `<text class="fv-tick" x="${r1(f.x(v))}" y="${bottom + 15}" text-anchor="middle">${esc(km ? num(v / 1000, tickDigits(xt.map((t) => t / 1000))) : num(v, 0))}</text>`));
   // the ground
   if (g) {
     for (const [a, b] of runs(g)) {
@@ -243,11 +254,12 @@ export function hydrographSvg(hy, { w = 304, h = 150, step = -1, unit = "m" } = 
   const bottom = h - pad.b;
   const parts = [];
   const yt = niceTicks(lo, hi, 4);
+  const yd = tickDigits(yt);
   for (const v of yt) {
     parts.push(`<line class="fv-grid" x1="${pad.l}" x2="${w - pad.r}" y1="${r1(y(v))}" y2="${r1(y(v))}"/>`);
-    parts.push(`<text class="fv-tick" x="${pad.l - 5}" y="${r1(y(v) + 3.5)}" text-anchor="end">${esc(num(v, Math.abs(v) >= 100 ? 0 : 1))}</text>`);
+    parts.push(`<text class="fv-tick" x="${pad.l - 5}" y="${r1(y(v) + 3.5)}" text-anchor="end">${esc(num(v, yd))}</text>`);
     if (hasDepth && Number.isFinite(hy.ground)) {
-      parts.push(`<text class="fv-tick fv-right" x="${w - pad.r + 5}" y="${r1(y(v) + 3.5)}">${esc(num(v + hy.ground, Math.abs(v + hy.ground) >= 100 ? 1 : 2))}</text>`);
+      parts.push(`<text class="fv-tick fv-right" x="${w - pad.r + 5}" y="${r1(y(v) + 3.5)}">${esc(num(v + hy.ground, Math.max(1, yd)))}</text>`);
     }
   }
   const tt = timeTicks(hours, hy.times, Math.max(3, Math.round((w - 80) / 55)));
