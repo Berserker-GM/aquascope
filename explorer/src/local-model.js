@@ -15,7 +15,9 @@
 // and the UI says "on your device, reduced tool set" rather than pretending it
 // is the same Analyst.
 
-import { askLoop, createSession, deviceAnswerHtml, samplingNote, samplingOptions } from "./ask-local-core.js?v=__BUILD__";
+import {
+  askLoop, createSession, deviceAnswerHtml, samplingNote, samplingOptions, sessionPool,
+} from "./ask-local-core.js?v=__BUILD__";
 
 export const LOCAL_TOOLS = [
   {
@@ -49,7 +51,11 @@ Reply with ONE JSON object and nothing else, either
 to call a tool, or
   {"answer": "<two or three sentences, with units and the station name>"}
 when you have enough. Never invent numbers: every figure must appear in a tool result.
-For a trend, copy the result's "reading" as it is. Write each gauge's id next to its own name.`;
+For a trend, copy the result's "reading" as it is. Write each gauge's id next to its own name.
+Give each number under its own label: Q95 is flow_duration.q95, the minimum is daily_values.min, an N-year
+flood is the return level for T_years N. Name the method of a flood figure (GEV or LP3).
+When the question asks for several gauges, answer with the list find_stations gave (names and ids):
+do not analyse one of them instead.`;
 
 const JSON_SCHEMA = {
   type: "object",
@@ -96,10 +102,11 @@ export async function loadLocalModel(onProgress = () => {}) {
     onProgress(willDownload
       ? "Downloading Chrome's built-in model (once)…"
       : "Starting Chrome's built-in model…");
-    // One base session holds the model warm and is never prompted; every question gets a clone of it (the
-    // system prompt and nothing else) and destroys it after, so no question can see another's tool results
-    // (#590: a later answer quoted an earlier question's Q10 and record start). A clone that fails falls back
-    // to a new session.
+    // One base session holds the model warm and is never prompted; every step of every question gets a clone
+    // of it (the system prompt and nothing else), prompts it once and destroys it, so no question can see
+    // another's tool results (#590: a later answer quoted an earlier question's Q10 and record start), and no
+    // session takes a second prompt (which failed with "kErrorUnknown" in 11 of 13 trials on the device). A
+    // clone that fails falls back to a new session.
     const LM = globalThis.LanguageModel;
     const sampling = await samplingOptions(LM, 0.2);
     const fresh = () => createSession(LM, { initialPrompts: [{ role: "system", content: SYSTEM }], ...sampling });
@@ -215,10 +222,13 @@ function withTimeout(promise, ms, controller) {
  * One reply from the on-device model as text: `system` and `prompt`, a JSON
  * `schema` the reply is constrained to where the runtime allows, `temperature`
  * where the runtime takes one (see samplingOptions: a web page in Chrome 155 cannot set it), and `timeoutMs` after which the caller gets an error and
- * falls back. Chrome's model gets a session of its own for this one call (Ask's
- * session, with its tool prompt, is not touched); WebLLM is used only when Ask
- * has already loaded it. Check `localModelReady()` first.
+ * falls back. Chrome's model gets a session of its own for this one call, cloned
+ * from a warm base session kept per system prompt (sessionPool; Ask's session,
+ * with its tool prompt, is not touched); WebLLM is used only when Ask has already
+ * loaded it. Check `localModelReady()` first.
  */
+let pool = null;
+
 export async function generateJsonLocally({ system, prompt, schema = null, temperature = 0.1, timeoutMs = 25000,
                                             onProgress = () => {} } = {}) {
   const controller = new AbortController();
@@ -227,10 +237,8 @@ export async function generateJsonLocally({ system, prompt, schema = null, tempe
     // Sampling as this Chrome accepts it (samplingOptions): topK and temperature in an extension, the
     // samplingMode word where the origin trial allows it, else Chrome's own.
     const LM = globalThis.LanguageModel;
-    const session = await createSession(LM, {
-      initialPrompts: [{ role: "system", content: system }],
-      ...(await samplingOptions(LM, temperature)),
-    });
+    if (!pool) pool = sessionPool(LM);
+    const session = await pool.open(system, await samplingOptions(LM, temperature));
     try {
       const opts = { signal: controller.signal };
       if (schema) opts.responseConstraint = schema;
@@ -254,7 +262,7 @@ export async function generateJsonLocally({ system, prompt, schema = null, tempe
 
 /**
  * Ask the local model, running tools through `callTool` (the worker, which returns the package's compact
- * result) and holding the answer to `lock` (the package's check). One fresh conversation per question.
+ * result) and holding the answer to `lock` (the package's check). One fresh conversation per step.
  * Returns { answer, toolCalls, results, lock, model } and reports each step through onEvent.
  */
 export async function askLocally(question, { callTool, lock, onEvent = () => {}, maxSteps = 3, context = "" } = {}) {

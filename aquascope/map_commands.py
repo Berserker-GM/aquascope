@@ -981,6 +981,12 @@ _EXPLAIN = re.compile(
     r"|(?:describe|summari[sz]e|walk me through)(?: (?:this|the|my))? (?:view|map|screen)(?: for me)?"
     r"|tell me about (?:this|the) (?:view|map|screen)"
     r"|tell me what i(?: a)?m? (?:see|seeing|looking at)"
+    # "tell me in plain words what this map is showing me" went to the device model, which flew to the selected
+    # gauge (#590 recheck): asking what the map shows, in any of these words, is the notes on the view.
+    r"|(?:tell me|explain|say)(?: in (?:plain|simple) (?:words|english|terms|language))?"
+    r" what (?:this|the|my) (?:map|view|screen) (?:is )?(?:show(?:s|ing)?|telling me|saying)(?: me)?"
+    r"(?: in (?:plain|simple) (?:words|english|terms|language))?"
+    r"|what(?: is|s) (?:this|the) (?:map|view|screen) (?:showing|telling me|saying)(?: me)?"
     r")")
 
 
@@ -990,13 +996,20 @@ _EXPLAIN = re.compile(
 _KINDS = r"(?:flood|hec ?-?ras|hecras|modflow|swmm|groundwater|hydraulic|2d|1d|river|catchment)"
 _MODEL_KIND = r"(?:" + _KINDS + r" )?"
 _MODEL_NOUN = _MODEL_KIND + r"(?:model(?: (?:results?|run|output))?|run|results?|mesh|output|simulation)"
+#: "Are the depths in my flood model realistic?" and "does this simulation look plausible to you?" did not reach the
+#: review on the device (#590 recheck), and the first flew to the Nile: these words are read here too.
+_VERDICT = (r"(?:look )?(?:right|ok|okay|sensible|plausible|correct|reasonable|realistic|believable|accurate|sane)"
+            r"(?: to you)?")
+_QUANTITY = (r"(?:water )?(?:depths?|velocit(?:y|ies)|speeds?|heads?|(?:water )?levels?|flows?|discharges?|"
+             r"values|numbers|results?|outputs?)")
 _REVIEW = re.compile(
     r"(?:please\s+|can you\s+|could you\s+)?(?:"
     r"(?:review|check|audit|validate|sanity check|inspect)(?: (?:my|the|this|these|over))?(?: " + _KINDS
     + r")?(?: model)?(?: (?:results?|run|mesh|output|simulation))?(?: for (?:me|errors|problems|mistakes))?(?: please)?"
-    r"|(?:does|do|is|are) (?:my|the|this|these) " + _MODEL_NOUN
-    + r" (?:look )?(?:right|ok|okay|sensible|plausible|correct|reasonable)"
-    r"|(?:is|are) (?:there )?(?:anything|something|any (?:problems?|issues?|errors?|mistakes?)) (?:wrong )?"
+    r"|(?:does|do|is|are) (?:my|the|this|these) " + _MODEL_NOUN + r" " + _VERDICT
+    + r"|(?:does|do|is|are) (?:my|the|this|these) " + _QUANTITY
+    + r"(?: (?:in|of|from|on) (?:my|the|this|these) " + _MODEL_NOUN + r")? " + _VERDICT
+    + r"|(?:is|are) (?:there )?(?:anything|something|any (?:problems?|issues?|errors?|mistakes?)) (?:wrong )?"
     r"(?:with|in) (?:my|the|this|these) " + _MODEL_NOUN
     + r"|what(?: is|s) wrong with (?:my|the|this) " + _MODEL_NOUN
     + r"|any (?:problems?|issues?|errors?|mistakes?) (?:with|in) (?:my|the|this|these) " + _MODEL_NOUN
@@ -1028,7 +1041,8 @@ def parse_command(text: str, today: str | date | None = None) -> dict[str, Any]:
         return {**out, "matched": True, "control": "undo_all", "rules": ["undo_all"]}
     if _EXPLAIN.fullmatch(folded.replace("'", "")):
         return {**out, "matched": True, "control": "explain", "rules": ["explain"]}
-    if _REVIEW.fullmatch(folded.replace("'", "")) and re.search(r"model|result|run|mesh|output|review", folded):
+    if _REVIEW.fullmatch(folded.replace("'", "")) and re.search(
+            r"model|result|run|mesh|output|review|simulation|depth|velocit|head", folded):
         return {**out, "matched": True, "control": "review", "rules": ["review"]}
 
     # The whole request first, then clause by clause: "Bosnia and Herzegovina" is one place.
@@ -1258,6 +1272,34 @@ EXAMPLES = (
 )
 
 
+def _example_shots(t: date) -> list[tuple[str, list[dict[str, Any]]]]:
+    """:data:`EXAMPLES` and their computed actions, each named place swapped for a stand-in.
+
+    "Are the depths in my flood model realistic?" flew to the Nile on the device (#590 recheck): the model took
+    the place from the example "trace the Nile to the sea". The examples now say <river>, <place> and <region>
+    where they named places, in the request and the reply alike, so they teach the shape and give no place.
+    """
+    out = []
+    for ex in EXAMPLES:
+        request = ex
+        acts = []
+        raw = [a for a in parse_command(ex, t)["actions"]]
+        rivers = {a.get("place") for a in raw if a["type"] == "highlight_river"}
+        for a in raw:
+            b = {k: v for k, v in a.items() if k not in ("river", "optional")}
+            if b.get("region") in REGIONS:
+                label = REGIONS[b["region"]]["label"]
+                request = re.sub(re.escape(label), "<region>", request, flags=re.I)
+                b = {"type": b["type"], "place": "<region>"}
+            elif b.get("place"):
+                stand_in = "<river>" if b["place"] in rivers else "<place>"
+                request = re.sub(r"\b" + re.escape(b["place"]) + r"\b", stand_in, request, flags=re.I)
+                b["place"] = stand_in
+            acts.append(b)
+        out.append((request, acts))
+    return out
+
+
 def model_prompt(context: str = "", today: str | date | None = None) -> dict[str, Any]:
     """The system prompt and the reply schema for a model that turns a request into map actions.
 
@@ -1268,11 +1310,7 @@ def model_prompt(context: str = "", today: str | date | None = None) -> dict[str
     layers = "; ".join(f"{k} ({v['label']})" for k, v in LAYERS.items())
     basemaps = "; ".join(f"{k} ({v['label']})" for k, v in BASEMAPS.items())
     classes = ", ".join(STATUS_IDS)
-    shots = []
-    for ex in EXAMPLES:
-        acts = [{k: v for k, v in a.items() if k not in ("river", "optional")}
-                for a in parse_command(ex, t)["actions"]]
-        shots.append(f"Request: {ex}\nReply: {json.dumps({'actions': acts})}")
+    shots = [f"Request: {ex}\nReply: {json.dumps({'actions': acts})}" for ex, acts in _example_shots(t)]
     lines = [
         "You control a world map of rivers. Turn the reader's request into map actions.",
         'Reply with ONE JSON object and nothing else: {"actions": [ ... ]}, '
@@ -1296,7 +1334,9 @@ def model_prompt(context: str = "", today: str | date | None = None) -> dict[str
         "",
         "Never invent numbers, data or places that were not asked for. "
         "Use place names as the reader wrote them; the map looks them up. Give a bbox or a center only when "
-        "the reader wrote its numbers.",
+        "the reader wrote its numbers. Name only places the request names: when it names none, move nothing.",
+        "In the examples, <river>, <place> and <region> stand for the names a request gives; they are not "
+        "places to go to.",
         'If the reader asks whether the model results on the map are right ("is anything wrong with my flood '
         'model?", "check my model"), reply {"actions": [], "control": "review"}. If they ask what the view '
         'shows ("what am I seeing?"), reply {"actions": [], "control": "explain"}.',
@@ -1339,8 +1379,9 @@ def ground_places(actions: Any, text: str) -> tuple[Any, list[str]]:
     bbox of its own, [15, 20, 30, 40], and the map flew there as if it were the answer. A bbox, center or
     lat/lon is kept only when the words hold its numbers; otherwise, in this order, the action keeps the place
     the model also named (the gazetteer looks it up), takes the extent of a region the words name, or takes its
-    label as a place when the words say it. Failing all three it is refused, with what is needed. Returns the
-    actions and the lines to show for what was replaced or refused.
+    label as a place when the words say it. Failing all three it is refused, with what is needed. A named place
+    the words do not name (the prompt's example river, a selected gauge from the context) is refused too.
+    Returns the actions and the lines to show for what was replaced or refused.
     """
     if isinstance(actions, dict):
         actions = actions.get("actions", [actions] if "type" in actions else [])
@@ -1376,7 +1417,33 @@ def ground_places(actions: Any, text: str) -> tuple[Any, list[str]]:
         else:
             notes.append(f"action {i + 1}: a {what} the model made up (the words name no place it could come "
                          "from); name a place or a region")
-    return out + actions[8:], notes
+    # A place the words do not name: "are the depths in my flood model realistic?" flew to and lit up the Nile,
+    # the example in the prompt (#590 recheck). Refused, as a made-up box is.
+    kept: list[Any] = []
+    for i, a in enumerate(out):
+        place = _text(a.get("place"), 80) if isinstance(a, dict) else None
+        if place and not _place_in_words(place, folded):
+            notes.append(f"action {i + 1}: {place}, a place the words do not name; name the place to go to")
+            continue
+        kept.append(a)
+    return kept + actions[8:], notes
+
+
+#: Words in a place's name that do not say which place it is.
+_PLACE_GENERIC = frozenset({"the", "and", "river", "rivers", "sea", "lake", "city", "basin", "region", "county",
+                            "state", "province", "district", "upon", "near", "of", "de", "la", "del", "der", "el"})
+
+
+def _place_in_words(place: str, folded_words: str) -> bool:
+    """Do the request's words (folded) name this place? "Rhine River" for "show the Rhine" does; "Nile" for
+    "are the depths in my flood model realistic?" does not."""
+    fp = _fold(place).strip()
+    if not fp:
+        return False
+    if re.search(r"(?<![a-z0-9])" + re.escape(fp) + r"(?![a-z0-9])", folded_words):
+        return True
+    words = [w for w in re.findall(r"[a-z0-9]+", fp) if len(w) >= 3 and w not in _PLACE_GENERIC]
+    return any(re.search(r"(?<![a-z0-9])" + re.escape(w) + r"(?![a-z0-9])", folded_words) for w in words)
 
 
 def parse_model_reply(reply: Any, today: str | date | None = None, text: str | None = None) -> dict[str, Any]:

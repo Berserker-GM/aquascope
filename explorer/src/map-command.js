@@ -93,11 +93,16 @@ async function byRules(text) {
 
 async function byDevice(text) {
   if (!(await localModelReady())) return null;
-  const prompt = await callLight("map_command", { op: "prompt", context: context(), today: todayIso() }, { priority: 3 });
-  const reply = await generateJsonLocally({ system: prompt.system, prompt: text, schema: prompt.schema, timeoutMs: 25000,
+  // The system prompt is the same for every request (the context goes with the words), so the warm session
+  // local-model.js keeps for it is cloned rather than a new one created each time (#590 recheck).
+  const prompt = await callLight("map_command", { op: "prompt", context: "", today: todayIso() }, { priority: 3 });
+  const ctx = context();
+  const reply = await generateJsonLocally({ system: prompt.system, schema: prompt.schema, timeoutMs: 25000,
+    prompt: ctx ? `${text}\n\nWhat the reader is looking at: ${ctx}` : text,
     onProgress: (m) => say(`<span class="spinner" aria-hidden="true"></span>${escapeHtml(m)}`) });
-  // The words go with the reply: a box or point the model made up, that the words do not hold, is replaced by
-  // the place or region they name, or refused (#590).
+  // The words go with the reply, without the context: a box or point the model made up, that the words do not
+  // hold, is replaced by the place or region they name, or refused; a place they do not name (the prompt's
+  // example river, the selected gauge) is refused (#590).
   const checked = await callLight("map_command", { op: "reply", reply, text, today: todayIso() }, { priority: 3 });
   return { ...checked, model: localReaderLabel() || "the on-device model" };
 }
