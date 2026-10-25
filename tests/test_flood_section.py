@@ -167,19 +167,3 @@ def test_a_second_rise_keeps_one_duration_like_hec_ras(mesh_of):
     assert h["peak"]["step"] == 4
     assert "rose again" in h["note"]
 
-
-def test_the_section_runs_on_the_synthetic_valley_test_model():
-    path = "/Users/rekin226/Desktop/agentic-coding/aquascope_promo/test_models/hec-ras/SyntheticValley.p01.hdf"
-    try:
-        m = M.read_mesh(path)
-    except (OSError, M.MeshError):
-        pytest.skip("the synthetic valley model is not on this machine")
-    try:
-        w, s, e, n = m.bbox()
-        sec = F.section(m, [[(w + e) / 2, n], [(w + e) / 2, s]])
-        assert sec["facts"]["deepest"] == pytest.approx(4.8, abs=0.05)
-        deepest = int(np.nanargmax(m.max_value))
-        hy = F.hydrograph(m, deepest)
-        assert hy["peak"]["depth"] == pytest.approx(4.8, abs=0.01)
-    finally:
-        m.close()

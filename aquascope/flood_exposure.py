@@ -466,45 +466,66 @@ def _peak(series: np.ndarray, times: list[str]) -> dict[str, Any]:
 
 
 def _road_pieces(roads: list[dict[str, Any]], idx: MeshIndex, spacing_m: float) -> list[dict[str, Any]]:
-    """Each road cut into stretches, one per cell it crosses: points every ``spacing_m`` along the line, each
-    short step given to the cell under its middle, and runs of steps in the same cell joined."""
-    pieces: list[dict[str, Any]] = []
-    all_mid_lon, all_mid_lat, owners = [], [], []
-    dens = []
-    lines = [(r, ln) for r, road in enumerate(roads) for part in road["parts"] for ln in part]
+    """Each road cut into stretches, one per cell it crosses: points every ``spacing_m`` along the line, and
+    where two neighbouring points fall in different cells, the crossing found by bisection (to a thousandth of
+    the spacing), so a stretch's length is its length inside its cell."""
+    lines = [(r, np.asarray(ln, dtype="f8")) for r, road in enumerate(roads) for part in road["parts"] for ln in part]
+    dens = []   # (road, lon, lat, distance)
     for r, line in lines:
-        if True:
-            if line.shape[0] < 2:
-                continue
-            lat0 = math.radians(float(line[:, 1].mean()))
-            x = np.radians(line[:, 0]) * math.cos(lat0) * 6371008.8
-            y = np.radians(line[:, 1]) * 6371008.8
-            cum = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
-            total = float(cum[-1])
-            if total <= 0:
-                continue
-            k = max(2, int(math.ceil(total / spacing_m)) + 1)
-            d = np.linspace(0.0, total, k)
-            lon = np.interp(d, cum, line[:, 0])
-            lat = np.interp(d, cum, line[:, 1])
-            dens.append((r, lon, lat, np.diff(d)))
-            all_mid_lon.append((lon[:-1] + lon[1:]) / 2)
-            all_mid_lat.append((lat[:-1] + lat[1:]) / 2)
-            owners.append(len(dens) - 1)
+        if line.ndim != 2 or line.shape[0] < 2:
+            continue
+        lat0 = math.radians(float(line[:, 1].mean()))
+        x = np.radians(line[:, 0]) * math.cos(lat0) * 6371008.8
+        y = np.radians(line[:, 1]) * 6371008.8
+        cum = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+        total = float(cum[-1])
+        if total <= 0:
+            continue
+        # the line's own vertices and points every spacing_m between them
+        d = np.union1d(cum, np.linspace(0.0, total, max(2, int(math.ceil(total / spacing_m)) + 1)))
+        dens.append((r, line, cum, d))
     if not dens:
-        return pieces
-    cells = idx.locate(np.concatenate(all_mid_lon), np.concatenate(all_mid_lat))
-    at = 0
-    for j, (r, lon, lat, seg) in enumerate(dens):
-        c = cells[at:at + seg.size]
-        at += seg.size
-        start = 0
-        for t in range(1, c.size + 1):
-            if t == c.size or c[t] != c[start]:
-                if c[start] >= 0:
-                    pieces.append({"road": r, "cell": int(c[start]), "length_m": float(seg[start:t].sum()),
-                                   "coords": np.stack([lon[start:t + 1], lat[start:t + 1]], 1)})
-                start = t
+        return []
+    lon = np.concatenate([np.interp(d, cum, ln[:, 0]) for _, ln, cum, d in dens])
+    lat = np.concatenate([np.interp(d, cum, ln[:, 1]) for _, ln, cum, d in dens])
+    cells = idx.locate(lon, lat)
+    sizes = np.array([d.size for *_, d in dens])
+    starts = np.concatenate([[0], np.cumsum(sizes)[:-1]])
+    # crossings: neighbouring points of the same line in different cells
+    same_line = np.ones(lon.size, bool)
+    same_line[starts[1:] - 1] = False
+    same_line[-1] = False
+    k = np.nonzero(same_line & (cells != np.roll(cells, -1)))[0]
+    owner = np.searchsorted(starts, k, side="right") - 1
+    d_all = np.concatenate([d for *_, d in dens])
+    lo, hi = d_all[k].copy(), d_all[k + 1].copy()
+    cell_lo = cells[k]
+    for _ in range(10):
+        mid = (lo + hi) / 2
+        mlon = np.array([np.interp(mid[j], dens[o][2], dens[o][1][:, 0]) for j, o in enumerate(owner)])
+        mlat = np.array([np.interp(mid[j], dens[o][2], dens[o][1][:, 1]) for j, o in enumerate(owner)])
+        same = idx.locate(mlon, mlat) == cell_lo if mid.size else np.zeros(0, bool)
+        lo = np.where(same, mid, lo)
+        hi = np.where(same, hi, mid)
+    cut = (lo + hi) / 2
+    cuts_of: dict[int, list[float]] = {}
+    for o, c in zip(owner.tolist(), cut.tolist()):
+        cuts_of.setdefault(o, []).append(c)
+    pieces: list[dict[str, Any]] = []
+    for j, (r, line, cum, d) in enumerate(dens):
+        c = cells[starts[j]:starts[j] + d.size]
+        bounds = [0.0] + cuts_of.get(j, []) + [float(d[-1])]
+        for a, b in zip(bounds[:-1], bounds[1:]):
+            if b - a <= 0:
+                continue
+            at = int(np.searchsorted(d, (a + b) / 2, side="right") - 1)
+            cell = int(c[min(at, c.size - 1)])
+            if cell < 0:
+                continue
+            inner = d[(d > a) & (d < b)]
+            dd = np.concatenate([[a], inner, [b]])
+            coords = np.stack([np.interp(dd, cum, line[:, 0]), np.interp(dd, cum, line[:, 1])], 1)
+            pieces.append({"road": r, "cell": cell, "length_m": float(b - a), "coords": coords})
     return pieces
 
 
