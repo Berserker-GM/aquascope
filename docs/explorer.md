@@ -656,8 +656,24 @@ heads** in the legend picks the layer, steps through the times with a slider, an
 the run with the time bar when the model has dates. The colours span the whole run, so a
 falling head looks like one. A click on a cell gives its row, column, layer and head.
 
+On a structured grid the row offers three ways to look, each following the layer and the
+time bar ([how they are computed](modflow.md#contours-flow-drawdown-and-capture-zones)):
+
+- **Head**: a smooth head surface with labelled contours (heavier every fifth) and arrows
+  for the direction groundwater flows, down the head gradient.
+- **Drawdown**: the change since a reference step, brown where the water table fell, with
+  rings around each well's cone. **Measure from this step** makes the step on show the
+  reference; when the wells' heads are highest at another step, the row offers it.
+- **Capture**: each pumping well's capture zone, shaded in its colour, with pathlines
+  showing where its water comes from.
+
+Wells come from a `.wel` file dropped with the model (the Freyberg sample brings its own),
+or are found in the heads where the drawdown peaks, and the row says which. A click on a
+well gives its row, column, layer, rate, drawdown and capture zone. These are streamlines
+of one step in one layer, not travel times: a head file holds no conductivity or porosity.
+
 The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPSG:27700]
-[--origin X Y] [--layer N] [--time I] [--geojson out.geojson]` and the MCP tool
+[--origin X Y] [--layer N] [--time I] [--geojson out.geojson] [--views] [--wel model.wel]` and the MCP tool
 `modflow_heads`. More in [MODFLOW heads on the map](modflow.md).
 
 ![On a phone: the head surface over England](img/globe/groundwater-phone.png)
@@ -1156,7 +1172,8 @@ installed and nothing is uploaded: the file is read in your browser.
 into the page and read like a dropped file, with their credit on the legend row:
 
 - **MODFLOW: the Freyberg model**, FloPy's transient example, from FloPy's GitHub repository
-  (USGS, public domain; CC0 1.0 outside the US). Its name file places it.
+  (USGS, public domain; CC0 1.0 outside the US). Its name file places it, and its well
+  file gives the six pumping wells for the drawdown and capture views.
 - **HEC-RAS 2D: compound flooding in Portsmouth, Virginia**, one plan result of Zanko
   Zandsalimi's GNN4CF dataset on HydroShare (CC BY 4.0), read from the Archive's copy
   (`samples/hec-ras/`, because HydroShare's storage does not let a web page fetch it). Until

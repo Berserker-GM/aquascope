@@ -4007,6 +4007,13 @@ def cmd_modflow(args: argparse.Namespace) -> None:
                              cell_size=(cell[0] if cell and len(cell) == 1 else cell), start_date=args.start_date,
                              time_units=args.time_units, sidecars=args.sidecar)
     out = modflow_summary(res, args.time, args.layer)
+    views = None
+    if (args.views or args.wel) and not res.get("error"):
+        from aquascope.groundwater.views import model_views, views_summary
+
+        ref = args.reference if args.reference in (None, "highest") else int(args.reference)
+        views = model_views(res, args.time, args.layer, reference=0 if ref is None else ref, wells=args.wel)
+        out["views"] = views_summary(views)
     if args.geojson and not res.get("error"):
         Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
     if args.json:
@@ -4024,10 +4031,39 @@ def cmd_modflow(args: argparse.Namespace) -> None:
         print(f"  layer {f['layer']}, {when}: heads {lo} on {f['cells_with_head']:,} cells")
         for note in out.get("notes") or []:
             print(f"  {note}")
+        if views is not None:
+            _print_modflow_views(out["views"])
         if args.geojson:
             print(f"  wrote {args.geojson}")
     if res.get("error"):
         sys.exit(1)
+
+
+def _print_modflow_views(v: dict) -> None:
+    if v.get("error"):
+        print(f"  views: {v['error']}")
+        return
+    unit = " m" if (v.get("length_unit") or "") in ("meters", "metres", "m") else ""
+    if v.get("head"):
+        print(f"  contours every {v['head']['step']:g}{unit} ({v['head']['levels']} lines)")
+    fl = v.get("flow") or {}
+    if fl.get("towards"):
+        print(f"  flow mostly to the {fl['towards']} ({fl['bearing']:g} degrees), median gradient {fl['gradient']:.2g}")
+    dd = v.get("drawdown") or {}
+    if dd:
+        print(f"  drawdown from step {dd['reference']}" + (f" (wells' heads highest at step {dd['suggested_reference']})"
+                                                           if dd.get("suggested_reference") is not None else ""))
+    print(f"  wells {v.get('wells_how', '')}")
+    zones = {c["well"]: c["area_km2"] for c in v.get("capture") or []}
+    for w in v.get("wells") or []:
+        bits = [f"row {w['model_row']}, column {w['model_col']}, layer {w['layer']}",
+                "pumping" if w.get("pumping") else "not pumping"]
+        if w.get("drawdown") is not None:
+            bits.append(f"drawdown {w['drawdown']:g}{unit}")
+        if w["id"] in zones:
+            bits.append(f"capture zone {zones[w['id']]:g} km2")
+        print(f"    {w['id']}: " + ", ".join(bits))
+    print(f"  {v.get('limits', '')}")
 
 
 def _print_groundwater_surface(res: dict) -> None:
@@ -5529,6 +5565,12 @@ def main() -> None:
     p_mf.add_argument("--time", type=int, default=-1, help="Which time step (index, default the last)")
     p_mf.add_argument("--layer", type=int, default=None, help="Which layer (1-based, default the first)")
     p_mf.add_argument("--geojson", default=None, help="Write that time and layer's cells with their head here")
+    p_mf.add_argument("--views", action="store_true", help="Also contours, flow direction, drawdown, wells and "
+                      "capture zones for that time and layer (#623, #624)")
+    p_mf.add_argument("--wel", default=None, help="The model's well file (.wel, MODFLOW-2005 or 6), for --views; "
+                      "without it the wells are found in the heads")
+    p_mf.add_argument("--reference", default=None, help="For --views: the step drawdown is measured from (index, "
+                      "default 0), or 'highest' for the step when the wells' heads are highest")
     p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────
