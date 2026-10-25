@@ -1376,9 +1376,9 @@ def daily(out: str | Path, *, base: str = ARCHIVE_BASE, warnings_dir: str | Path
         root = Path(warnings_dir) / "forecasts" / "warnings"
         root = root if root.exists() else Path(warnings_dir)
         if (root / "latest.geojson").exists():
-            warnings = json.loads((root / "latest.geojson").read_text())
+            warnings = json.loads((root / "latest.geojson").read_text(encoding="utf-8"))
             mpath = root / "manifest.json"
-            warnings["manifest"] = json.loads(mpath.read_text()) if mpath.exists() else {}
+            warnings["manifest"] = json.loads(mpath.read_text(encoding="utf-8")) if mpath.exists() else {}
             if warnings["manifest"].get("smoke"):
                 warnings = None   # a smoke run is never the day's issue
     res = scan(None, None, max_pins=MAX_PINS, warnings=warnings, places=False, base=base, top=top)
@@ -1458,7 +1458,7 @@ def publish(out: str | Path, *, repo_id: str = DEFAULT_REPO, token: str | None =
     from aquascope.archive.publish import publish_folder
 
     src = _publish_src(out)
-    doc = json.loads((src / "latest.json").read_text())
+    doc = json.loads((src / "latest.json").read_text(encoding="utf-8"))
     message = f"scout: {doc['date']}"
     with tempfile.TemporaryDirectory() as tmp:
         stage = Path(tmp) / FOLDER
