@@ -203,6 +203,7 @@ async function fetchViews(model) {
 
 /** Draw the views for the model's step and layer (called by groundwater-view.js whenever it repaints the cells). */
 export async function updateModelViews(model, { shown = true } = {}) {
+  if (model && !structured(model) && cur) { clearModelViews(); return; }   // an unstructured grid: the cells only
   const ready = model && structured(model) && ensureLayers();
   if (!ready) return;
   viewsFor(model);

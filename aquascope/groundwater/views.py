@@ -692,14 +692,40 @@ def capture_zones(field: dict[str, np.ndarray], wells: list[tuple[int, int]], pl
     act_sub = np.kron(active, np.ones((scale, scale), bool))
     sub_area = np.kron(plane.area, np.ones((scale, scale))) / scale ** 2
     out = []
+    fans = []
     for i, j in wells:
         _angles, paths = _fan(field, i, j)
-        m = _rasterise(paths, nrow, ncol, scale)
-        m[i * scale:(i + 1) * scale, j * scale:(j + 1) * scale] = True
-        m = ndimage.binary_closing(m, structure=np.ones((3, 3), bool), iterations=1) | m
-        m = ndimage.binary_fill_holes(m) & act_sub
+        raw = _rasterise(paths, nrow, ncol, scale)
+        raw[i * scale:(i + 1) * scale, j * scale:(j + 1) * scale] = True
+        fans.append((paths, raw))
+    masks = []
+    for raw in (r for _p, r in fans):
+        m = ndimage.binary_closing(raw, structure=np.ones((3, 3), bool), iterations=2) | raw
+        # fill the small gaps the paths leave, never a hole the size of another well's zone
+        holes, nh = ndimage.label(ndimage.binary_fill_holes(m) & ~m)
+        if nh:
+            sizes = ndimage.sum(np.ones_like(holes), holes, index=np.arange(1, nh + 1))
+            m |= np.isin(holes, 1 + np.nonzero(sizes <= 2 * scale * scale)[0])
+        masks.append(m & act_sub)
+    if len(masks) > 1:
+        # water goes to one well: where two wells' swept areas overlap (their paths hug a divide), a particle
+        # tracked forward from that spot says which well it reaches
+        stack = np.stack(masks)
+        clash = stack.sum(axis=0) > 1
+        if clash.any():
+            a, b = np.nonzero(clash)
+            sinks = np.zeros((nrow, ncol), int)
+            for n, (wi, wj) in enumerate(wells, start=1):
+                sinks[wi, wj] = n
+            dest = np.array(track(field, np.stack([(a + 0.5) / scale - 0.5, (b + 0.5) / scale - 0.5], axis=1),
+                                  sinks=sinks)["well"])
+            for n in range(len(masks)):
+                masks[n][a, b] = dest == n + 1
+    for k, (i, j) in enumerate(wells):
+        paths = fans[k][0]
+        m = masks[k]
         lab, _n = ndimage.label(m)
-        keep = lab[i * scale, j * scale]
+        keep = lab[i * scale + scale // 2, j * scale + scale // 2]
         if keep:
             m = lab == keep
         rings = []

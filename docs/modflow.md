@@ -121,6 +121,8 @@ the geometry in lon/lat. The Explorer draws it; the CLI prints it.
   in a pumping well's cell; backward tracking from a ring around each well traces where
   its water comes from, filling in the fan where neighbouring paths drift apart, and the
   area those backward paths sweep is the well's capture zone, outlined, with its area.
+  Where two wells' swept areas overlap (their paths hug the divide between them), a
+  particle tracked forward from that spot decides which well it belongs to.
 
 What these are not: a head file holds no hydraulic conductivity, porosity or vertical
 flow, so the lines are streamlines of one step in one layer, not travel times, and water
