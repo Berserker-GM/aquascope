@@ -140,11 +140,28 @@ _KINDS = (
     ("demand_cms", r"\b(?:demand|abstract\w*|withdraw\w*|irrigat\w*|pump\w*|tak(?:e|en|ing)|extract\w*|divert\w*|"
                    r"draw\w*|use[sd]?)\b|m3/s|cumecs|\bl/s\b"),
 )
-_NUMBER = re.compile(r"(?P<sign>[+-])?\s*(?P<n>\d+(?:\.\d+)?)")
+# A number, not the digit of a unit or a name ("m3/s", "et0").
+_NUMBER = re.compile(r"(?<![a-z\d.])(?P<sign>[+-])?\s*(?P<n>\d+(?:\.\d+)?)")
 _FILLER = frozenset("""what if a an the of in on by with and than to for at this basin river catchment here there
     it is be was were would if please scenario per cent percent c degree degrees celsius m3 s cumecs l year years
     every each all over across more less climate future scenario world catchments flows flow gets get got becomes
     become turns goes go rains rained""".split())
+
+
+# Numbers in words, two to twenty and the tens: "three degrees" is 3 degrees. "One" counts only before a unit
+# ("one degree"): elsewhere it is mostly a pronoun ("a hotter one"), and "one fifth" is read by _FRACTIONS.
+_WORD_NUMBERS = {w: i for i, w in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+    "seventeen eighteen nineteen twenty".split()) if w != "one"}
+_WORD_NUMBERS.update({"thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
+                      "ninety": 90, "hundred": 100, "a hundred": 100, "one hundred": 100,
+                      "one": 1})
+_WORD_NUMBER = re.compile(r"\b(?:" + "|".join(sorted(map(re.escape, (w for w in _WORD_NUMBERS if w != "one")),
+                                                     key=len, reverse=True))
+                          + r"|one(?=\s*(?:degrees?\b|°|%|m3/s|l/s)))\b(?!\s+(?:tenths?|fifths?|quarters?|thirds?)\b)")
+# Litres (or liters) per second, however written, is l/s; cubic metres per second is m3/s.
+_PER_SECOND = re.compile(r"\b(?:litres?|liters?|l)\s*(?:per|a|/)\s*(?:second|sec|s)\b|\blps\b")
+_CUMECS = re.compile(r"\bcubic\s+met(?:re|er)s?\s*(?:per|a|/)\s*(?:second|sec|s)\b")
 
 
 def _normalise(text: str) -> str:
@@ -152,6 +169,9 @@ def _normalise(text: str) -> str:
     for a, b in (("−", "-"), ("–", "-"), ("m³/s", " m3/s"), ("m^3/s", " m3/s"), ("º", "°"), ("℃", "°c"),
                  ("percent", "%"), ("per cent", "%")):
         t = t.replace(a, b)
+    t = _CUMECS.sub(" m3/s", t)
+    t = _PER_SECOND.sub(" l/s", t)
+    t = _WORD_NUMBER.sub(lambda m: str(_WORD_NUMBERS[re.sub(r"\s+", " ", m.group(0))]), t)
     return re.sub(r"\s+", " ", t).strip(" .!?")
 
 
@@ -346,6 +366,31 @@ def model_scenario(text: str, *, provider: str | None = None, model: str | None 
 # ── the basin and the way down ───────────────────────────────────────────────
 
 
+def _too_large(basin_km2: float) -> str | None:
+    """Why a basin of ``basin_km2`` is too large for :func:`whatif`, or None (:data:`MAX_BASIN_KM2`)."""
+    if not basin_km2 > MAX_BASIN_KM2:
+        return None
+    return (f"{basin_km2:,.0f} km2 drain to this reach: one ERA5 cell at the centre cannot stand for the weather of "
+            f"a basin that size (the limit here is {MAX_BASIN_KM2:,.0f} km2). Pick a reach on a tributary or further "
+            "upstream.")
+
+
+def _basin_check(river_id: int | str, lat: float | None = None, lon: float | None = None) -> dict[str, Any]:
+    """The area that drains to a reach and whether :func:`whatif` can run there, before any calibration:
+    ``{"river_id", "area_km2", "max_km2", "ok", "error"}``. The Explorer asks this when "What if..." opens, so a
+    reach over the limit says why at once instead of failing on Run (#590). It reads the same routing tables."""
+    from aquascope import rivers
+
+    rid = rivers._river_id(river_id)
+    net = rivers._network_for(rid, lat, lon)
+    i = net.index(rid)
+    if i is None:
+        raise LookupError(f"reach {rid} is not in its routing tables")
+    km2 = round(_drainage_m2(net, i) / 1e6, 2)
+    why = _too_large(km2)
+    return {"river_id": rid, "area_km2": km2, "max_km2": MAX_BASIN_KM2, "ok": why is None, "error": why}
+
+
 def _drainage_m2(net: Any, i: int) -> float:
     """The drainage area (m2) of reach index ``i``: its unit catchment and everything upstream."""
     import numpy as np
@@ -538,10 +583,9 @@ def whatif(
                     "lon": _round(snap["snap_lon"] if snap else lon, 5)}
     if snap:
         out["snap"] = {k: snap.get(k) for k in ("distance_m", "strahler_order", "choice", "message")}
-    if basin_km2 > MAX_BASIN_KM2:
-        out["error"] = (f"{basin_km2:,.0f} km2 drain to this reach: one ERA5 cell at the centre cannot stand for the "
-                        f"weather of a basin that size (the limit here is {MAX_BASIN_KM2:,.0f} km2). Pick a reach on "
-                        "a tributary or further upstream.")
+    too_large = _too_large(basin_km2)
+    if too_large:
+        out["error"] = too_large
         out["basin"] = {"area_km2": basin_km2}
         return out
     if centre is None:

@@ -1029,16 +1029,35 @@ _NUMBER_WORDS = re.compile(
     r"deepest|most|least|unprecedented)\b", re.I)
 
 
+def slots_back(words: str, slots: dict[str, str]) -> str:
+    """``words`` with each slot's exact value, where it is written out whole, put back as its placeholder
+    ("in September 2026" becomes "in {month}" when ``month`` is "September 2026"). The longest values go first,
+    text inside a placeholder is left alone, and a value inside a longer number ("2026" in "20265") is not
+    touched. The filled text is the same either way: this only spares a correct wording the lock's refusal."""
+    values = sorted(((str(v).strip(), k) for k, v in slots.items() if str(v or "").strip()), key=lambda x: -len(x[0]))
+    if not values:
+        return words
+    parts = re.split(r"(\{\w+\})", words)
+    for value, name in values:
+        pat = re.compile(r"(?<![\w.,])" + re.escape(value) + r"(?![\w]|[.,]\d)", re.I)
+        parts = [p if p.startswith("{") else pat.sub("{" + name + "}", p) for p in parts]
+        parts = re.split(r"(\{\w+\})", "".join(parts))
+    return "".join(parts)
+
+
 def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | None, str | None]:
     """A model's title or reason, held to the slots: the filled text, or None and why it was refused. Any digit,
     percent sign, number word or superlative outside a ``{slot}`` refuses it (those claims are the code's), and so
     does a sign set against a slot ("-{peak}", "minus {area}"), the check Explain and mesh review share
     (:func:`aquascope.map_explain.placeholder_touches`)."""
-    from aquascope.map_explain import placeholder_touches
+    from aquascope.map_explain import drop_repeats, placeholder_touches
 
     raw = re.sub(r"\s+", " ", str(text or "")).strip()
     if not raw:
         return None, "empty"
+    # A slot's exact value written out ("September 2026" for {month}) is that slot: it goes back to its
+    # placeholder before the checks, so a correct wording is not refused for spelling a value out.
+    raw = slots_back(raw, slots)
     touch = placeholder_touches(raw)
     if touch:
         return None, f"a sign or a digit against a slot ({', '.join(touch)})"
@@ -1051,7 +1070,8 @@ def check_wording(text: str, slots: dict[str, str], limit: int) -> tuple[str | N
     numeric = any(c in "%‰" or unicodedata.numeric(c, None) is not None for c in bare)
     if numeric or _NUMBER_WORDS.search(bare) or "{" in bare or "}" in bare:
         return None, "a number or a ranking word outside the slots"
-    filled = re.sub(r"\{(\w+)\}", lambda m: slots[m.group(1)], raw)
+    filled = drop_repeats(raw, re.compile(r"\{(\w+)\}"), lambda m: slots[m.group(1)])
+    filled = re.sub(r"\{(\w+)\}", lambda m: slots[m.group(1)], filled)
     filled = re.sub(r"\s+", " ", filled).strip()
     if len(filled) > limit:
         return None, "too long"
@@ -1098,22 +1118,46 @@ def _reply_json(reply: Any) -> Any:
         return None
 
 
+def _loose_id(fid: Any) -> str:
+    return re.sub(r"[^0-9a-z]", "", str(fid).lower())
+
+
 def apply_wording(findings: list[dict[str, Any]], reply: Any, *, max_pins: int = MAX_PINS,
                   by: str = "model") -> dict[str, Any]:
     """Hold a model's reply to the claim lock: ``{"findings", "refused", "ordered"}``. The model's order is kept
     for the ids it knows (the rules order fills the rest); each title and reason that passes
-    :func:`check_wording` replaces the template, the others keep it and are listed in ``refused``."""
+    :func:`check_wording` replaces the template, the others keep it and are listed in ``refused``. An id the
+    model wrote with other punctuation still finds its finding, and the findings it left out of its order
+    follow in the rules' order (up to ``max_pins``), so none is dropped."""
     data = _reply_json(reply)
     byid = {f["id"]: f for f in findings}
     refused: list[str] = []
     if not isinstance(data, dict):
         return {"findings": [dict(f) for f in findings[:max_pins]], "refused": ["the model did not reply with JSON"],
                 "ordered": False}
-    order = [i for i in dict.fromkeys(str(x) for x in data.get("order") or []) if i in byid][:max_pins]
+    # An id the model wrote with other punctuation ("2026-09-1" for "2026-09:1") still finds its finding,
+    # when only one finding reads that way.
+    loose: dict[str, list[str]] = {}
+    for f in findings:
+        loose.setdefault(_loose_id(f["id"]), []).append(f["id"])
+
+    def known(x: Any) -> str | None:
+        x = str(x)
+        if x in byid:
+            return x
+        same = loose.get(_loose_id(x)) or []
+        return same[0] if len(same) == 1 else None
+
+    order = [i for i in dict.fromkeys(known(x) for x in data.get("order") or []) if i][:max_pins]
     ordered = bool(order)
-    if not order:
-        order = [f["id"] for f in findings[:max_pins]]
-    notes = {str(n.get("id")): n for n in data.get("notes") or [] if isinstance(n, dict)}
+    # The findings the model left out follow in the rules' order: none is dropped for a missing or mangled id.
+    order += [f["id"] for f in findings if f["id"] not in order]
+    order = order[:max_pins]
+    notes: dict[str, Any] = {}
+    for n in data.get("notes") or []:
+        fid = known(n.get("id")) if isinstance(n, dict) else None
+        if fid and fid not in notes:
+            notes[fid] = n
     out = []
     for rank, fid in enumerate(order, 1):
         f = {**byid[fid], "slots": dict(byid[fid]["slots"]), "rank": rank}

@@ -592,15 +592,38 @@ def test_explorer_check_labels_and_worker_ops_match():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "explorer"
-    js = (root / "src" / "mesh-review-core.js").read_text()
+    js = (root / "src" / "mesh-review-core.js").read_text(encoding="utf-8")
     block = re.search(r"export const CHECK_LABELS = \{(.*?)\};", js, re.S).group(1)
     assert dict(re.findall(r'(\w+): "([^"]+)"', block)) == R.CHECKS
     sev = re.search(r"export const SEVERITY = \{(.*?)\n\};", js, re.S).group(1)
     assert re.findall(r"^  (\w+):", sev, re.M) == list(R.SEVERITIES)
-    mesh_worker = (root / "src" / "mesh-worker.js").read_text()
+    mesh_worker = (root / "src" / "mesh-worker.js").read_text(encoding="utf-8")
     for call in ("gauges_inside", "_review.review(", "review_prompt", "apply_words"):
         assert call in mesh_worker
-    worker = (root / "worker.js").read_text()
+    worker = (root / "worker.js").read_text(encoding="utf-8")
     assert '"mesh_review"' in re.search(r"const LITE_TYPES = new Set\(\[([^\]]*)\]\)", worker).group(1)
     for call in ("gather_floods", "gauge_series", "model_words"):
         assert f"_mr.{call}(" in worker
+
+
+def test_a_count_is_said_under_its_own_threshold(mesh_of):
+    # On the device the review read "8 cells ... (< 0.0269 m)": both numbers are facts, but the 8 cells are those
+    # under 0.03 m and 0.0269 m is one cell's largest depth (#590).
+    d = clean_depths()
+    for r in (1, 2, 3):
+        d[3, cell(r, WET_COLS)] = 0.02
+    m = mesh_of(d)
+    res = R.review(m, context=clean_context(m))
+    film = found(res, "tiny")[0]
+    ids = {x["label"]: x["id"] for x in film["facts"]}
+    largest, count, limit = ids["Largest depth"], ids["Cells wetted only by a film"], ids["A film is shallower than"]
+    assert next(x for x in film["facts"] if x["id"] == limit)["shown"] == "0.03"
+    bad = {"id": film["id"], "title": "Only a film",
+           "reason": f"{{{count}}} cells are wetted only by a film (< {{{largest}}} m)."}
+    out = R.apply_words(res["findings"], {"order": [], "notes": [bad]})
+    assert out["refused"] and "the count is of those under 0.03" in out["refused"][0]
+    good = {"id": film["id"], "title": "Only a film",
+            "reason": f"{{{count}}} cells stay under {{{limit}}} m; this one never gets deeper than {{{largest}}} m."}
+    out = R.apply_words(res["findings"], {"order": [], "notes": [good]}, by="device")
+    kept = next(f for f in out["findings"] if f["id"] == film["id"])
+    assert not out["refused"] and kept["by"] == "device" and "3 cells stay under 0.03 m" in kept["reason"]

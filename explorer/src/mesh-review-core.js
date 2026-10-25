@@ -65,11 +65,33 @@ export function reviewWho(by, model = "") {
   return ["Rules", "checks by code, no model"];
 }
 
-/** The line itself: the package's summary, and how many pins. */
-export function reviewLine(res, n) {
+/** The line itself: the file reviewed (#590), the package's summary, and how many pins. */
+export function reviewLine(res, n, name = "") {
   const summary = (res && res.summary) || "";
-  if (!n) return `${summary} No pin to drop.`.trim();
-  return `${summary} ${n} pin${n === 1 ? "" : "s"}, most severe first.`.trim();
+  const head = name ? `${name}: ` : "";
+  if (!n) return `${head}${summary} No pin to drop.`.trim();
+  return `${head}${summary} ${n} pin${n === 1 ? "" : "s"}, most severe first.`.trim();
+}
+
+const overlaps = (a, b) => Boolean(a && b) && a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1];
+
+/**
+ * Which model result the review is about (#590): the one on screen, and among several the one shown last. The
+ * review reads HEC-RAS 2D and UGRID meshes; a MODFLOW model on screen is not one it covers, and an older mesh
+ * off screen is not reviewed in its place. `mesh` and `modflow` are { name, bbox, openedAt, visible } or null,
+ * `view` the map's [w, s, e, n]. Returns { review: true, name } or { review: false, line }.
+ */
+export function reviewTarget({ mesh = null, modflow = null, view = null } = {}) {
+  const seen = (m) => Boolean(m) && m.visible !== false && (!view || overlaps(m.bbox, view));
+  const meshSeen = seen(mesh), flowSeen = seen(modflow);
+  const newer = (a, b) => (Number(a && a.openedAt) || 0) >= (Number(b && b.openedAt) || 0);
+  if (mesh && (meshSeen && (!flowSeen || newer(mesh, modflow)))) return { review: true, name: mesh.name };
+  if (modflow && flowSeen) {
+    const elsewhere = mesh ? ` ${mesh.name} is loaded but not in view: move to it, or use “Review these results” on its legend row.` : "";
+    return { review: false, line: `${modflow.name} (MODFLOW heads) is the model on screen: the review reads HEC-RAS 2D and UGRID meshes, not MODFLOW heads.${elsewhere}` };
+  }
+  if (mesh) return { review: false, line: `${mesh.name} is not in view: move to it, or use “Review these results” on its legend row.` };
+  return { review: false, line: "No model result on the map to review. Drop a HEC-RAS plan or a UGRID NetCDF file on the map first." };
 }
 
 /** One short row per check, for the legend: its label, what happened, and the package's line. */

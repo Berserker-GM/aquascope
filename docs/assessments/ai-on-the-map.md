@@ -137,8 +137,8 @@ Console: no errors from the AI roles; two MapLibre missing-sprite warnings.
 ## The defects and where they were fixed
 
 Two pull requests fix them: **A** is #639 on `fix/ondevice-ask-590` (the Ask panel, Ask the map,
-the sampling and the Studio brief), **B** is `fix/ondevice-roles-590` (Scout, Explain, What
-if, the review and the map card). Neither was checked on a real on-device model after the
+the sampling and the Studio brief), **B** is #640 on `fix/ondevice-roles-590` (Scout, Explain, What
+if and the review). Neither was checked on a real on-device model after the
 fix: headless Chrome has none, so each fix is covered by tests that use the recorded model
 replies above.
 
@@ -147,21 +147,31 @@ replies above.
 | 1 | `explorer/src/local-model.js` `loadLocalModel`, `askLocally` | one Prompt API session served every question, so earlier tool results answered later questions | A: one base session, never prompted; each question gets a clone of it (or a new session) and destroys it after |
 | 2 | `local-model.js` `askLocally` | the tool result was cut at 3,000 characters, so the trend and flood frequency never reached the model | A: `aquascope.ai_engine.device_ask.compact_result` keeps the record, daily statistics, FDC points, return levels with their interval and the trend with its reading in words, and drops series and citations |
 | 3 | `explorer/src/ask.js` `runLocally`, `local-model.js` `localAnswerHtml` | no claim lock on the on-device answer | A: `device_ask.lock_answer` holds every number, date, Q label and gauge id to this question's results (rounding allowed), checks that an id sits next to its own gauge's name and that trend words agree with the Mann-Kendall result; a refused answer is replaced by the tools' facts and one line saying why |
-| 4 | `aquascope/map_scout.py` `apply_wording` | findings the model left out of its order were dropped | B |
-| 5 | `map_scout.py` `check_wording` | a correct year written out ("September 2026") was refused | B |
-| 6 | `explorer/src/map-explain.js` `explainView` | when every device note was refused, the line said "Rules, no model" | B |
-| 7 | `aquascope/map_explain.py` | values said twice, prompt text copied into notes | B |
-| 8 | `aquascope/whatif_map.py` | "litres per second" and number words not read | B |
-| 9 | `explorer/src/whatif-map.js` `readLine` | the device's refusal not shown; the hint suggests the model just used | B |
-| 10 | `whatif-map.js`, `whatif_map.parse_scenario` | a partial rules match dropped a clause in silence | B |
-| 11 | `whatif-map.js` `readLine` | about 20 s before the device is called | B |
+| 4 | `aquascope/map_scout.py` `apply_wording` | findings the model left out of its order were dropped | B: they follow in the rules' order up to `max_pins`, and an id written with other punctuation ("2026-09-1" for "2026-09:1") still finds its finding when only one reads that way |
+| 5 | `map_scout.py` `check_wording` | a correct year written out ("September 2026") was refused | B: `slots_back` puts a slot's exact value back into its `{slot}` before the checks; another month or year is still refused, and so is a sign against the written value |
+| 6 | `explorer/src/map-explain.js` `explainView` | when every device note was refused, the line said "Rules, no model" | B: the line says the model's wording was refused and lists the refusals (`map-actions-core.js` `explainWho`) |
+| 7 | `aquascope/map_explain.py` | values said twice, prompt text copied into notes | B: `drop_repeats` writes a value once ("54% (54%)", "km² km²"; Scout and the review fill through it too); the prompt no longer offers "a point on the map", and a sentence that only copies the prompt is dropped |
+| 8 | `aquascope/whatif_map.py` | "litres per second" and number words not read | B: litres or liters per second, l/s, L/s, cubic metres per second and number words are read ("one" only before a unit); Nano's 0.3 m³/s and +3 °C pass, and the digit in "m3/s" no longer counts as a number said |
+| 9 | `explorer/src/whatif-map.js` `readLine` | the device's refusal not shown; the hint suggests the model just used | B: the line names the model and its reasons, and the hint names only a way not yet tried (`whatif-core.js` `notReadLine`) |
+| 10 | `whatif-map.js`, `whatif_map.parse_scenario` | a partial rules match dropped a clause in silence | B: the clause in the run was read by the rules but dropped by the sliders (evaporation has none); it now goes with the run and is said. When the rules read only part of a line and no model reads it, the line names the words not read and nothing runs |
+| 11 | `whatif-map.js` `readLine` | about 20 s before the device is called | B, in part: the rules' reading and the device prompt are one worker call, and a quick call goes to the main worker when every light worker is busy reading the network and the main worker is idle. Headless with a stub, the one light worker held by a slow host: 20.6 s before, 4 ms after. With the main worker busy as well the wait remains, and if the live 20 s was Chrome reloading Nano, this does not help; neither could be told apart without the device |
 | 12 | `aquascope/map_commands.py` | "is anything wrong with my flood model?" did not reach the review | A: the review and explain phrases are wider, and a model may answer with `{"control": "review"}` or `{"control": "explain"}` |
 | 13 | `explorer/src/map-command.js` `byDevice`, `map_commands` reply check | a bbox the model made up was applied as the answer | A: `map_commands.ground_places` keeps a box or point only when the words hold its numbers; otherwise the place the model named, the extent of a region the words name ("Africa"), or the model's label as a place the words say; failing those, refused with "name a place or a region" |
 | 14 | `local-model.js` `promptOptions` | `LanguageModel.params` is undefined in Chrome 155, so the 0.1 temperature was never set | A: feature-detected. An extension (with `params()`) gets `topK` and `temperature`; a web page gets `samplingMode`, which only the sampling origin trial honours (checked against the Prompt API docs on 2026-10-25), else Chrome's own sampling; a Chrome that refuses the option gets a session without it |
 | 15 | `explorer/src/intake.js` `parseBriefReply` | a return period not in the sentence was kept when in range | A: a return period or timescale is kept only when the sentence states it, in digits or words ("50-year", "hundred-year", "twelve months") |
-| 16 | `explorer/src/mesh-review.js` `reviewModel` | the review did not name its file, and reviewed an older mesh off screen | B |
-| 17 | `explorer/src/map-card.js` | "What if..." offered on reaches above the 100,000 km² limit | B |
+| 16 | `explorer/src/mesh-review.js` `reviewModel` | the review did not name its file, and reviewed an older mesh off screen | B: from Ask the map the review is of the model on screen; a MODFLOW model there, or the mesh out of view, is said instead (`mesh-review-core.js` `reviewTarget`). The legend row and WebMCP still review the loaded mesh, and the final line names the file |
+| 17 | `explorer/src/map-card.js` | "What if..." offered on reaches above the 100,000 km² limit | B, in the What if panel rather than the card: it checks the basin as it opens (`whatif_map._basin_check`, main worker) and says the limit with Run off. The Rhine at Cologne, headless: 143,881 km², said after 16 s. The card still offers the button |
 
-Not fixed by either: "right numbers, wrong claim" (escape 2) is not one of the seventeen,
-and a presence check cannot catch it. The real-key run of #590 is still to be done by the
-maintainer.
+"Right numbers, wrong claim" (escape 2), fixed in B for the two cases seen, by checks that look
+past the presence of a number:
+
+- Explain "96% ... significantly below normal": `map_explain.class_claims` refuses a claim of the
+  stronger class ("much", "significantly", "well below normal") unless a cited fact is of that
+  class, and a side of normal no cited fact is on. It reads a note as a whole, so a note citing
+  both the share and a much-below area would pass.
+- Review "8 cells ... (< 0.0269 m)": the film check's threshold is a fact of its own ("A film is
+  shallower than", 0.03 m) and the count names it; a sentence that puts the count under another
+  value is refused. Only the film check's count carries a bound so far.
+
+Other ways to put right numbers together wrongly are not caught. The real-key run of #590 is
+still to be done by the maintainer.

@@ -342,8 +342,9 @@ def test_apply_wording_keeps_the_models_order_and_refuses_numbers():
     ]})
     res = ms.apply_wording(fs, "```json\n" + reply + "\n```", by="key")
     out = res["findings"]
-    assert [f["id"] for f in out] == [ids[2], ids[0]] and res["ordered"]
-    assert [f["rank"] for f in out] == [1, 2]
+    # The model's order first, then the finding it left out in the rules' order (#590: none is dropped).
+    assert [f["id"] for f in out] == [ids[2], ids[0], ids[1]] and res["ordered"]
+    assert [f["rank"] for f in out] == [1, 2, 3] and out[2]["by"] == "rules"
     assert out[0]["by"] == "key" and out[0]["reason"] == f"The forecast puts it at {fs[2]['slots']['peak']} by " \
         f"{fs[2]['slots']['day']}."
     assert out[1]["by"] == "rules" and out[1]["title"] == fs[0]["title"]      # refused: the template stays
@@ -539,3 +540,37 @@ def test_the_page_fetches_the_names_and_the_package_applies_them(offline):
     assert ms.apply_places(cands, answers) == 1
     assert cands[0]["slots"]["place"] == "Amazonas, Brazil" and cands[0]["placed_by"] == "photon"
     assert not any("place_url" in f for f in cands)
+
+
+# ── on the device (#590) ─────────────────────────────────────────────────────
+
+
+def test_a_slot_value_written_out_is_that_slot():
+    # Gemini Nano wrote the month out ("September 2026") instead of {month}; 11 of 15 wordings were refused.
+    slots = {"place": "Texas, USA", "month": "September 2026", "share": "12%", "area": "41,000 km²"}
+    text, why = ms.check_wording("{place}: much below normal in September 2026", slots, 200)
+    assert why is None and text == "Texas, USA: much below normal in September 2026"
+    assert ms.check_wording("January 2026 in {place}", {**slots, "month": "January 2026"}, 200)[0]
+    # Only the exact value: another month, another year or a part of a number is still the model's own.
+    for bad in ("{place}: much below normal in January 2026", "{place}: in 2026", "{place}: 41,000 km² and 5 more"):
+        assert ms.check_wording(bad, slots, 200)[0] is None, bad
+    # Written out and in its slot, the value is said once.
+    assert ms.check_wording("{place}: {area} (41,000 km²)", slots, 200)[0] == "Texas, USA: 41,000 km²"
+    # A sign set against the written value is still a sign against its slot.
+    assert "against a slot" in ms.check_wording("{place}: -12% of the land", slots, 200)[1]
+
+
+def test_findings_left_out_or_mangled_by_the_model_are_kept():
+    # Europe: four findings, the model wrote two ids as "2026-09-1" for "2026-09:1"; two pins showed, not four.
+    fs = _three()
+    ids = [f["id"] for f in fs]
+    mangled = ids[1].replace(":", "-")
+    assert mangled != ids[1]
+    reply = {"order": [ids[2], mangled], "notes": [
+        {"id": mangled, "title": "{place}: a big flood", "reason": "It may reach {peak} on {day}."}]}
+    res = ms.apply_wording(fs, reply, by="device")
+    out = res["findings"]
+    assert [f["id"] for f in out] == [ids[2], ids[1], ids[0]]
+    assert out[1]["by"] == "device" and out[1]["title"].endswith(": a big flood")
+    # max_pins still caps the list.
+    assert len(ms.apply_wording(fs, reply, max_pins=2)["findings"]) == 2
