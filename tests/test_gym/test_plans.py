@@ -1,4 +1,4 @@
-"""HydroGym Phase 2 (#367): the reference plans load and validate against the catalogue, the registry and their
+"""AquaScope Bench Phase 2 (#367): the reference plans load and validate against the catalogue, the registry and their
 saved reconnaissance; the scorer gives a perfect plan 1, the tree a known value and an empty plan 0; the
 Methodologist plans on a scripted model with no network; the bench writes rows, resumes and renders; the CLI verbs
 work. Nothing here touches the network."""

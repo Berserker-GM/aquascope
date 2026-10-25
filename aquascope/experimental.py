@@ -13,8 +13,8 @@ What is here and why (``docs/stability.md`` has the full policy):
   heads, SWMM). These modules changed in nearly every review of their first week.
 * The MODFLOW views added after 0.27.0 (#625, #626): ``aquascope.groundwater.layers`` (layers, cross-sections,
   a cell's heads over time) and ``aquascope.groundwater.budget`` (the cell-by-cell budget reader).
-* ``aquascope.gym`` and ``aquascope gym``: the benchmark is being renamed (#440). The old name will keep working
-  as a deprecated alias, but the package path is not frozen before the rename.
+* ``aquascope.gym`` and ``aquascope gym``: the benchmark, now called AquaScope Bench (#440). Only the name changed;
+  the module path and the CLI verb stay, and the task suite is not frozen before its DOI (#175).
 
 Anything not listed here and not in the snapshot (for example ``aquascope.dashboard``, ``aquascope.maintenance``,
 the Archive's build steps and every name that starts with an underscore) is internal: free to change at any time.
