@@ -70,15 +70,14 @@ def test_the_bundle_packs_obs_per_source_and_variable_and_says_what_is_mirrored(
     on_disk = json.loads((out / "MANIFEST.json").read_text())
     assert on_disk["snapshot_date"] == "2026-10-25" and on_disk["revision"] == SHA
 
-    assert manifest["catalogued"] == {"stations": 4, "sources": 3}
+    assert manifest["catalogued"] == {"stations": 3, "sources": 2}
     assert manifest["mirrored"]["stations"] == 2 and manifest["mirrored"]["sources"] == 2
     assert manifest["mirrored"]["per_variable"] == {"discharge": 2, "water_level": 1}
     scopes = {c["source"]: c["scope"] for c in manifest["sources"]}
-    assert scopes["brazil_ana"].startswith("catalogue only; reuse terms not verified")
-    assert scopes["usgs"].startswith("catalogue and mirrored")
+    assert set(scopes) == {"usgs", "uk_ea"} and scopes["usgs"].startswith("catalogue and mirrored")
 
     sources_md = (out / "SOURCES.md").read_text()
-    for key in ("usgs", "uk_ea", "brazil_ana"):
+    for key in ("usgs", "uk_ea"):
         assert key in sources_md
     assert "Environment Agency" in sources_md and "OGL-UK-3.0" in sources_md
 
@@ -89,7 +88,7 @@ def test_the_metadata_is_a_dataset_with_honest_counts_and_links(tmp_path):
     assert meta["upload_type"] == "dataset" and meta["access_right"] == "open"
     assert meta["version"] == "2026-10-25" and meta["license"] == zenodo.RECORD_LICENSE
     assert "Catalogued and mirrored are different numbers" in meta["description"]
-    assert "4 gauging stations" in meta["description"] and "mirrored for 2 of them" in meta["description"]
+    assert "3 gauging stations" in meta["description"] and "mirrored for 2 of them" in meta["description"]
     for derived in ("basins/", "forecasts/", "context/"):
         assert derived in meta["description"]
     rel = {r["relation"]: r["identifier"] for r in meta["related_identifiers"]}
@@ -98,6 +97,42 @@ def test_the_metadata_is_a_dataset_with_honest_counts_and_links(tmp_path):
     assert {c["type"] for c in meta["contributors"]} == {"DataCollector"}
     written = json.loads((tmp_path / "d/zenodo-metadata.json").read_text())
     assert written == {"metadata": meta}
+
+
+def test_rows_of_sources_without_a_verified_licence_are_left_out_and_said(tmp_path):
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    archive = _archive(tmp_path)
+    features = [{"type": "Feature", "geometry": {"type": "Point", "coordinates": [lon, 1]},
+                 "properties": {"source": src, "station_id": sid}}
+                for src, sid, lon in (("usgs", "A", 2), ("brazil_ana", "D", -50), ("not_a_source", "X", 9))]
+    (archive / "stations.geojson").write_text(json.dumps({"type": "FeatureCollection", "features": features}))
+    pq.write_table(pa.table({"source": ["usgs", "brazil_ana", "brazil_ana"], "station_id": ["A", "D", "E"],
+                             "q_mean": [1.0, 2.0, 3.0]}), archive / "signatures.parquet")
+    out = tmp_path / "d"
+    manifest = zenodo.build(archive, out, revision=SHA, snapshot_date="2026-10-25")
+
+    stations = pq.read_table(out / "stations.parquet")
+    assert "brazil_ana" not in stations.column("source").to_pylist() and stations.num_rows == 3
+    geo = json.loads(stations.schema.metadata[b"geo"])
+    assert geo["columns"]["geometry"]["bbox"] == [0.0, 1.0, 3.0, 51.0], "bbox of the rows that remain"
+    assert pq.read_table(out / "signatures.parquet").column("source").to_pylist() == ["usgs"]
+    kept = json.loads((out / "stations.geojson").read_text())["features"]
+    assert [f["properties"]["source"] for f in kept] == ["usgs"]
+
+    left = {x["source"]: x for x in manifest["left_out"]}
+    assert set(left) == {"brazil_ana", "not_a_source"}
+    assert left["brazil_ana"]["rows_left_out"] == {"stations.parquet": 1, "stations.geojson": 1,
+                                                   "signatures.parquet": 2}
+    assert left["brazil_ana"]["stations_left_out"] == 1
+    assert manifest["catalogued"] == {"stations": 3, "sources": 2}
+    assert "brazil_ana" not in {c["source"] for c in manifest["sources"]}
+    text = (out / "SOURCES.md").read_text()
+    assert "Left out until their reuse terms are verified" in text and "brazil_ana" in text
+    assert "left out until their reuse terms are verified" in manifest["zenodo_metadata"]["description"].lower()
+    assert "brazil_ana" in manifest["zenodo_metadata"]["description"]
+    assert not any(c["name"].startswith("Agência") for c in manifest["zenodo_metadata"]["contributors"])
 
 
 def test_creators_match_citation_cff():

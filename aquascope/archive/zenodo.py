@@ -14,6 +14,8 @@ The bundle holds the catalogue (``stations.parquet``, ``stations.geojson``), ``s
 with that source's Parquet bundle and per-station CSVs at their Archive paths, ``SOURCES.md`` (every source's
 licence and attribution) and ``MANIFEST.json`` (every file's size and SHA-256, and the snapshot date). The
 derived folders (basins, forecasts, ...) are not deposited; the description links to them on Hugging Face.
+Only verified licences leave Hugging Face: the rows of a source whose registry licence is ``"unknown"`` (or that
+is not in the registry) are left out of the catalogue files, and SOURCES.md and the description name them.
 
 The token comes from ``ZENODO_TOKEN`` and is only ever sent to Zenodo in the Authorization header.
 Zenodo's REST API: https://developers.zenodo.org/
@@ -128,6 +130,60 @@ def _bundle_stations(path: Path) -> set[str]:
     return {str(s) for s in pq.read_table(path, columns=["station_id"]).column("station_id").unique().to_pylist()}
 
 
+def unverified(source: str) -> bool:
+    """True when the registry has no verified licence for a source (absent, or ``license="unknown"``)."""
+    meta = SOURCES.get(source)
+    return meta is None or meta.license == "unknown"
+
+
+def _filter_parquet(src: Path, dst: Path) -> dict[str, int]:
+    """Copy a Parquet file without the rows of unverified sources; return the rows left out per source.
+
+    The schema metadata (GeoParquet ``geo``) is kept, with its bbox recomputed for the rows that remain."""
+    import pyarrow as pa
+    import pyarrow.compute as pc
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(src)
+    keep = [not unverified(str(key)) for key in table.column("source").to_pylist()]
+    dropped: dict[str, int] = {}
+    for key, kept in zip(table.column("source").to_pylist(), keep):
+        if not kept:
+            dropped[str(key)] = dropped.get(str(key), 0) + 1
+    if dropped:
+        table = table.filter(pa.array(keep, type=pa.bool_()))
+        meta = dict(table.schema.metadata or {})
+        if b"geo" in meta and {"latitude", "longitude"} <= set(table.column_names) and table.num_rows:
+            geo = json.loads(meta[b"geo"])
+            column = geo.get("primary_column", "geometry")
+            if "bbox" in geo.get("columns", {}).get(column, {}):
+                lon, lat = pc.min_max(table.column("longitude")), pc.min_max(table.column("latitude"))
+                geo["columns"][column]["bbox"] = [lon["min"].as_py(), lat["min"].as_py(),
+                                                  lon["max"].as_py(), lat["max"].as_py()]
+                meta[b"geo"] = json.dumps(geo).encode()
+        table = table.replace_schema_metadata(meta)
+    source_meta = pq.ParquetFile(src).metadata
+    codec = source_meta.row_group(0).column(0).compression.lower() if source_meta.num_row_groups else "snappy"
+    pq.write_table(table, dst, compression=codec if codec in ("snappy", "gzip", "brotli", "zstd", "lz4") else "zstd")
+    return dropped
+
+
+def _filter_geojson(src: Path, dst: Path) -> dict[str, int]:
+    """Copy the GeoJSON catalogue without the features of unverified sources."""
+    doc = json.loads(src.read_text(encoding="utf-8"))
+    dropped: dict[str, int] = {}
+    kept = []
+    for feature in doc.get("features", []):
+        key = str((feature.get("properties") or {}).get("source", ""))
+        if unverified(key):
+            dropped[key] = dropped.get(key, 0) + 1
+        else:
+            kept.append(feature)
+    doc["features"] = kept
+    dst.write_text(json.dumps(doc, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return dropped
+
+
 def _scan_obs(archive: Path) -> tuple[dict[tuple[str, str], dict[str, Any]], list[Path]]:
     """Group obs/ into (variable, source) pairs, refusing anything that is not a redistributable source."""
     obs = archive / "obs"
@@ -169,7 +225,7 @@ def _safe_tarinfo(info: tarfile.TarInfo) -> tarfile.TarInfo:
     return info
 
 
-def _sources_md(credits: list[dict[str, Any]], snapshot_date: str) -> str:
+def _sources_md(credits: list[dict[str, Any]], excluded: list[dict[str, Any]], snapshot_date: str) -> str:
     lines = [
         f"# Sources in the AquaScope Archive snapshot of {snapshot_date}",
         "",
@@ -185,6 +241,15 @@ def _sources_md(credits: list[dict[str, Any]], snapshot_date: str) -> str:
         cells = [c["source"], c["agency"], c["license"], c["scope"], str(c["catalogued"]), str(c["mirrored"]),
                  c["attribution"]]
         lines.append("| " + " | ".join(x.replace("|", "/") for x in cells) + " |")
+    if excluded:
+        lines += ["", "## Left out until their reuse terms are verified", "",
+                  "These sources are in the Archive's catalogue on Hugging Face, but their licence is not verified, "
+                  "so their rows are not in this deposit (not in `stations.parquet`, `stations.geojson` or "
+                  "`signatures.parquet`).", "",
+                  "| Source | Agency | Licence | Rows left out |", "| --- | --- | --- | --- |"]
+        for x in excluded:
+            rows = ", ".join(f"{n:,} in {f}" for f, n in sorted(x["rows_left_out"].items()))
+            lines.append(f"| {x['source']} | {x['agency']} | {x['license']} | {rows} |")
     lines += ["", "Licence details and homepages: `aquascope.registry.SOURCES` and "
               "https://rekin226.github.io/aquascope/data_sources/", ""]
     return "\n".join(lines)
@@ -198,6 +263,11 @@ def _description(snapshot: dict[str, Any]) -> str:
         f"<li><b>{e(c['source'])}</b> ({e(c['agency'])}): {e(c['license'])}; {e(c['scope'])}. "
         f"{e(c['attribution'])}</li>" for c in snapshot["sources"])
     derived = ", ".join(f"<code>{d}/</code>" for d in NOT_DEPOSITED)
+    left = "".join(f"<li><b>{e(x['source'])}</b> ({e(x['agency'])}): {x['stations_left_out']:,} stations</li>"
+                   for x in snapshot.get("left_out", []))
+    left_out = (f"<p><b>Left out until their reuse terms are verified.</b> These sources are catalogued on "
+                f"Hugging Face, but their licence is not verified, so their rows are not in this deposit:</p>"
+                f"<ul>{left}</ul>") if left else ""
     return (
         f"<p>A snapshot of the AquaScope Archive, the Hugging Face dataset "
         f"<a href=\"{HF_URL}\">{DEFAULT_REPO_ID}</a> at commit <code>{e(snapshot['revision'])}</code>, "
@@ -209,6 +279,7 @@ def _description(snapshot: dict[str, Any]) -> str:
         f"<p>The other catalogued stations have no observations in this deposit; read them from the agency. "
         f"Mirrored records are daily values as each agency publishes them, after unit conversion (discharge m3/s, "
         f"levels m, precipitation mm per day), without quality flags.</p>"
+        f"{left_out}"
         f"<p><b>Files.</b> <code>stations.parquet</code> (GeoParquet) and <code>stations.geojson</code>: the "
         f"catalogue. <code>signatures.parquet</code>: flow signatures of the mirrored discharge stations. "
         f"<code>health.json</code>: the harvest's per-source report. <code>README.md</code>: the dataset card. "
@@ -277,10 +348,21 @@ def build(archive: Path, out: Path, *, revision: str, snapshot_date: str | None 
         files.append({"name": name, "archive_path": archive_path, "bytes": path.stat().st_size,
                       "sha256": _sha256(path), **extra})
 
+    # Only verified licences leave Hugging Face: rows of a source whose licence is unknown are left out.
+    left_out: dict[str, dict[str, int]] = {}
     for name in ROOT_FILES:
-        if (archive / name).is_file():
+        if not (archive / name).is_file():
+            continue
+        if name.endswith(".parquet"):
+            dropped = _filter_parquet(archive / name, out / name)
+        elif name == "stations.geojson":
+            dropped = _filter_geojson(archive / name, out / name)
+        else:
             shutil.copyfile(archive / name, out / name)
-            record(name, name)
+            dropped = {}
+        for key, n in dropped.items():
+            left_out.setdefault(key, {})[name] = n
+        record(name, name, **({"rows_left_out": dropped} if dropped else {}))
     for path in loose:
         name = f"obs_{path.name}"
         shutil.copyfile(path, out / name)
@@ -304,7 +386,11 @@ def build(archive: Path, out: Path, *, revision: str, snapshot_date: str | None 
         record(name, f"obs/{variable}/{source}", variable=variable, source=source, members=len(members),
                stations=len(stations))
 
-    n_catalogued, catalogued = _station_counts(archive)
+    n_catalogued, catalogued = _station_counts(out)
+    excluded = [{"source": key, "agency": ((SOURCES[key].agency if key in SOURCES else "") or "unverified"),
+                 "license": SOURCES[key].license if key in SOURCES else "not in the registry",
+                 "rows_left_out": rows, "stations_left_out": rows.get("stations.parquet", 0)}
+                for key, rows in sorted(left_out.items())]
     credits = []
     for key in sorted(set(catalogued) | set(mirrored)):
         meta = SOURCES.get(key)
@@ -314,9 +400,7 @@ def build(archive: Path, out: Path, *, revision: str, snapshot_date: str | None 
             "license": meta.license if meta else "unverified",
             "attribution": (meta.attribution if meta else "") or "",
             "homepage": meta.homepage if meta else None,
-            "scope": "catalogue and mirrored observations" if key in mirrored else (
-                "catalogue only" if meta and meta.license != "unknown"
-                else "catalogue only; reuse terms not verified, station metadata as the agency lists it"),
+            "scope": "catalogue and mirrored observations" if key in mirrored else "catalogue only",
             "catalogued": catalogued.get(key, 0),
             "mirrored": len(mirrored.get(key, ())),
         })
@@ -327,8 +411,9 @@ def build(archive: Path, out: Path, *, revision: str, snapshot_date: str | None 
         "mirrored": {"stations": sum(len(s) for s in mirrored.values()), "sources": len(mirrored),
                      "per_variable": {v: len(s) for v, s in per_variable.items()}},
         "sources": credits,
+        "left_out": excluded,
     }
-    (out / "SOURCES.md").write_text(_sources_md(credits, snapshot_date), encoding="utf-8")
+    (out / "SOURCES.md").write_text(_sources_md(credits, excluded, snapshot_date), encoding="utf-8")
     record("SOURCES.md", "")
 
     metadata = build_metadata(snapshot)

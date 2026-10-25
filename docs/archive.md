@@ -466,7 +466,10 @@ in one folder to rebuild `obs/`). `SOURCES.md` lists every source's licence and
 attribution, and `MANIFEST.json` every file's size and SHA-256 and the snapshot
 date. The description states the catalogued and mirrored station counts as two
 numbers. The derived folders (`basins/`, `forecasts/`, `context/` and the rest)
-are not deposited; the description links to them on Hugging Face.
+are not deposited; the description links to them on Hugging Face. Only
+verified licences are deposited: the catalogue rows of a source whose licence is
+`unknown` in the registry are left out until its reuse terms are verified, and
+`SOURCES.md` and the description name those sources and their row counts.
 
 The Archive has no single licence, so the record's licence is Zenodo's "Other
 (Attribution)" and each source's own licence is listed in the description and
