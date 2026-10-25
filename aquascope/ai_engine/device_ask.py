@@ -150,7 +150,7 @@ def compact_analysis(payload: dict[str, Any]) -> dict[str, Any]:
         return {"error": _short(str(payload["error"]), 300)}
     unit = payload.get("unit")
     out: dict[str, Any] = {k: _round(payload[k]) for k in (
-        "source", "station_id", "name", "agency", "variable", "unit", "start", "end", "years", "n", "modelled",
+        "source", "station_id", "name", "river", "agency", "variable", "unit", "start", "end", "years", "n", "modelled",
         "comparable") if payload.get(k) is not None}
     stats = payload.get("stats")
     if isinstance(stats, dict):
@@ -163,6 +163,10 @@ def compact_analysis(payload: dict[str, Any]) -> dict[str, Any]:
             out["flow_duration"] = {**pts, "note": "q95 is exceeded 95 % of the time, q10 10 % of the time"}
     floods = _return_levels(payload.get("ffa"))
     if floods:
+        # Two fits, two numbers per period: the model is told which is which, and that the page's own figures
+        # are the GEV (#590: a 100-year answer gave the LP3 value and named no method).
+        floods["method"] = ("gev: GEV fitted by L-moments, the method the page's figures use; lp3: Log-Pearson III, "
+                            "with lp3_90ci its 90 % interval. Name the method with the number.")
         out["flood_frequency"] = floods
     trend = _trend(payload.get("trend"), unit)
     if trend:
@@ -316,7 +320,7 @@ def facts(name: str, compact: Any) -> list[str]:
 
 #: A gauge id with letters and digits ("E02102A", "3400TH"); pure digit ids are numbers and checked as numbers.
 _ALNUM_ID = re.compile(r"\b(?=[A-Za-z0-9_-]*[A-Za-z])(?=(?:[A-Za-z_-]*\d){3})[A-Za-z0-9][A-Za-z0-9_-]{4,}\b")
-_Q_LABEL = re.compile(r"\bQ(\d{1,2})\b")
+_Q_LABEL = re.compile(r"\bQ ?(\d{1,2})\b", re.I)
 _LIST_MARK = re.compile(r"(?m)^\s*(?:\d{1,2}[.)]|[-*•])\s+")
 
 _TREND_TOPIC = re.compile(r"\btrend|mann|kendall|sen'?s|over (?:the )?(?:time|years|record|decades)|getting|becoming|"
@@ -456,6 +460,350 @@ def _trend_check(answer: str, compacts: list[tuple[str, dict[str, Any]]]) -> lis
     return refused
 
 
+# ── labelled numbers: each label held to its own value (#590) ─────────────────
+#
+# The number check above asks only whether a number is somewhere in the results. On the device that let a right
+# number through under a wrong label: "the Potomac's q95 of 3.43 m3/s" (3.43 is its daily minimum; its Q95 is
+# 35.7) and "the return period for a flood of magnitude 2 m3/s is 2 years" (2 is a return period, not a flow).
+# Here a number that a label claims (Q95, a mean, a minimum, an N-year flood, a record's dates) must be that
+# label's value for the gauge the sentence is about, and a number written as a flow must be a flow.
+
+#: A flow written after a number: m3/s and its spellings (NFKC has already turned m³ into m3).
+_FLOW_UNIT = re.compile(r"\s*(?:m3/s(?:ec)?|m3 ?s-1|m\^3/s|cumecs|cubic met(?:re|er)s? (?:per|a) second)", re.I)
+#: Any other unit after a number: rain, temperature, shares, areas, periods. Such a number is not a flow statistic.
+_OTHER_UNIT = re.compile(r"\s*(?:mm\b|°|deg|%|percent|km|kilomet|years?\b|yrs?\b|days?\b|people|inhabitants)",
+                         re.I)
+#: A number as the prose writes it, with its place in the text: not a label's digits (Q95, m3) nor an id's.
+_NUM_AT = re.compile(r"(?<![\w.])-?\d[\d,]*(?:\.\d+)?(?![\w])")
+#: Where one claim ends and the next begins: sentence ends, semicolons, and "while", "whereas", "but", "and".
+_CLAUSE_BREAK = re.compile(r"[.!?](?=\s|$)|;|\n|,?\s+(?:while|whereas|but|and)\s+", re.I)
+#: The labels a statistic is claimed under, and what each may be.
+_STAT_LABELS = (
+    ("q", re.compile(r"\bq ?(95|50|10)\b", re.I)),
+    ("mean", re.compile(r"\b(?:mean|average)\b", re.I)),
+    ("median", re.compile(r"\bmedian\b", re.I)),
+    ("min", re.compile(r"\b(?:minimum|min|lowest)\b", re.I)),
+    ("max", re.compile(r"\b(?:maximum|max|highest)\b", re.I)),
+)
+_LABEL_WORDS = {"mean": "mean", "median": "median", "min": "minimum", "max": "maximum"}
+#: What may stand between a label and its number: "a minimum of 3.43", "mean flow: 320.8", "maximum recorded
+#: value is 12100". Anything else ("the annual mean (Mann-Kendall p = 0.82") does not tie the two.
+_CONNECTIVE = re.compile(r"[\s:=(,]*(?:(?:daily|recorded|flow|discharge|value|values|is|was|of|about|around|"
+                         r"approximately|roughly|at|day|on record|ever|a|an|the)[\s:=(,]+)*", re.I)
+#: An N-year flood, said four ways.
+_PERIODS = (
+    re.compile(r"\b(\d{1,4})[- ](?:year|yr)\b(?=[- ](?:flood|return|event|peak|design|flow|discharge|level|"
+               r"storm|high|max))", re.I),
+    re.compile(r"\b1[- ]in[- ](\d{1,4})\b", re.I),
+    re.compile(r"\breturn period (?:of |is |= ?)?(?:about |around )?(\d{1,4}) ?(?:years?|yrs?)\b", re.I),
+    re.compile(r"\breturn period\b[^.;\n]*?\bis (\d{1,4}) ?(?:years?|yrs?)\b", re.I),
+)
+_LP3 = re.compile(r"\b(?:lp3|lp-3|lp ?iii|log[- ]?pearson)", re.I)
+_GEV = re.compile(r"\bgev\b|generali[sz]ed extreme", re.I)
+_DATE_RANGE = re.compile(r"(\d{4}-\d{2}-\d{2})\s*(?:to|until|through|-|and)\s*(\d{4}-\d{2}-\d{2})", re.I)
+#: Words in a gauge's name too common to say which gauge a sentence is about.
+_GENERIC = frozenset({"river", "near", "above", "below", "creek", "brook", "station", "stream", "gauge", "pump",
+                      "with", "from", "upon", "lake", "canal", "water", "little", "great", "north", "south", "east",
+                      "west", "upper", "lower", "the", "and", "at"})
+#: Numbers in a result that are never flows: periods, counts, tests, places, climate.
+_NOT_FLOW = frozenset({"T_years", "n_years", "years", "n", "p_value", "tau", "latitude", "longitude", "year",
+                       "n_returned", "n_catalog", "limit", "aridity_index", "precipitation_mm_per_year",
+                       "et0_mm_per_year", "temperature_mean_c", "wettest_day_mm"})
+
+
+def _flow_pool(payloads: list[Any]) -> list[float]:
+    """The numbers in the results that are flows (or rates of flow), not periods, counts or test statistics."""
+    pool: list[float] = []
+    stack: list[tuple[str, Any]] = [("", p) for p in payloads]
+    while stack:
+        key, item = stack.pop()
+        if key in _NOT_FLOW or isinstance(item, bool):
+            continue
+        if isinstance(item, (int, float)):
+            pool.append(float(item))
+        elif isinstance(item, dict):
+            stack.extend((str(k), v) for k, v in item.items())
+        elif isinstance(item, (list, tuple)):
+            stack.extend((key, v) for v in item)
+    return pool
+
+
+def _gauges(compacts: list[tuple[str, dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Every analysed record in the results, with what names it in prose and its labelled values."""
+    out = []
+    for name, c in compacts:
+        if name in _ANALYSIS_TOOLS:
+            g, whole = c, c
+        elif name == "anywhere" and isinstance(c.get("glofas"), dict):
+            g, whole = c["glofas"], c
+        else:
+            continue
+        if g.get("error"):
+            continue
+        label = " ".join(str(g[k]) for k in ("name", "station_id") if g.get(k)) or (
+            "the GloFAS cell" if name == "anywhere" else "the record")
+        tokens = {str(g["station_id"]).lower()} if g.get("station_id") else set()
+        for field in ("name", "river"):
+            tokens |= {w for w in re.findall(r"[a-z]{4,}", str(g.get(field) or "").lower()) if w not in _GENERIC}
+        if name == "anywhere":
+            tokens.add("glofas")
+        daily = g.get("daily_values") or {}
+        fd = g.get("flow_duration") or {}
+        ff = g.get("flood_frequency") or {}
+        rec = (ff.get("record_max") or {}).get("value")
+        values = {
+            "q95": [fd.get("q95")], "q50": [fd.get("q50"), daily.get("median")], "q10": [fd.get("q10")],
+            "mean": [daily.get("mean")], "median": [daily.get("median"), fd.get("q50")],
+            "min": [daily.get("min")], "max": [daily.get("max"), rec],
+        }
+        levels = {}
+        for r in ff.get("return_levels") or []:
+            if isinstance(r, dict) and r.get("T_years") is not None:
+                ci = r.get("lp3_90ci") if isinstance(r.get("lp3_90ci"), list) else []
+                levels[float(r["T_years"])] = {"gev": r.get("gev"), "lp3": r.get("lp3"), "ci": ci}
+        pairs = set()
+        for d in [whole, g]:
+            stack = [d]
+            while stack:
+                item = stack.pop()
+                if isinstance(item, dict):
+                    if isinstance(item.get("start"), str) and isinstance(item.get("end"), str):
+                        pairs.add((item["start"][:10], item["end"][:10]))
+                    stack.extend(item.values())
+        out.append({"label": label, "tokens": tokens, "unit": g.get("unit") or "",
+                    "values": {k: [float(v) for v in vs if isinstance(v, (int, float)) and not isinstance(v, bool)]
+                               for k, vs in values.items()},
+                    "levels": levels, "pairs": pairs,
+                    "strings": " ".join(s.lower() for s in _strings(whole))})
+    # A word two gauges share ("thames" for two gauges on it) names neither.
+    for g in out:
+        g["tokens"] = {t for t in g["tokens"] if not any(t in h["tokens"] for h in out if h is not g)}
+    return out
+
+
+def _clauses(text: str) -> list[tuple[int, int]]:
+    bounds, start = [], 0
+    for m in _CLAUSE_BREAK.finditer(text):
+        bounds.append((start, m.start()))
+        start = m.end()
+    bounds.append((start, len(text)))
+    return [b for b in bounds if b[1] > b[0]]
+
+
+class _Who:
+    """Which gauge a place in the answer is about: the one its clause names, else the last one named before."""
+
+    def __init__(self, text: str, gauges: list[dict[str, Any]]):
+        low = text.lower()
+        self.gauges = gauges
+        self.mentions: list[tuple[int, int]] = []
+        for i, g in enumerate(gauges):
+            for t in g["tokens"]:
+                for m in re.finditer(r"(?<![\w-])" + re.escape(t) + r"(?![\w-])", low):
+                    self.mentions.append((m.start(), i))
+        self.mentions.sort()
+        self.clauses = _clauses(text)
+
+    def at(self, pos: int) -> int | None:
+        if len(self.gauges) == 1:
+            return 0
+        a, b = next(((a, b) for a, b in self.clauses if a <= pos < b), (pos, pos + 1))
+        inside = {i for p, i in self.mentions if a <= p < b}
+        if len(inside) == 1:
+            return inside.pop()
+        if inside:
+            return None    # two gauges in one clause: either may be meant
+        before = [i for p, i in self.mentions if p < a]
+        return before[-1] if before else None
+
+    def clause(self, pos: int) -> tuple[int, int]:
+        return next(((a, b) for a, b in self.clauses if a <= pos < b), (pos, pos + 1))
+
+
+def _num(token: str) -> float | None:
+    try:
+        return float(token.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _fmt_vals(vals: list[float], unit: str) -> str:
+    return " or ".join(f"{_fmt(v)}" for v in vals) + (f" {unit}" if unit else "")
+
+
+def _label_check(text: str, compacts: list[tuple[str, dict[str, Any]]], words: str) -> list[str]:
+    """Each labelled number against its own value, for the gauge its sentence is about (see the section note)."""
+    gauges = _gauges(compacts)
+    refused: list[str] = []
+    blank = _DATE.sub(lambda m: " " * len(m.group(0)), text)
+    numbers = [(m.start(), m.end(), _num(m.group(0))) for m in _NUM_AT.finditer(blank)]
+    # A gauge id of digits ("USGS-01646500") is a name here, not a number a label could claim.
+    low = blank.lower()
+    ids = {sid.lower() for sid, _ in _stations(compacts)}
+    id_spans = [(m.start(), m.end()) for sid in ids
+                for m in re.finditer(r"(?<![\w])" + re.escape(sid) + r"(?![\w])", low)]
+    numbers = [(a, b, v) for a, b, v in numbers
+               if v is not None and not any(x <= a < y for x, y in id_spans)]
+    flows = {a for a, b, _ in numbers if _FLOW_UNIT.match(blank, b)}
+
+    # A number written as a flow must be a flow in the results (or the reader's own): "2 m3/s" where 2 is a
+    # return period is refused.
+    flow_pool = _flow_pool([c for _, c in compacts]) + _numbers(words)
+    if compacts:
+        for a, b, v in numbers:
+            if a in flows and abs(v) > 1e-9 and not _close(v, flow_pool):
+                refused.append(f"{v:g} m3/s is not a flow in the results")
+    if not gauges:
+        return refused
+    who = _Who(text, gauges)
+
+    def name(i: int | None) -> str:
+        return gauges[i]["label"] if i is not None else "any gauge in the results"
+
+    def next_number(pos: int, end: int) -> tuple[int, int, float] | None:
+        return next(((a, b, v) for a, b, v in numbers if pos <= a < end), None)
+
+    # Statistics under a label: Q95, mean, median, minimum, maximum.
+    labels = []
+    for kind, rx in _STAT_LABELS:
+        for m in rx.finditer(blank):
+            labels.append((m.start(), m.end(), f"q{m.group(1)}" if kind == "q" else kind))
+    labels.sort()
+    for j, (ls, le, kind) in enumerate(labels):
+        _, cend = who.clause(ls)
+        nxt = next_number(le, cend)
+        if nxt is None:
+            continue
+        a, b, v = nxt
+        if any(le <= o[0] < a for o in labels[j + 1:]) or a - le > 80:
+            continue   # another label sits between (the number is that one's), or the two are far apart
+        filler = blank[le:a]
+        if a not in flows and (_OTHER_UNIT.match(blank, b) or not _CONNECTIVE.fullmatch(filler)):
+            continue
+        i = who.at(a)
+        cands = [i] if i is not None else list(range(len(gauges)))
+        have = [k for k in cands if gauges[k]["values"].get(kind)]
+        if not have:
+            continue
+        if any(_close(v, gauges[k]["values"][kind]) for k in have):
+            continue
+        said = kind.upper() if kind.startswith("q") else f"daily {_LABEL_WORDS[kind]}"
+        others = [k for k, g in enumerate(gauges) if k not in cands and _close(v, g["values"].get(kind) or [])]
+        if i is not None and others:
+            refused.append(f"{v:g} is the {said} of {name(others[0])}, not of {name(i)}")
+        elif i is not None:
+            refused.append(f"{v:g} is not the {said} of {name(i)} "
+                           f"({_fmt_vals(gauges[i]['values'][kind][:1], gauges[i]['unit'])})")
+        else:
+            refused.append(f"{v:g} is not the {said} of any gauge in the results")
+
+    # N-year floods: the flow tied to a period must be that period's return level, by the method named.
+    for rx in _PERIODS:
+        for m in rx.finditer(blank):
+            t = float(m.group(1))
+            cstart, cend = who.clause(m.start())
+            after = [n for n in numbers if m.end() <= n[0] < cend and n[0] in flows]
+            before = [n for n in numbers if cstart <= n[0] < m.start() and n[0] in flows]
+            bound = after[0] if after else (before[-1] if before else None)
+            if bound is None:
+                continue
+            a, b, v = bound
+            i = who.at(a)
+            cands = [i] if i is not None else list(range(len(gauges)))
+            rows = [(k, gauges[k]["levels"].get(t)) for k in cands]
+            rows = [(k, r) for k, r in rows if r]
+            if not rows:
+                if not any(gauges[k]["levels"] for k in cands):
+                    continue
+                refused.append(f"there is no {t:g}-year flood in the results for {name(i)}")
+                continue
+            sentence = next((s for s in _SENTENCE.split(text) if text.find(s) <= a < text.find(s) + len(s)), text)
+            says_lp3, says_gev = bool(_LP3.search(sentence)), bool(_GEV.search(sentence))
+            fits = []
+            for k, r in rows:
+                if r.get("gev") is not None and _close(v, [r["gev"]]):
+                    fits.append("gev")
+                if r.get("lp3") is not None and _close(v, [r["lp3"]]):
+                    fits.append("lp3")
+                if any(_close(v, [x]) for x in r.get("ci") or [] if isinstance(x, (int, float))):
+                    fits.append("ci")
+            k0, r0 = rows[0]
+            unit = gauges[k0]["unit"]
+            if not fits:
+                elsewhere = [f"{tt:g}" for tt, rr in gauges[k0]["levels"].items()
+                             if any(isinstance(x, (int, float)) and _close(v, [x])
+                                    for x in (rr.get("gev"), rr.get("lp3")))]
+                if elsewhere:
+                    refused.append(f"{v:g} is the {elsewhere[0]}-year flood, not the {t:g}-year")
+                else:
+                    gev = f"GEV {_fmt(r0['gev'])}" if r0.get("gev") is not None else ""
+                    lp3 = f"LP3 {_fmt(r0['lp3'])}" if r0.get("lp3") is not None else ""
+                    refused.append(f"{v:g} is not the {t:g}-year flood of {name(k0)} "
+                                   f"({', '.join(x for x in (gev, lp3) if x)} {unit})".replace(" )", ")"))
+            elif "gev" not in fits and "lp3" in fits and not says_lp3:
+                refused.append(f"{v:g} is the LP3 {t:g}-year flood, and the answer does not say LP3 (the page's "
+                               f"figure is the GEV, {_fmt(r0['gev'])} {unit})" if r0.get("gev") is not None else
+                               f"{v:g} is the LP3 {t:g}-year flood, and the answer does not say LP3")
+            elif "lp3" not in fits and "gev" in fits and says_lp3 and not says_gev:
+                refused.append(f"{v:g} is the GEV {t:g}-year flood, not the LP3")
+
+    # Record dates: a date said of one gauge must be that gauge's, and "from A to B" its start and end.
+    for m in _DATE_RANGE.finditer(text):
+        i = who.at(m.start())
+        pair = (m.group(1), m.group(2))
+        cands = [i] if i is not None else list(range(len(gauges)))
+        if any(pair in gauges[k]["pairs"] for k in cands):
+            continue
+        others = [k for k, g in enumerate(gauges) if k not in cands and pair in g["pairs"]]
+        if i is not None and others:
+            refused.append(f"{pair[0]} to {pair[1]} is the record of {name(others[0])}, not of {name(i)}")
+        elif i is not None and all(d in gauges[i]["strings"] for d in pair) and gauges[i]["pairs"]:
+            s0, e0 = sorted(gauges[i]["pairs"])[0]
+            refused.append(f"the record of {name(i)} runs from {s0} to {e0}, not {pair[0]} to {pair[1]}")
+    for m in _DATE.finditer(text):
+        i = who.at(m.start())
+        d = m.group(0)
+        if i is None or d in gauges[i]["strings"]:
+            continue
+        others = [k for k, g in enumerate(gauges) if k != i and d in g["strings"]]
+        if others:
+            refused.append(f"{d} is in the record of {name(others[0])}, not of {name(i)}")
+    return refused
+
+
+_LIST_COUNT = re.compile(r"\b(?P<n>two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:[a-z]+\s+){0,2}"
+                         r"(?:gauges|stations|sites)\b", re.I)
+_LIST_WORDS = re.compile(r"\b(?:list|which|all)\b[^.?]*\b(?:gauges|stations)\b", re.I)
+_COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+
+
+def wanted_list(question: str) -> int:
+    """How many gauges a question asks to be listed ("the five gauges nearest Kingston" is 5); 0 for none."""
+    m = _LIST_COUNT.search(question or "")
+    if m:
+        n = m.group("n").lower()
+        return _COUNT_WORDS.get(n) or int(n)
+    return 2 if _LIST_WORDS.search(question or "") else 0
+
+
+def _list_check(text: str, compacts: list[tuple[str, dict[str, Any]]], words: str) -> list[str]:
+    """A question that asks for several gauges is answered with several: "five gauges nearest Kingston" with one
+    analysed gauge is refused, and the page shows the search's list instead."""
+    question = (words or "").split("\n\nContext:")[0]
+    want = wanted_list(question)
+    rows = [r for name, c in compacts if name == "find_stations" for r in c.get("stations") or []
+            if isinstance(r, dict)]
+    if want < 2 or not rows:
+        return []
+    low = text.lower()
+    named = sum(1 for r in rows if (r.get("station_id") and str(r["station_id"]).lower() in low)
+                or (len(str(r.get("name") or "")) >= 4 and str(r["name"]).lower() in low))
+    need = min(want, len(rows))
+    if named < need:
+        return [f"the question asks for {want} gauges and the answer names {named} of those the search found"]
+    return []
+
+
 def lock_answer(answer: str, results: list[dict[str, Any]], words: str = "") -> dict[str, Any]:
     """Hold an on-device answer to this question's tool results.
 
@@ -465,9 +813,14 @@ def lock_answer(answer: str, results: list[dict[str, Any]], words: str = "") -> 
 
     Every number, date, flow-duration label (Q95, Q10) and gauge id in the answer must be in the results or in
     the words, allowing for rounding; a gauge id must sit next to its own gauge's name; every trend or
-    significance word must agree with the Mann-Kendall result. Returns ``{"ok", "refused", "facts", "notes"}``:
-    ``refused`` says why in short phrases, ``facts`` are lines built from the results (what the page shows when
-    the answer is refused), ``notes`` say what the reader should know either way.
+    significance word must agree with the Mann-Kendall result. A labelled number must be that label's value for
+    the gauge its clause is about (:func:`_label_check`: Q95 its flow-duration Q95, an N-year flood its return
+    level for N by the method named, a mean or a record date its own field), and a number written in m3/s a
+    flow. A question asking for several gauges must be answered with several (:func:`_list_check`).
+
+    Returns ``{"ok", "refused", "facts", "notes"}``: ``refused`` says why in short phrases, ``facts`` are lines
+    built from the results (what the page shows when the answer is refused), ``notes`` say what the reader
+    should know either way.
     """
     text = normalise(answer or "")
     words_n = normalise(words or "")
@@ -518,6 +871,8 @@ def lock_answer(answer: str, results: list[dict[str, Any]], words: str = "") -> 
                        if compacts else f"no tool ran for this question, so {listed} cannot come from data")
 
     refused += _trend_check(text, compacts)
+    refused += _label_check(text, compacts, words_n)
+    refused += _list_check(text, compacts, words_n)
 
     notes = []
     for r in ok_results:
