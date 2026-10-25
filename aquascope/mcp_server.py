@@ -704,13 +704,18 @@ def water_balance(hybas_id: int | None = None, lat: float | None = None, lon: fl
 def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: list[str] | None = None,
                   origin_x: float | None = None, origin_y: float | None = None, rotation: float | None = None,
                   crs: str | None = None, cell_size: float | None = None, start_date: str | None = None,
-                  time_index: int = -1, layer: int | None = None, geojson: bool = False) -> dict[str, Any]:
+                  time_index: int = -1, layer: int | None = None, geojson: bool = False,
+                  budget_path: str | None = None, section: list[list[float]] | None = None,
+                  cell_row: int | None = None, cell_col: int | None = None) -> dict[str, Any]:
     """Read a local MODFLOW binary head file (MODFLOW-2005 or 6, .hds) onto the map: its grid from grid_path
     (.dis, .disv or .dis.grb), sidecar_paths (a .nam with FloPy's georeference comment, a MODFLOW 6 .tdis), or
     cell_size; placed by origin_x/origin_y (lower-left corner), rotation (degrees) and crs (e.g. EPSG:27700) where the
     files do not say. Returns the grid, layers, times (dates with start_date), the head range, per-layer statistics
     at the last time and one frame (time_index, 1-based layer); geojson=True adds that frame's cells as GeoJSON in
-    lon/lat. When the model's place is unknown the answer says what is needed (`needs`). Files are read locally."""
+    lon/lat. When the model's place is unknown the answer says what is needed (`needs`). Files are read locally.
+    Experimental views (#625, #626): section [[lon, lat], ...] cuts through every layer (layer tops and bottoms from
+    grid_path, heads and the water table at time_index); cell_row/cell_col (1-based) give that cell's head over time
+    in every layer; budget_path (the .cbc cell-by-cell budget file) gives the water budget, in and out by term."""
     from aquascope.groundwater.surface import modflow_geojson, modflow_summary, read_modflow_heads
 
     origin = [origin_x, origin_y] if origin_x is not None and origin_y is not None else None
@@ -719,6 +724,31 @@ def modflow_heads(hds_path: str, grid_path: str | None = None, sidecar_paths: li
     out = modflow_summary(res, time_index, layer)
     if geojson and not res.get("error"):
         out["geojson"] = modflow_geojson(res, time_index, layer)
+    if res.get("error") or not (section or budget_path or (cell_row and cell_col)):
+        return out
+    from aquascope.groundwater import budget as gb
+    from aquascope.groundwater import layers as gv
+
+    try:
+        lay = gv.model_layers(res, grid_path) if grid_path else None
+        if lay is not None:
+            out["layer_geometry"] = gv.layers_summary(lay)
+        if section:
+            if lay is None:
+                raise ValueError("a section needs grid_path for the layers' tops and bottoms")
+            out["section"] = gv.section_summary(gv.cross_section(res, lay, section), time_index)
+        if cell_row and cell_col:
+            g = res["grid"]
+            inside = 1 <= cell_row <= g["nrow"] and 1 <= cell_col <= g["ncol"]
+            if g.get("type") != "dis" or int(g.get("block") or 1) > 1 or not inside:
+                raise ValueError("cell_row and cell_col must name a cell of a structured grid")
+            out["hydrograph"] = gv.cell_hydrograph(res, (cell_row - 1) * g["ncol"] + cell_col - 1, lay)
+        if budget_path:
+            wb = gb.water_budget(budget_path, heads=res)
+            out["budget"] = wb
+            out["budget_at"] = gb.budget_at(wb, time_index)
+    except ValueError as exc:
+        out["views_error"] = str(exc)
     return out
 
 

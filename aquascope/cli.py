@@ -4016,6 +4016,12 @@ def cmd_modflow(args: argparse.Namespace) -> None:
         out["views"] = views_summary(views)
     if args.geojson and not res.get("error"):
         Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
+    if not res.get("error") and (args.layers or args.section or args.cell or args.budget):
+        try:
+            out.update(_modflow_layers(res, args))
+        except ValueError as exc:
+            print(f"  {exc}", file=sys.stderr)
+            sys.exit(1)
     if args.json:
         print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
     elif res.get("error"):
@@ -4033,10 +4039,76 @@ def cmd_modflow(args: argparse.Namespace) -> None:
             print(f"  {note}")
         if views is not None:
             _print_modflow_views(out["views"])
+        _print_modflow_layers(out)
         if args.geojson:
             print(f"  wrote {args.geojson}")
     if res.get("error"):
         sys.exit(1)
+
+
+def _modflow_layers(res: dict, args: argparse.Namespace) -> dict:
+    """The experimental views of `aquascope modflow` (#625, #626): layers, a section, a cell's heads, the budget."""
+    from aquascope.groundwater import budget as gb
+    from aquascope.groundwater import layers as gv
+
+    out: dict = {}
+    lay = None
+    if args.layers or args.section or args.cell:
+        if args.grid:
+            lay = gv.model_layers(res, args.grid)
+            out["layer_geometry"] = gv.layers_summary(lay)
+        elif args.layers or args.section:
+            raise ValueError("--layers and --section need the grid file (--grid) for the layers' tops and bottoms")
+    if args.section:
+        pts = []
+        for p in args.section:
+            try:
+                lon, lat = (float(v) for v in p.split(","))
+            except ValueError as exc:
+                raise ValueError(f"--section takes points as LON,LAT, not {p!r}") from exc
+            pts.append([lon, lat])
+        out["section"] = gv.section_summary(gv.cross_section(res, lay, pts), args.time)
+    if args.cell:
+        g = res["grid"]
+        if g.get("type") != "dis" or int(g.get("block") or 1) > 1:
+            raise ValueError("--cell ROW COL needs a structured grid drawn cell by cell")
+        row, col = args.cell
+        if not (1 <= row <= g["nrow"] and 1 <= col <= g["ncol"]):
+            raise ValueError(f"--cell is outside the grid ({g['nrow']} rows x {g['ncol']} columns)")
+        out["hydrograph"] = gv.cell_hydrograph(res, (row - 1) * g["ncol"] + (col - 1), lay)
+    if args.budget:
+        wb = gb.water_budget(args.budget, heads=res)
+        out["budget"] = wb
+        out["budget_at"] = gb.budget_at(wb, args.time)
+    return out
+
+
+def _print_modflow_layers(out: dict) -> None:
+    if out.get("layer_geometry"):
+        lay = out["layer_geometry"]
+        print(f"  layers: {len(lay['layers'])}, from {lay['base']:g} to {lay['crest']:g}; "
+              f"a 3D view would use vertical exaggeration x{lay['exaggeration']}")
+        for row in lay["per_layer"]:
+            print(f"    layer {row['layer']}: mean top {row['mean_top']}, bottom {row['mean_bottom']}, "
+                  f"thickness {row['mean_thickness']}")
+    sec = out.get("section")
+    if sec:
+        if sec.get("error"):
+            print(f"  section: {sec['error']}")
+        else:
+            wt = [v for v in sec["water_table_at_time"] if v is not None]
+            print(f"  section: {sec['summary']}" + (f" Water table {min(wt):g} to {max(wt):g}." if wt else ""))
+    h = out.get("hydrograph")
+    if h:
+        print(f"  cell row {h['row']}, column {h['col']}: {h['summary']}")
+    b = out.get("budget_at")
+    if b:
+        when = b["date"] or f"stress period {b['kstpkper'][1]}, step {b['kstpkper'][0]}"
+        print(f"  water budget at {when} ({b['unit']}):")
+        for row in b["terms"]:
+            print(f"    {row['label']:<28} in {row['in']:>14,.2f}   out {row['out']:>14,.2f}")
+        disc = "" if b["discrepancy_pct"] is None else f", discrepancy {b['discrepancy_pct']:.2f}%"
+        print(f"    {'Total':<28} in {b['total_in']:>14,.2f}   out {b['total_out']:>14,.2f}{disc}")
 
 
 def _print_modflow_views(v: dict) -> None:
@@ -5571,6 +5643,13 @@ def main() -> None:
                       "without it the wells are found in the heads")
     p_mf.add_argument("--reference", default=None, help="For --views: the step drawdown is measured from (index, "
                       "default 0), or 'highest' for the step when the wells' heads are highest")
+    p_mf.add_argument("--layers", action="store_true", help="Each layer's top, bottom and thickness from --grid (#625)")
+    p_mf.add_argument("--section", nargs="+", default=None, metavar="LON,LAT",
+                      help="A cross-section along these points (two or more), through every layer, at --time (#625)")
+    p_mf.add_argument("--cell", nargs=2, type=int, default=None, metavar=("ROW", "COL"),
+                      help="One cell's head over time in every layer (1-based row and column, #626)")
+    p_mf.add_argument("--budget", default=None, metavar="CBC",
+                      help="The cell-by-cell budget file (.cbc): the water budget at --time and over the run (#626)")
     p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────

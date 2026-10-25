@@ -32,6 +32,9 @@ import {
   rgb, rowSummary, sortModelFiles, stepForDate, surfaceCard, timeLabel, valueColor, viewTouches, wellCard, wellsNear,
 } from "./groundwater-core.js?v=__BUILD__";
 import {
+  initGwLayers, setCellOpener, layers3d, layersAct, layersCellChart, layersDrawing, layersFrame, layersLegendHtml, layersLoaded, layersRemoved,
+} from "./groundwater-layers.js?v=__BUILD__";
+import {
   clearModelViews, modelViewsAct, modelViewsBody, modelViewsKey, modelViewsState, showModelViews, updateModelViews,
 } from "./groundwater-views.js?v=__BUILD__";
 
@@ -326,21 +329,26 @@ function onWellClick(e) {
 }
 
 function onModelClick(e) {
-  if (!model || !modelShown()) return;
+  if (!model || !modelShown() || layersDrawing()) return;
   if (map.queryRenderedFeatures(e.point, { layers: ["points", "clusters", "gwv-wells"].filter((id) => map.getLayer(id)) }).length) return;
   const f = (e.features || [])[0];
   if (!f) return;
-  const c = Number(f.properties.c);
-  const h = frameOf(model.heads, model.shape, model.t, model.l)[c];
-  const lay = model.meta.layers[model.l];
+  cellCard(Number(f.properties.c), e.lngLat, model.l);
+}
+
+// A cell's card: its head now, and (from groundwater-layers.js, #626) its head over time in every layer.
+function cellCard(c, lngLat, l) {
+  const h = frameOf(model.heads, model.shape, model.t, l)[c];
+  const lay = model.meta.layers[l];
   const g = model.meta.grid;
   const where = g.type === "dis" && !(g.block > 1)
     ? `row ${Math.floor(c / g.drawn_ncol) + 1}, column ${(c % g.drawn_ncol) + 1}` : `cell ${c + 1}`;
-  const { lng, lat } = e.lngLat;
+  const { lng, lat } = lngLat;
   const unit = lengthUnit(model.meta), word = headWord(model.meta);
   const approx = isApproximate(model.meta);
+  const cardId = `gw-model:${c}:${model.t}:${l}`;
   openCard({
-    id: `gw-model:${c}:${model.t}:${model.l}`, lngLat: [lng, lat], lift: 4,
+    id: cardId, lngLat: [lng, lat], lift: 4,
     what: approx ? `Your MODFLOW heads, ${APPROX_LABEL}` : "Your MODFLOW heads", title: Number.isFinite(h) ? `${word} ${fmtM(h)}${unit ? ` ${unit}` : ""}` : `No ${word.toLowerCase()} (inactive or dry)`,
     sub: `${where}, layer ${lay} · ${timeLabel(model.meta, model.t)}`,
     status: { text: `${model.name}: ${model.meta.text.toLowerCase()} from ${model.sample ? "the sample" : "your file"}, in the model's length unit.`, color: null },
@@ -351,6 +359,7 @@ function onModelClick(e) {
     credit: model.sample ? `${model.sample.credit} Read in your browser with aquascope.`
       : "Your file, read in your browser with aquascope (it did not leave this page).",
   });
+  void layersCellChart(cardId, c);
 }
 
 // ── your MODFLOW heads ──────────────────────────────────────────────────────
@@ -371,8 +380,10 @@ function paintModel() {
   }
   map.getSource(L.model).setData(model.fc);
   setLayerVisibility();
+  layersFrame(model);
   refreshLegend("modflow");
-  void updateModelViews(model, { shown: modelShown() });   // contours, arrows, drawdown, capture (#623, #624)
+  // contours, arrows, drawdown, capture (#623, #624): the plan view's, so not under the 3D stack (#625)
+  void updateModelViews(model, { shown: modelShown() && !layers3d() });
 }
 
 function setModelStep(t) {
@@ -421,7 +432,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     model = {
       meta: out, rings: out.rings, offsets: out.offsets, heads: out.heads, shape: out.shape,
       t: 0, l: 0, name: sorted.hds.name,
-      fc: cellsGeoJSON(out.rings, out.offsets), files, sample,
+      fc: cellsGeoJSON(out.rings, out.offsets), files, sample, place,
     };
     modelOn = true;
     pending = null;
@@ -432,6 +443,7 @@ async function loadModel(files, place = {}, { sample = null } = {}) {
     syncModelDated();
     openLegendRow("modflow", true);
     map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, maxZoom: 14, duration: 1200 });
+    void layersLoaded(model, sorted);
   } catch (err) {
     openModal("Your MODFLOW heads", `<p>Could not read the files: ${escapeHtml(err && err.message ? err.message : String(err))}</p>`);
   } finally {
@@ -523,7 +535,7 @@ function pickFiles() {
   const input = document.createElement("input");
   input.type = "file";
   input.multiple = true;
-  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis,.wel";
+  input.accept = ".hds,.hed,.bhd,.ddn,.dis,.disv,.grb,.nam,.tdis,.wel,.cbc,.bud,.cbb";
   input.addEventListener("change", () => { if (input.files && input.files.length) void loadModel([...input.files]); });
   input.click();
 }
@@ -531,6 +543,7 @@ function pickFiles() {
 function removeModel() {
   model = null;
   clearModelViews();
+  layersRemoved();
   if (state.mapOk && map) {
     for (const id of [L.model, L.modelEdge]) if (map.getSource(id)) map.getSource(id).setData(EMPTY);
   }
@@ -628,13 +641,13 @@ function modelBody() {
   const r = modelRange();
   const dated = Boolean(m.dates && n > 1);
   return `<p class="gw-head">${escapeHtml(model.name)}: ${escapeHtml(m.text.toLowerCase())}, ${escapeHtml(timeLabel(m, model.t))}</p>` +
-    (modelViewsKey(model, rampKey) ?? rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m))) +
-    modelViewsBody(model) +
+    ((layers3d() ? null : modelViewsKey(model, rampKey)) ?? rampKey("level", { lo: fmtM(r[0]), hi: fmtM(r[1]) }, lengthUnit(m))) +
+    (layers3d() ? "" : modelViewsBody(model)) +
     `<div class="gw-model-ctl">` +
     (m.layers.length > 1 ? `<select class="gw-layer" aria-label="Model layer">${layers}</select>` : `<span class="muted">Layer ${m.layers[0]}</span>`) +
     (n > 1 ? `<input class="gw-step" type="range" min="0" max="${n - 1}" step="1" value="${model.t}" aria-label="Time step">` +
       `<span class="gw-step-n muted">${model.t + 1} / ${n}</span>` : "") +
-    `</div>` +
+    `</div>` + layersLegendHtml() +
     (n > 1 ? `<p class="gw-line">${dated ? 'Plays with the time bar. <button type="button" class="gw-link" data-act="play">Play the run</button>'
       : "No start date, so the slider steps through the model times."}</p>` : "") +
     (isApproximate(m)
@@ -658,10 +671,11 @@ function registerModelRow() {
       ? `${isApproximate(model.meta) ? `${APPROX_LABEL} · ` : ""}${timeLabel(model.meta, model.t)}` : ""),
     on: () => modelShown(),
     empty: () => !model && !modelBusy,
-    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); showModelViews(modelOn); refreshLegend("modflow"); },
+    toggle: (on) => { modelOn = Boolean(on); setLayerVisibility(); showModelViews(modelOn && !layers3d()); refreshLegend("modflow"); },
     body: modelBody,
     shown: () => Boolean(model || modelBusy),
     act: (name) => {
+      if (layersAct(name)) return;
       if (name === "remove") removeModel();
       else if (name === "fit" && model) { const b = edgeOf(model.rings); map.fitBounds([[b.w, b.s], [b.e, b.n]], { padding: 80, duration: 1000 }); }
       else if (name === "play" && model && model.meta.dates) playModel();
@@ -743,6 +757,8 @@ export function initGroundwater() {
     toggle.addEventListener("change", (e) => setGroundwater(e.target.checked));
   }
   bindModelControls();
+  initGwLayers({ fill: L.model, line: L.modelLine, viewChanged: () => { if (model) paintModel(); } });
+  setCellOpener((c, lngLat, l) => { if (model) cellCard(c, lngLat, l); });
   actions.openModflowFiles = openModflowFiles;   // Tools, Open model results, and its MODFLOW sample (model-samples.js)
   if (!state.mapOk || !map) return;
   initDrop();

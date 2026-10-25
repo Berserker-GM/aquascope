@@ -155,3 +155,67 @@ v["flow"]["towards"]    # "south-east"
 v["capture"]            # [{well, rings, area_km2, paths}]
 views_summary(v)        # the same without the geometry
 ```
+
+## Layers, sections, hydrographs and the water budget
+
+Experimental (see [Stability](stability.md#experimental)), added after 0.27.0 for #625 and
+#626: `aquascope.groundwater.layers` and `aquascope.groundwater.budget`.
+
+![Three layers in 3D, coloured by head, five times taller than they are and pulled apart](img/models/gw-3d.png)
+
+![A cell's card: its head over the run in every layer](img/models/gw-hydrograph.png)
+
+- `read_layer_elevations(grid)`: each layer's top and bottom (`TOP`, `BOTM`, `IDOMAIN`) from a
+  MODFLOW 6 `.dis`/`.disv` or `.dis.grb`, or a MODFLOW-2005 `.dis` (a confining bed under a
+  layer, `LAYCBD`, is left as a gap: the next layer starts at its bottom). Checked against FloPy's `ModflowDis` on the Freyberg example.
+- `model_layers(res, grid)`: those elevations on the cells as `read_modflow_heads` draws them
+  (block means on a big grid), the model's base and crest, and a vertical exaggeration for a
+  3D view: 1, 2 or 5 times a power of ten, so the stack stands about 12% of the model's width.
+- `cross_section(res, layers, [[lon, lat], ...])`: the cells a line crosses, in order, with
+  where it enters and leaves each (found to half a metre), every layer's top, bottom and head
+  at every saved time, and the water table, read as the head of the uppermost layer that has
+  one (where that head is above the layer's top, a confined layer, the notes say the line is
+  a potentiometric surface, not a water table). Distances are on a local plane around the line (well under 1% from the geodesic over
+  a model's few tens of kilometres).
+- `cell_hydrograph(res, cell, layers)`: one cell's head over time in every layer, with its
+  lowest value and when, and the layer's top and bottom.
+- `read_budget(cbc)` and `water_budget(cbc, heads=res)`: the cell-by-cell budget file in
+  every layout MODFLOW writes: the full layout (MODFLOW-2005 without `COMPACT BUDGET`), the
+  compact one (IMETH 1 to 5) and MODFLOW 6's (IMETH 6), in single or double precision, told
+  from the file. Per saved time and term, **in** is the sum of the term's positive cell values
+  (water entering the groundwater system) and **out** of its negative ones; the percent
+  discrepancy is `100 * (IN - OUT) / ((IN + OUT) / 2)`, as MODFLOW's own budget reports it
+  ([Harbaugh, 2005](https://doi.org/10.3133/tm6A16)). Flows between cells (`FLOW RIGHT FACE`,
+  `FLOW-JA-FACE` and the like) and MODFLOW 6's `DATA-` records are not budget terms and are
+  left out. Rates are in the model's length cubed per its time unit. The layouts are those of
+  the MODFLOW-2005 documentation (Harbaugh, 2005, and its
+  [Output Control input page](https://water.usgs.gov/ogw/modflow/MODFLOW-2005-Guide/oc.htm), where
+  `COMPACT BUDGET` is set)
+  and of FloPy's
+  [`CellBudgetFile`](https://flopy.readthedocs.io/en/latest/source/flopy.utils.binaryfile.html);
+  a test checks the reader against FloPy where FloPy is installed.
+
+![The water budget of the synthetic model, month by month: in above zero, out below](img/models/gw-budget.png)
+
+```bash
+aquascope modflow synthetic.hds --grid synthetic.dis --sidecar synthetic.nam --time 13 \
+  --layers --section 2.29,48.864 2.35,48.864 --cell 15 23 --budget synthetic.cbc
+```
+
+```python
+from aquascope.groundwater import budget, layers
+from aquascope.groundwater.surface import read_modflow_heads
+
+res = read_modflow_heads("synthetic.hds", "synthetic.dis", sidecars=["synthetic.nam"])
+lay = layers.model_layers(res, "synthetic.dis")
+sec = layers.cross_section(res, lay, [[2.29, 48.864], [2.35, 48.864]])
+layers.section_summary(sec, time_index=13)       # the cells, tops, bottoms, heads and water table, JSON-safe
+layers.cell_hydrograph(res, 14 * 40 + 22, lay)    # row 15, column 23: every layer's head over the run
+wb = budget.water_budget("synthetic.cbc", heads=res)
+budget.budget_at(wb, 13)                         # each term's in, out and net, the totals and the discrepancy
+```
+
+The MCP tool `modflow_heads` takes the same as `section`, `cell_row`/`cell_col` and
+`budget_path`. The synthetic three-layer model these pictures come from (a sand, a clay and
+a chalk with a pumping well, everything made up) is written by
+`tests/test_groundwater/synthetic_models.py OUT_DIR`.
