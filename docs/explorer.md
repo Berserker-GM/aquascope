@@ -1200,13 +1200,13 @@ worker builds the smooth picture and the lenses (`aquascope.mesh_views`, [mesh.m
   and speed that put the cell in it, and the class's limits; or when the water arrived; or
   the largest depth or speed and its step.
 
-![Smooth depth and labelled contours on a HEC-RAS 2D run](img/models/619-smooth-contours.png)
+![Smooth depth and labelled contours on a HEC-RAS 2D run](img/models/619-smooth-contours.jpg)
 
-![The flood draped over the terrain in 3D](img/models/619-3d.png)
+![The flood draped over the terrain in 3D](img/models/619-3d.jpg)
 
-![The hazard lens, H1 to H6, with a cell's card](img/models/620-hazard.png)
+![The hazard lens, H1 to H6, with a cell's card](img/models/620-hazard.jpg)
 
-![The arrival-time lens with lines of equal arrival](img/models/620-arrival.png)
+![The arrival-time lens with lines of equal arrival](img/models/620-arrival.jpg)
 
 ![A UGRID mesh of San Diego Bay (ADH), the largest depth](img/globe/555-ugrid-sandiego.png)
 
