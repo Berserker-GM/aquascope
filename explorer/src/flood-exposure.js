@@ -23,6 +23,7 @@ const ROADS = "fx-roads";
 const ROADS_CASE = "fx-roads-case";
 const ROW = "flood-exposure";
 const FLOODED = "#d9480f";
+const ROAD = "#8f1d06";
 const READ_WAIT_MS = 180000;
 
 let res = null;          // exposure_payload's answer
@@ -111,9 +112,9 @@ function drawLayers() {
   if (!map.getSource(ROADS)) {
     map.addSource(ROADS, { type: "geojson", data: fc.roads });
     map.addLayer({ id: ROADS_CASE, type: "line", source: ROADS, layout: { visibility: vis(), "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": "#5c1c03", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 2.2, 17, 6], "line-opacity": 0.55 } }, before);
+      paint: { "line-color": "#ffffff", "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.6, 17, 4.6], "line-opacity": 0.7 } }, before);
     map.addLayer({ id: ROADS, type: "line", source: ROADS, layout: { visibility: vis(), "line-cap": "round", "line-join": "round" },
-      paint: { "line-color": FLOODED, "line-width": ["interpolate", ["linear"], ["zoom"], 12, 1.4, 17, 4] } }, before);
+      paint: { "line-color": ROAD, "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.7, 17, 2.4] } }, before);
   }
   if (!bound) {
     bound = true;
@@ -135,7 +136,7 @@ function syncStep() {
   const wet = wetFilter(step, view);
   if (map.getLayer(BLD)) {
     map.setPaintProperty(BLD, "fill-color", ["case", wet, FLOODED, "#5c6b78"]);
-    map.setPaintProperty(BLD, "fill-opacity", ["case", wet, 0.88, 0.2]);
+    map.setPaintProperty(BLD, "fill-opacity", ["case", wet, 0.78, 0.16]);
     map.setPaintProperty(BLD_LINE, "line-color", ["case", wet, "#7a2604", "#3c4955"]);
   }
   for (const id of [ROADS, ROADS_CASE]) if (map.getLayer(id)) map.setFilter(id, wet);
@@ -214,14 +215,15 @@ function body() {
     people: res.population && res.population.per_step };
   const rows = exposureRows(res, step, view).map((r) =>
     `<li class="fx-${r.key}"><i class="fx-mark" aria-hidden="true"></i><div><b>${escapeHtml(r.value)}</b>` +
-    `<span>${escapeHtml(r.sub)}</span></div>${series[r.key] ? countSvg(series[r.key], { w: 64, h: 24, step: view === "max" ? -1 : step }) : ""}</li>`).join("");
+    `<span>${escapeHtml(r.sub)}</span></div>${series[r.key] ? countSvg(series[r.key], { w: 56, h: 22, step: view === "max" ? -1 : step }) : ""}</li>`).join("");
   const errs = Object.entries(res.errors || {}).map(([k, v]) => `<p class="fx-err">${escapeHtml(k)} could not be read: ${escapeHtml(v)}</p>`).join("");
   const limits = Object.entries(res.limits || {}).filter(([k]) => res[k === "people" ? "population" : k])
     .map(([k, v]) => `<li><b>${escapeHtml(k[0].toUpperCase() + k.slice(1))}.</b> ${escapeHtml(v)}</li>`).join("");
   const srcs = sourceLines(res).map((s) => `<li>${escapeHtml(s.text)}. <a href="${escapeHtml(s.link)}" target="_blank" rel="noopener">Attribution</a></li>`).join("");
+  const thr = `Water deeper than ${res.threshold} ${res.units.depth || "m"} counts.`;
   return `<p class="fx-when">${escapeHtml(when)}</p><ul class="fx-rows">${rows}</ul>${errs}` +
-    `<p class="fx-thr">Water deeper than ${escapeHtml(String(res.threshold))} ${escapeHtml(res.units.depth || "m")} counts.</p>` +
-    `<details class="fx-more"><summary>Sources and limits</summary><ul class="fx-src">${srcs}</ul><ul class="fx-lim">${limits}</ul></details>` +
+    `<details class="fx-more"><summary>Sources and limits</summary><p class="fx-thr">${escapeHtml(thr)}</p><ul class="fx-src">${srcs}</ul>` +
+    `<ul class="fx-lim">${limits}</ul></details>` +
     `<p class="mv-actions"><button type="button" class="fd-go" data-act="summary">Summary</button>` +
     `<button type="button" class="fd-go" data-act="clear">Remove</button></p>`;
 }

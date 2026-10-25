@@ -265,7 +265,10 @@ class _RangeFile(io.RawIOBase):
 
 
 def _size_of(url: str, fetch: Any) -> int:
-    """A remote file's size, from the Content-Range of a one-byte read."""
+    """A remote file's size, from the Content-Range of a one-byte read (or the fetch's own ``size_of``)."""
+    known = getattr(fetch, "size_of", None)
+    if callable(known):
+        return int(known(url))
     if IS_EMSCRIPTEN:  # pragma: no cover - only under Pyodide
         import urllib.request
 

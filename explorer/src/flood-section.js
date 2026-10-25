@@ -156,6 +156,11 @@ export function startDrawing() {
     finish([drawing.tapped, ll]);
   });
   overlay.addEventListener("pointercancel", () => { if (drawing) drawing.down = null; });
+  // a tap's compatibility mouse events and click must not reach the map under it (they would open a cell's card)
+  for (const type of ["touchstart", "touchend", "click", "mousedown", "mouseup"]) {
+    overlay.addEventListener(type, (e) => { if (e.target === overlay || type !== "click") e.preventDefault(); e.stopPropagation(); },
+      { passive: false });
+  }
   // the wheel still zooms the map under the overlay
   overlay.addEventListener("wheel", (e) => {
     e.preventDefault();
@@ -168,8 +173,12 @@ export function startDrawing() {
 
 function stopDrawing() {
   if (!drawing) return;
-  drawing.overlay.remove();
+  const { overlay } = drawing;
   drawing = null;
+  // Kept a moment, out of sight, so the click that ends a tap lands on it and not on the map.
+  overlay.classList.add("done");
+  overlay.replaceChildren();
+  setTimeout(() => overlay.remove(), 400);
   setLine(line);
 }
 
@@ -193,6 +202,7 @@ async function loadSection() {
     sec = res;
     hover = -1;
     renderPanel();
+    keepLineInSight();
     announce(`Section drawn: ${sectionHeading(sec, now())}.`);
   } catch (err) {
     if (my !== busy) return;
@@ -263,6 +273,20 @@ function renderPanel() {
   setSpot(hover >= 0 ? [sec.lon[hover], sec.lat[hover]] : null);
 }
 
+// When the panel covers part of the line (a phone, a long line low on the map), move the map so all of it shows
+// above the panel.
+function keepLineInSight() {
+  if (!line || !panel || panel.el.hidden) return;
+  const r = panel.el.getBoundingClientRect();
+  const box = map.getContainer().getBoundingClientRect();
+  const hidden = line.some((ll) => { const p = map.project(ll); return box.top + p.y > r.top - 12; });
+  if (!hidden) return;
+  const lons = line.map((p) => p[0]), lats = line.map((p) => p[1]);
+  const pad = Math.min(48, box.width / 8);
+  map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], {
+    padding: { top: 70, left: pad, right: pad, bottom: Math.max(pad, box.bottom - r.top + 24) }, maxZoom: map.getZoom() + 1, duration: 700 });
+}
+
 function closeSection() {
   busy++;
   sec = null;
@@ -289,7 +313,7 @@ async function showHydrograph(cell, id) {
     const res = await meshAsk("hydrograph", { cell });
     if (!hydro || hydro.id !== id) return;
     hydro.res = res;
-    updateCard(id, { chart: hydroChart() });
+    if (res.wet) updateCard(id, { chart: hydroChart() });   // a dry cell keeps the card's own "dry" line
   } catch (err) {
     console.warn("hydrograph", err && err.message);
   }
@@ -303,7 +327,7 @@ export function initFloodSection() {
   onMeshCell((cell, id) => { void showHydrograph(cell, id); });
   onMeshStep(() => {
     if (sec) renderPanel();
-    if (hydro && hydro.res && cardOpen()) updateCard(hydro.id, { chart: hydroChart() });
+    if (hydro && hydro.res && hydro.res.wet && cardOpen()) updateCard(hydro.id, { chart: hydroChart() });
   });
   onMeshCleared(() => { closeSection(); hydro = null; });
   if (state.mapOk && map) {

@@ -352,17 +352,17 @@ export function exposureRows(res, step = 0, view = "step") {
   if (res.buildings) {
     rows.push({ key: "buildings", value: `${int(c.buildings)} building${c.buildings === 1 ? "" : "s"}`,
       sub: view === "max" ? `flooded at some point, of ${int(res.buildings.on_mesh)} on the model` :
-        `of ${int(res.buildings.on_mesh)} on the model · ${peak(res.buildings.peak, int(res.buildings.peak.value))}` });
+        `of ${int(res.buildings.on_mesh)} · ${peak(res.buildings.peak, int(res.buildings.peak.value))}` });
   }
   if (res.roads) {
     rows.push({ key: "roads", value: `${kmWords(c.roadsKm)} of road`,
       sub: view === "max" ? `under water at some point, of ${kmWords(res.roads.on_mesh_km)} on the model` :
-        `under water · ${peak(res.roads.peak, kmWords(res.roads.peak.value))}` });
+        peak(res.roads.peak, kmWords(res.roads.peak.value)) });
   }
   if (res.population) {
     rows.push({ key: "people", value: peopleWords(c.people).replace(/^about /, "~"),
       sub: view === "max" ? "live where the water reaches at some point" :
-        `live in the flooded area · ${peak(res.population.peak, peopleWords(res.population.peak.value).replace(/^about /, "~"))}` });
+        `in the flooded area · ${peak(res.population.peak, peopleWords(res.population.peak.value).replace(/^about /, "~").replace(/ people$/, ""))}` });
   }
   return rows;
 }
