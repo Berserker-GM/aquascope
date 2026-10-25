@@ -121,6 +121,7 @@ nav:
     - SWMM in the browser (assessment): assessments/swmm.md
     - A real HEC-RAS 2D run (assessment): assessments/hec-ras.md
     - The Explorer in real browsers (assessment): assessments/browsers.md
+    - The AI roles on the device (assessment): assessments/ai-on-the-map.md
     - Use the Archive from R, QGIS, DuckDB: readers.md
     - MODFLOW heads on the map: modflow.md
     - The Explorer (click any gauge): explorer.md
