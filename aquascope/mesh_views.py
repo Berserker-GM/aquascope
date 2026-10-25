@@ -298,6 +298,7 @@ class FieldGrid:
     tri: np.ndarray
     w: np.ndarray
     n_cells: int
+    px_per_cell: float = 5.0
 
     def frame(self) -> dict[str, Any]:
         return {"west": self.west, "east": self.east, "south": self.south, "north": self.north,
@@ -404,7 +405,8 @@ def field_grid(m: Mesh, *, px_per_cell: float = 5.0, max_pixels: int = 1_000_000
             w[ok] = np.clip(bw, 0, 1).astype("f4")
         except QhullError:   # centres all on a line: each pixel takes its own cell's value
             pass
-    return FieldGrid(west, east, south, north, int(width), int(height), pix.astype("i4"), tri.astype("i4"), w, n)
+    return FieldGrid(west, east, south, north, int(width), int(height), pix.astype("i4"), tri.astype("i4"), w, n,
+                     px_per_cell / scale)
 
 
 def smooth_field(grid: FieldGrid, values: np.ndarray, *, kind: str = "depth",
@@ -465,11 +467,37 @@ def _label(level: float, unit: str | None) -> str:
     return f"{txt} {unit}" if unit else txt
 
 
+def blur(image: np.ndarray, radius: int) -> np.ndarray:
+    """A box blur of ``radius`` pixels that leaves NaN where the image is NaN and does not spread it (a mean of the
+    values around each pixel that have one). For tracing lines on a field that steps cell by cell."""
+    if radius < 1:
+        return image
+    v = np.asarray(image, dtype="f8")
+    ok = np.isfinite(v)
+    acc, cnt = np.where(ok, v, 0.0), ok.astype("f8")
+    k = 2 * radius + 1
+    for axis in (0, 1):
+        pad = [(0, 0), (0, 0)]
+        pad[axis] = (radius + 1, radius)
+        ca, cc = np.cumsum(np.pad(acc, pad), axis=axis), np.cumsum(np.pad(cnt, pad), axis=axis)
+        sl_hi = [slice(None), slice(None)]
+        sl_lo = [slice(None), slice(None)]
+        sl_hi[axis], sl_lo[axis] = slice(k, None), slice(0, -k)
+        acc, cnt = ca[tuple(sl_hi)] - ca[tuple(sl_lo)], cc[tuple(sl_hi)] - cc[tuple(sl_lo)]
+    with np.errstate(invalid="ignore", divide="ignore"):
+        out = acc / cnt
+    out[~ok] = np.nan
+    return out
+
+
 def contour_lines(grid: FieldGrid, image: np.ndarray, levels: list[float], *, unit: str | None = None,
-                  kind: str = "level", digits: int = 6) -> dict[str, Any]:
+                  kind: str = "level", digits: int = 6, trace_at: list[float] | None = None,
+                  min_px: float = 0.0) -> dict[str, Any]:
     """Lines of equal value on a grid image (from :func:`smooth_field`) as a GeoJSON FeatureCollection in degrees:
-    one MultiLineString per level, with ``level``, ``label`` (the level and its unit) and ``kind``. Needs
-    contourpy (with matplotlib, or in the browser); without it, no lines and ``note`` says why."""
+    one MultiLineString per level, with ``level``, ``label`` (the level and its unit) and ``kind``. ``trace_at``
+    (one value per level) traces each line at another value than it is labelled with; pieces shorter than
+    ``min_px`` pixels are left out. Needs contourpy (with matplotlib, or in the browser); without it, no lines
+    and ``note`` says why."""
     fc: dict[str, Any] = {"type": "FeatureCollection", "features": []}
     if not levels:
         return fc
@@ -484,10 +512,10 @@ def contour_lines(grid: FieldGrid, image: np.ndarray, levels: list[float], *, un
     rows, cols = image.shape
     gen = contourpy.contour_generator(x=np.arange(cols) + 0.5, y=np.arange(rows) + 0.5, z=z,
                                       line_type=contourpy.LineType.Separate)
-    for level in levels:
+    for n_level, level in enumerate(levels):
         parts = []
-        for seg in gen.lines(level):
-            if len(seg) < 2:
+        for seg in gen.lines(trace_at[n_level] if trace_at else level):
+            if len(seg) < 2 or (min_px and float(np.hypot(*np.diff(seg, axis=0).T).sum()) < min_px):
                 continue
             lon, lat = grid.lonlat(seg[:, 0], seg[:, 1])
             parts.append(np.round(np.column_stack([lon, lat]), digits).tolist())
@@ -542,10 +570,13 @@ def field_payload(m: Mesh, grid: FieldGrid, lenses: Lenses, what: str = "depth",
     ``lines`` (GeoJSON text: the contour lines, and for depth the wet edge). ``what`` is ``"depth"`` (at
     ``step``, or the largest over the run when step is None), ``"max_depth"``, ``"max_speed"`` or ``"arrival"``."""
     unit = m.units.get(m.variable)
+    # Linear pieces on a triangulation crease along the triangles' edges; a blur of about half a cell (which does
+    # not move the wet edge) takes the creases out of the picture and the lines.
+    soft = max(1, round(grid.px_per_cell / 2.5))
     if what in ("depth", "max_depth"):
         vals = m.frame(step)["value"] if (what == "depth" and step is not None) else m.max_value
         if m.variable == "depth":
-            img = smooth_field(grid, vals, kind="depth")
+            img = blur(smooth_field(grid, vals, kind="depth"), soft)
             lines = contour_lines(grid, img, depth_levels(m, lenses), unit=unit, kind="depth")
             lines["features"] += wet_edge(grid, vals)["features"]
         else:
@@ -554,8 +585,8 @@ def field_payload(m: Mesh, grid: FieldGrid, lenses: Lenses, what: str = "depth",
     elif what == "max_speed":
         if lenses.max_speed is None:
             raise MeshError("This file has no velocities.")
-        img = smooth_field(grid, lenses.max_speed, kind="speed", depth=m.max_value) if m.variable == "depth" \
-            else smooth_field(grid, lenses.max_speed, kind="strict")
+        img = blur(smooth_field(grid, lenses.max_speed, kind="speed", depth=m.max_value) if m.variable == "depth"
+                   else smooth_field(grid, lenses.max_speed, kind="strict"), soft)
         lines = {"type": "FeatureCollection", "features": []}
     elif what == "arrival":
         if lenses.arrival_h is None:
@@ -563,7 +594,13 @@ def field_payload(m: Mesh, grid: FieldGrid, lenses: Lenses, what: str = "depth",
         img = smooth_field(grid, lenses.arrival_h, kind="strict")
         a = lenses.arrival_h[np.isfinite(lenses.arrival_h)]
         levels = contour_levels(float(a.min()), float(a.max()), most=8, hours=True) if a.size else []
-        lines = contour_lines(grid, img, levels, unit="h", kind="arrival")
+        # Arrival comes in output steps, so the field is flat between them: the line "flooded by 2 h" is traced
+        # halfway to the next output time, on the field softened by about a cell, and crumbs are left out.
+        hours = _hours(m.times)
+        half = float(np.median(np.diff(hours))) / 2 if hours.size > 1 else 0.0
+        px = max(1, round(grid.px_per_cell / 2))
+        lines = contour_lines(grid, blur(img, px), levels, unit="h", kind="arrival",
+                              trace_at=[lv + half for lv in levels], min_px=4 * grid.px_per_cell)
     else:
         raise MeshError(f"Unknown picture {what!r}.")
     return {"image": img.astype("f4").ravel(), "lines": json.dumps(lines, separators=(",", ":"))}

@@ -18,7 +18,7 @@ import { writeUrl } from "./url.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import { MESH_LAYERS, currentMesh, meshAsk, meshState, onMeshCleared, refreshMeshLegend, repaintMesh, setMeshViews } from "./mesh-view.js?v=__BUILD__";
 import {
-  HAZARD_COLOURS, areaWords, hazardPacked, hoursWords, lensFacts, lensLine, lensScale, lensStops, lensTicks,
+  HAZARD_COLOURS, HAZARD_SHORT, areaWords, hazardPacked, hoursWords, lensFacts, lensLine, lensScale, lensStops, lensTicks,
   lensesFor, packedRamp, paintGrid, rampCssOf,
 } from "./mesh-views-core.js?v=__BUILD__";
 
@@ -116,9 +116,16 @@ function removeLayers() {
   for (const id of [LINES, SMOOTH]) if (map.getSource(id)) map.removeSource(id);
 }
 
+let edgeOpacity = null;   // the cell edges' own opacity, put back when the cells are on show again
+
 function setShown(smooth, lines) {
   if (!map) return;
   const vis = layerVis();
+  const edges = MESH_LAYERS.EDGES;
+  if (map.getLayer(edges)) {   // a smooth picture has no cells to outline
+    if (edgeOpacity === null) edgeOpacity = map.getPaintProperty(edges, "line-opacity") ?? 0.22;
+    map.setPaintProperty(edges, "line-opacity", smooth ? 0 : edgeOpacity);
+  }
   if (map.getLayer(SMOOTH)) map.setLayoutProperty(SMOOTH, "visibility", smooth ? vis : "none");
   for (const id of [LINES, LABELS, EDGE]) {
     if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", lines && contoursOn ? vis : "none");
@@ -223,7 +230,10 @@ function set3d(on) {
     before3d = { terrain: state.terrain, hillshade: state.hillshade, pitch: map.getPitch(), bearing: map.getBearing() };
     state.terrain = true; setTerrain(true);
     if (!state.hillshade) { state.hillshade = true; setHillshade(true); }
-    map.easeTo({ pitch: 60, bearing: before3d.bearing || -20, duration: 900 });
+    const box = currentMesh() && currentMesh().meta.bbox;
+    const cam = { pitch: 60, bearing: before3d.bearing || -20, duration: 900 };
+    if (box) map.fitBounds([[box[0], box[1]], [box[2], box[3]]], { ...cam, padding: (globalThis.innerWidth || 1024) <= 520 ? 28 : 90, maxZoom: 15.5 });
+    else map.easeTo(cam);
   } else {
     const b = before3d || { terrain: false, hillshade: state.hillshade, pitch: 0, bearing: 0 };
     state.terrain = b.terrain; setTerrain(b.terrain);
@@ -258,7 +268,7 @@ function section() {
     `aria-pressed="${l.id === lens ? "true" : "false"}" title="${escapeHtml(l.title)}">${escapeHtml(l.label)}</button>`).join("");
   const opt = (act, on, label, title) => `<label title="${escapeHtml(title)}"><input type="checkbox" data-act="${act}"${on ? " checked" : ""}> ${label}</label>`;
   return `<div class="mv-lenses" role="group" aria-label="Lens">${chips}</div>` +
-    `<div class="mv-opts">${opt("smooth", smoothOn, "Smooth", "Depth interpolated between cell centres, or the cells as the model computed them")}` +
+    `<div class="mv-opts mv-vopts">${opt("smooth", smoothOn, "Smooth", "Depth interpolated between cell centres, or the cells as the model computed them")}` +
     `${opt("contours", contoursOn, "Contours", "Lines of equal depth (or arrival time), and the edge of the water")}` +
     `${opt("3d", threeD, "3D", "The terrain in 3D, with the water draped over it")}</div>`;
 }
@@ -266,17 +276,17 @@ function section() {
 function key() {
   if (!views || lens === "depth") return null;
   const meta = views.meta;
-  const line = `<p class="fd-tag">${escapeHtml(lensLine(lens, meta))}</p>`;
+  const unitTag = lens === "max_speed" && meta.units.velocity ? `, ${meta.units.velocity}` : lens === "max_depth" && meta.units.length ? `, ${meta.units.length}` : "";
+  const line = `<p class="fd-tag">${escapeHtml(lensLine(lens, meta))}${escapeHtml(unitTag)}</p>`;
   if (lens === "hazard") {
     const h = meta.hazard;
     const rows = h.classes.map((c, k) => `<li title="${escapeHtml(c.words)}"><i style="background:${HAZARD_COLOURS[k]}"></i>` +
-      `<b>${c.code}</b><span>${escapeHtml(shortWords(c.words))}</span><em>${escapeHtml(areaWords(c.area_m2))}</em></li>`).join("");
+      `<b>${c.code}</b><span>${escapeHtml(HAZARD_SHORT[k])}</span><em>${escapeHtml(areaWords(c.area_m2))}</em></li>`).join("");
     return line + `<ul class="mv-hazard" aria-label="Hazard classes and the area in each">${rows}</ul>` +
       `<p class="fd-src">${escapeHtml(h.source.short)}, the combined hazard curves (D × V, depth and speed limits). ` +
       `<a href="${escapeHtml(h.source.url)}" target="_blank" rel="noopener">Source</a> · ${escapeHtml(h.source.licence)}</p>`;
   }
   const sc = scaleOf(lens);
-  const unit = lens === "arrival" ? "" : lens === "max_speed" ? (meta.units.velocity || "") : (meta.units.length || "");
   const t = lensTicks(lens, sc).map((k) => `<span style="left:${k.at}%">${escapeHtml(k.label)}</span>`).join("");
   const words = lens === "arrival" ? "early (dark) to late (light)" : "low (light) to high (dark)";
   let extra = "";
@@ -286,16 +296,13 @@ function key() {
       `the last place floods ${escapeHtml(hoursWords(a.last_h))} after the start. Lines every ${escapeHtml(stepWords(meta.arrival_levels))}.</p>`;
   }
   return line + `<div class="fd-ramp" role="img" aria-label="${escapeHtml(lensLine(lens, meta))}, ${words}" style="background:${rampCssOf(lensStops(lens))}"></div>` +
-    `<div class="fd-ticks" aria-hidden="true">${t}<em>${escapeHtml(unit)}</em></div>` + extra;
+    `<div class="fd-ticks" aria-hidden="true">${t}</div>` + extra;
 }
 
 function stepWords(levels) {
   if (!levels || levels.length < 2) return "few hours";
   return hoursWords(levels[1] - levels[0]);
 }
-
-// "Unsafe for vehicles and people. All building types ..." -> its first sentence, for the key's one line.
-function shortWords(words) { return String(words).split(". ")[0].replace(/\.$/, ""); }
 
 function act(name, el) {
   if (name.startsWith("lens-")) return setLens(name.slice(5)) || true;

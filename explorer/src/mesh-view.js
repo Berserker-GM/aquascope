@@ -31,7 +31,7 @@ const ARROWS = "mesh-arrows";
 const SEL = "mesh-sel";
 const ARROW_ICON = "mesh-arrow";
 const NBINS = 32;
-const ARROW_PX = 34;
+const ARROW_PX = 46;
 const EDGE_MINZOOM = 12.5;
 const CREDIT = "Your file, read in your browser by aquascope.io.mesh. Nothing is uploaded.";
 

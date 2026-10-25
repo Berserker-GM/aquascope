@@ -101,6 +101,7 @@ MCP_TOOLS: tuple[str, ...] = (
     "layer_frames",
     "map_command",
     "map_scout",
+    "mesh_lenses",
     "mesh_review",
     "mesh_summary",
     "model_skill",

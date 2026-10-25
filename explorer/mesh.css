@@ -117,3 +117,4 @@
 .mv-hazard span { color: var(--ink-2); line-height: 1.25; }
 .mv-hazard em { font-style: normal; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ml-body .mv-prep { margin: .45rem 0 0; }
+.mv-opts.mv-vopts { flex-wrap: wrap; gap: .3rem .8rem; }

@@ -29,11 +29,15 @@ export const ARRIVAL_STOPS = [
   { t: 0, c: [52, 28, 104], a: 0.9 }, { t: 0.35, c: [104, 76, 160], a: 0.86 },
   { t: 0.7, c: [158, 136, 200], a: 0.8 }, { t: 1, c: [218, 208, 236], a: 0.74 },
 ];
-// Speed: one hue, light (slow) to dark (fast), apart from the depth blues.
+// Speed: one hue, light (slow) to dark (fast), crimson, apart from the depth blues and the map's own tans.
 export const SPEED_STOPS = [
-  { t: 0, c: [253, 236, 200], a: 0.7 }, { t: 0.3, c: [247, 182, 104], a: 0.8 },
-  { t: 0.65, c: [222, 120, 40], a: 0.88 }, { t: 1, c: [128, 54, 8], a: 0.94 },
+  { t: 0, c: [249, 212, 227], a: 0.78 }, { t: 0.3, c: [236, 128, 170], a: 0.84 },
+  { t: 0.65, c: [184, 30, 100], a: 0.9 }, { t: 1, c: [96, 10, 52], a: 0.95 },
 ];
+
+// The key's short line per hazard class; the card and the key's tooltip give Table 1's full words.
+export const HAZARD_SHORT = ["Generally safe", "Unsafe for small vehicles", "Unsafe for vehicles, children, the elderly",
+  "Unsafe for vehicles and people", "Also building damage", "Also building failure"];
 
 const hex = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
 
