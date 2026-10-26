@@ -158,7 +158,11 @@ Who reads the words, in order, and the line under the box says which one did:
 
 Whatever answers, the actions are checked by the package before they run (a model's
 reply that names an unknown layer or a future date is refused, and the line says
-so), and place names are looked up in the same gazetteer as the search (Photon by
+so). A model picks and the package writes (#590): the place it may name is a run
+of your own words, the layers it may switch are the ones your words ask for
+("running low" asks for the river status, "flood" for a flood layer), and a pin's
+title is the place, never the model's words. A place, a box or a layer your words
+do not hold is refused, and the line says which. Place names are looked up in the same gazetteer as the search (Photon by
 komoot, OpenStreetMap data, ODbL); a name it does not hold is tried as a gauge in
 the catalogue. A river is lit from the point the gazetteer gives for it ("the Nile"
 starts at Lake Nasser), so "what drains to the Nile at Khartoum" or a click picks a
@@ -1418,10 +1422,28 @@ and shows the fresh numbers beside the recorded ones. The traces are produced by
 **On your device.** If your browser has Chrome's built-in Prompt API, Ask uses
 it directly. Otherwise you can choose to download a small open model (about 2 GB,
 WebLLM over WebGPU, cached by the browser after the first time). Neither is
-reliable at native tool calling at that size, so this tier uses a smaller loop:
-the model picks one tool at a time from five by replying with JSON, and after a
-few steps it writes the answer. It is labelled "on your device, reduced tool
-set" rather than presented as the full Analyst.
+reliable at native tool calling at that size, so this tier uses a smaller loop,
+and the model in it writes nothing you read (#590). Each step it replies with
+JSON held to a schema of choices the package builds from your question
+(`aquascope.ai_engine.device_ask`, internal):
+
+- **It decides** which tool to run next (find_stations, analyze_station,
+  anywhere, describe_catchment), with a gauge id, a point or a search phrase that
+  your words, the context line or an earlier result hold; then which facts
+  answer the question, and in what order, by key (`USGS-01646500.trend.mean`,
+  `USGS-01646500.gev.100`, ...), with a few connecting sentences by id.
+- **It cannot** write a number, a date, an id, a unit, a place or a claim. Every
+  sentence is AquaScope's, written from the tool results: it names the gauge,
+  the label, the value with its unit and the method (GEV or LP3, Mann-Kendall),
+  and a trend is the package's reading of the test. A call with an id or a
+  point your words and the results do not hold is not run, nor is a call
+  already made; the last step may only answer. A reply outside the choices is
+  refused, and the page shows the facts the tools returned, under one line
+  saying why.
+
+It is labelled "on your device, reduced tool set" rather than presented as the
+full Analyst. Your own key runs the full Analyst, which writes its own prose and
+is checked by its own verifier: this design does not apply to it.
 
 **Your own key**, as described above, for the full tool loop.
 

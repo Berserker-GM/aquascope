@@ -10,7 +10,8 @@ facts reached a pin, a note or a scenario. The Ask panel had no lock, and it is 
 worst answers came from: numbers from an earlier question, a trend never computed, gauge
 ids swapped between sites. Seventeen defects were found; the table at the end says where
 each one was fixed. A recheck on the device after those fixes, and the second round of fixes it
-led to, follow it.
+led to, follow it; then a third check, and the change of design it led to: the model picks, the code
+writes (Round 3, at the end).
 
 The other half of #590, the same roles with a real key (the reader's own model through
 Ask's provider list), is **still to be run by the maintainer**. Nothing on this page covers it.
@@ -342,3 +343,168 @@ recorded replies above as fixtures, in pytest and node, and C also in headless C
 | 11 | Explain: prompt text copied, "on on", "²" as a number | D |
 | 12 | What if: "summers" run as a whole year | D |
 | 13 | Ask: five gauges asked, one analysed; the 100-year flood without its method | C: a question that asks for several gauges is refused when the answer names fewer than the search found, and the page shows the search's list; the device prompt asks for the list. The compact result says which return level is GEV (the page's figures) and which LP3, and the lock refuses an LP3 value given without saying LP3 |
+
+## Third check after #641 and #642
+
+Date: 2026-10-26.
+Browser: the maintainer's Chrome 155 on a Mac, window 865 x 447 CSS px, a new tab, hard-reloaded.
+Model: Gemini Nano through the Prompt API (`LanguageModel.availability()` = "available"). No key read, entered or stored.
+Explorer: the live build at rekin226-aquascope-explorer.static.hf.space, asset version `15e7d48`.
+
+How it was run. As in the recheck: each request through the page's own entry points (the Ask panel's box and button, `__aq.mapAsk.run`, `__aq.mapExplain.run`, `__aq.scout.run`, `__aq.review.run`, `__aq.whatIf.read`), with `LanguageModel.create`, `clone` and `prompt` wrapped to log prompts, raw replies and times. Map moves were done from the console. The HEC-RAS Portsmouth sample was opened from the sample chooser for the review requests. Gauge USGS 01646500 stayed selected all session, so it was off screen for every map role. One Explain run is left out of the counts: Floods past was still on from an Ask the map action. The raw replies are in `ondevice-raw-replies-3.json` (48 requests, 66 prompts).
+
+### Recheck defects 1 to 13
+
+| # | Defect | Now |
+|---|---|---|
+| 1 | Explain: a share of land written as a flow passes | Gone as recorded: no "N% above/below normal" written as a flow passed in 24 device notes, and the check refused one. A new form passes (escape 3 below) |
+| 2 | Ask: right number, wrong label passes | The recorded q95 case was not reproducible: the comparison never reached an answer. An LP3 value given as GEV was refused. The label check now refuses right answers (see refusals) |
+| 3 | What-if: "0 m³/s taken" for 0.02 m³/s | Gone. Status line and map log both say 0.02 m³/s |
+| 4 | Ask: kErrorUnknown | Gone: none in 14 questions (33 prompts). A new failure takes its place: 5 of 14 questions used all three steps on tool calls and gave no answer |
+| 5 | Session starts of about 21 s | Not seen. 0 of 20 `create` calls took 20 s or more; see Session start time |
+| 6 | Review: "investigate if it's an expected feature" passes | Gone. In 40 device wordings the 5 "Check if this depth is expected" ones were refused; none passed |
+| 7 | Scout: a reason that reverses the finding passes | Gone. The models-disagree reason was refused in 2 of 2 Europe runs (once wrongly, see refusals) |
+| 8 | Scout: line claims device wording it did not use | Gone: "2 of 3 worded on this device", "asked, its wording not used", first reason given. After a 40 s timeout the line said "Rules, no model" without saying the model was asked |
+| 9 | Context names an off-screen gauge | Gone. Ask the map and Scout prompts left out the selected gauge (it was in Virginia, the maps elsewhere) |
+| 10 | Ask the map: a place the words do not name; review and Explain phrases | Mostly gone. No Nile; a coordinate the words did not name was refused. "does this simulation look plausible", "are the depths ... realistic", "is anything wrong", "check my model" reached the review and "tell me in plain words ..." the notes. "are there any numerical instabilities in this run?" did not; it turned on Floods past and river status unasked |
+| 11 | Explain: prompt copies, "on on", "²" in reasons | Gone as recorded. New copies: an unclosed placeholder on a pin ("Peak against the 2-year flow is 2.5 times when {f15."), "on Sun 25 Oct when on Sun 25 Oct", "2.8 times when 2.8 times" |
+| 12 | What-if: "summers" applied year-round in silence | Gone. "“summers” not applied: the change runs over the whole year"; "winters" the same |
+| 13 | Ask: list of gauges, flood method | Method: gone. List: not reproducible. For "five gauges nearest to Kingston upon Thames" the model called find_stations twice and then describe_catchment, and the page showed no gauges |
+
+### New claim-lock escapes
+
+Shown as fact, all from passing device replies:
+
+1. Ask: "significant trend in annual maxima with a p = 0.0689" (25.05, 121.55). The result says `significant: false`, "no significant trend in the annual maxima". The same sentence also says "no significant trend" for the annual mean, and the trend check judges a sentence by one phrase.
+2. What-if: "a brewery upstream draws 7.5 l/s ..." was read and run as 7.5 m³/s taken: mean flow −33 %, low flow (Q95) −100 %. The lock accepts the number either as written or divided by 1000.
+3. Explain: the largest single area's share written as the share of all land. South America: "14% of the mapped land is much below normal" and "17% of the mapped land is below normal"; a second run of the view had 58 % of the land below or much below normal and wrote both "58% ... below normal" and "15% of the mapped land is below normal". The prompt tells the model to write these facts as "{fN} of the mapped land".
+4. Explain: right numbers, wrong claim. "A smaller area of 23%" (the other area was 11 %); "Another significant area (340,000 km² of the mapped land)" (340,000 km² is the size of the same area); "980,000 km² of the mapped land is below normal".
+5. Scout: "Severe Flooding Forecast in Northern Territory ... with a substantial chance of exceeding it" for a 2-year flow that 13 of 51 ensemble members reach.
+
+Also seen, not counted: five review pins each saying "The deepest water is X m", where the rules say the deepest "in this part of the mesh".
+
+### Refusals per role
+
+| Role | Device replies checked | Refused | Right refusals | Correct replies refused |
+|---|---|---|---|---|
+| Ask panel | 9 answers | 6 | 1 (LP3 value without "LP3") | 5: "100-year" read as a gauge id (2); Sen's slope or a p-value read as the daily mean (3, one loosely worded) |
+| Explain | 24 notes | 8 | 7 (5 with no place, 2 with a number not in their facts) | 1: "({f10}) ... covering 3% of the mapped land" refused as a share without "of the mapped land" |
+| Scout | 19 wordings | 8 | 1 (`{year}`, no such slot) | 6, and 1 borderline: a fair models-disagree paraphrase; "10th percentile" copied from the rules' own text (3); "Oct 26th", "Oct 25th" (2) |
+| Review | 40 wordings | 6 | 5 (the meaning flip) | 1: "Two cells" (the rules say 2 cells flicker) |
+| What-if | 8 values | 2 | 1 ("a much wetter future", +10 %) | 1: "one and a half degrees" |
+| Ask the map | 4 action replies | 2 actions | 2 (a made-up box, a coordinate) | 0 |
+
+Rates of correct replies wrongly refused: Ask 5 of 9, Scout 6 of 19, What-if 1 of 8, Explain 1 of 24, review 1 of 40, Ask the map 0 of 4.
+
+### Ask answer rate
+
+14 questions, gauge USGS 01646500 selected, context on.
+
+| Result | Count | Questions |
+|---|---|---|
+| Answered | 3 | Q95 and median (right); a two-sentence report summary (right); climate and modelled discharge at 25.05, 121.55 (escape 1) |
+| Refused | 6 | summary x2, 100-year flood, annual-mean trend x2, "have the annual floods become bigger" |
+| No answer (steps used) | 5 | summary, 100-year flood, 50-year flood, five gauges near Kingston, Potomac vs Thames |
+| Error | 0 | |
+
+Answer rate 3 of 14. Of the summary and trend questions (summary x3, report summary, annual-mean trend x2, floods bigger), 1 of 7 answered. In all 5 no-answer runs the model repeated a tool call with the same arguments (`analyze_station` three times in 3 of them); for the comparison it called `analyze_station` with `uk_ea` / `abc`, the example in the system prompt. When the steps run out the page shows the stock line only, not what the tools returned. Fact lines show "1.125e+04 m3/s".
+
+### Session start time
+
+Across 152 Prompt API calls (20 `create`, 66 `clone`, 66 `prompt`), 1 took 20 s or more: a Scout prompt in Europe that ran to the 40 s timeout. `create` took 0.32 to 1.2 s 19 times and 13.5 s once (Ask's first base). Clones took 0 to 8 ms. Of 33 map-role prompts, 19 began with a new base (Explain and Scout put the view's facts in the system prompt, so the pool key changes with the view) and 14 cloned a warm one. The 21 s starts of the recheck did not occur in this session; this run cannot say whether the pool is the reason.
+
+### Remaining defects
+
+Blocking for 1.0 (a claim-lock escape, or a wrong number shown as fact):
+
+1. Ask: a significance claim per clause. `aquascope/ai_engine/device_ask.py` `_trend_check` reads one significance phrase per sentence; split at clause breaks (`_CLAUSE_BREAK`) and check each claim against its own test.
+2. What-if: "7.5 l/s" runs as 7.5 m³/s. `aquascope/whatif_map.py` `_numbers_in` (used by `parse_scenario_reply`): when the words say l/s, a `demand_cms` must match the value divided by 1000, not the value as written.
+3. Explain: a largest-area share written as the share of all land. `aquascope/map_explain.py` `notes_prompt` (the "write {fN} of the mapped land" hint on largest-area facts) and `share_claims`: give largest-area facts their own wording ("the largest area, {fN} of the view, ...") and refuse them as a whole-view share.
+4. Explain: right numbers, wrong comparison or role ("A smaller area of 23%", "Another ... area" for the same area's size, "{size} of the mapped land"). `aquascope/map_explain.py` `check_model_notes` / `share_claims`: refuse comparison words between facts and "of the mapped land" after a size fact.
+5. Scout: severity added to a forecast ("Severe Flooding", "substantial chance" for 13 of 51 members at the 2-year flow). `aquascope/map_scout.py` `CLAIMS["floods_ahead"]` has no `not` list and `check_wording` does not count severity words; refuse severity and likelihood words the rules do not use.
+
+Not blocking:
+
+6. Ask: tool-call loops and no answer in 5 of 14. `explorer/src/ask-local-core.js` `askLoop`: stop on a repeated identical call and ask for the answer from the results; on the last step allow only an answer. `explorer/src/local-model.js` `LOCAL_TOOLS`: the example id "abc" gets copied.
+7. Ask: steps used shows no tool results. `askLoop` returns `lock: null` with `STEPS_USED`; run the lock with an empty answer as `stoppedResult` does, so `deviceAnswerHtml` lists the facts.
+8. Ask: correct answers refused. `device_ask.py` `lock_answer` (`_ALNUM_ID` takes "100-year" for a gauge id) and `_label_check` (a number in "m3/s per year" counts as a flow, and "p-value for the annual mean is 0.953" ties 0.953 to the mean).
+9. Ask: "1.125e+04 m3/s" in the fact lines. `device_ask.py` `_fmt`.
+10. Explain: an unclosed placeholder reaches a pin ("when {f15."), and "when" repeats a value. `map_explain.py` `_fill` / `check_model_notes` (refuse any brace left after filling) and `drop_repeats`.
+11. Scout: fair wordings refused ("Models have difficulty accurately predicting flow ..."; "10th percentile" copied from the rules; "Oct 26th"). `map_scout.py` `CLAIMS["models_disagree"]` and `check_wording`.
+12. Scout: after a timeout the line says "Rules, no model". `explorer/src/scout-core.js` `wordingLine` (the `failed` case).
+13. Review: "Two cells" refused although the rules say 2 cells. `aquascope/mesh_review.py` `_locked`.
+14. What-if: "one and a half degrees" refused. `whatif_map.py` `_numbers_in` / `_FRACTIONS`.
+15. Ask the map: "are there any numerical instabilities in this run?" does not reach the review and adds layers. `aquascope/map_commands.py` `_REVIEW`. "which rivers in Spain are running low this month?" reads the place as "Spain are running low" and stops without the device. `map_commands.py` `_place_phrase`.
+
+### Round 3: the model picks, the code writes
+
+Three checks on the device, and the escapes did not converge. The first run found the Ask panel with no lock and
+the map roles' locks holding. Round 1 added a lock to Ask; the recheck found right numbers under wrong labels,
+shares written as flows and meanings turned round. Round 2 tightened the patterns; the third check found new forms
+(a significance claim per clause, litres per second read as m³/s, the largest area's share written as the whole
+view's, severity added to a forecast) and the locks themselves refusing right answers (Ask: 5 of 9). Each lock is a
+pattern over free text. A small model has more ways to write a sentence than a pattern can list, and the stricter
+the pattern the more right answers it refuses.
+
+So on 2026-10-26 the maintainer changed the design for every on-device role, and for the reader's own key where
+the code path is shared. The model no longer writes a number, a date, an id, a unit, a place name or a qualitative
+claim that reaches the page. Its reply is a JSON object held by a `responseConstraint` schema whose values are
+enums built from the facts at hand: tool names, gauge ids, places, layers, fact keys and sentence ids. The code
+writes every sentence the reader sees, with wording that lives in the package. Anything outside the enums is
+refused before display by a schema check in the package, the refusal is said in one short line, and the rules'
+wording is shown. The pattern locks stay as a second line of defence. The keyless rules path is unchanged and
+stays the default when no model is ready.
+
+Two pull requests: **F**, #644 on `fix/ask-pick-not-write-590` (the Ask panel and Ask the map), and **E**, #645 on
+`fix/map-roles-pick-not-write-590` (Explain, Scout, the review and What if).
+
+**The Ask panel** (`aquascope.ai_engine.device_ask`, `explorer/src/ask-local-core.js`, `local-model.js`, `ask.js`).
+Each step's reply is `{"tool": ..., "arguments": {...}}` or `{"answer": [fact keys]}`; the package builds the
+step's schema and message (`step_schema`), checks a call (`check_call`) and writes the answer (`render_answer`).
+
+| The model decides | The model cannot |
+|---|---|
+| which tool to run next, from those still open | run a tool twice with the same arguments: a repeat is not run, and the next step may only answer |
+| which gauge, from the ids in the reader's words, the context line or an earlier result | name any other id ("abc", the old example, is gone from the prompt and refused) |
+| which point, from a pair the words or a result give | search near a point it chose itself |
+| which search phrase, from runs of the question's words | search for words the reader did not write |
+| which facts answer the question, and their order, by key: `USGS-01646500.trend.mean`, `USGS-01646500.fdc.q95`, `USGS-01646500.gev.100`, `USGS-01646500.record`, `search.count`, ... | write a sentence: each one is the package's, naming the gauge, the label, the value with its unit and the method (GEV or LP3, Mann-Kendall), with numbers in the Explorer's format ("11,247 m3/s", never "1.125e+04") |
+| a few connecting sentences by id (`say.floods`, `say.trend`, ...), which say how the facts were made | state a trend: the trend sentence is the package's reading of the test ("no significant trend in the annual maxima (Mann-Kendall p = 0.0689; ...)") |
+
+The first step may only call a tool (there are no facts yet), the last may only answer, and a question about one
+gauge or place gets three replies (a comparison or a list five). When the steps run out, or the model stops, the
+page shows the facts gathered so far under one line saying why; the verdict is never empty.
+
+**Ask the map** (`aquascope.map_commands`, `explorer/src/map-command.js`). Its replies were already structured. Now
+the device's schema for a request (`reply_schema`) makes the place a model may name an enum of runs of the
+request's words, and the layers it may switch an enum of those the words ask for, and leaves out the free-text
+fields. With the words, `parse_model_reply` refuses a layer switch the words do not ask for and drops a model's own
+titles and notes; the package titles a pin with its place. The same check runs on a reply from the reader's key.
+
+**The check3 items in F (#644)**
+
+| Check3 item | Now |
+|---|---|
+| Blocking 1: "significant trend in annual maxima with a p = 0.0689" | Fixed by construction: no key writes a significance claim the test does not make; the replayed intent renders "no significant trend in the annual maxima (Mann-Kendall p = 0.0689; ...)" |
+| 6: tool-call loops, no answer in 5 of 14; the example id "abc" copied | Fixed: a repeated call is not run and the next step may only answer; the last step may only answer; ids come from an enum of the words and results, and "abc" is gone from the prompt |
+| 7: steps used, no tool results shown | Fixed: the page shows the facts gathered with the reason |
+| 8: correct answers refused ("100-year" as an id, a p-value or Sen's slope as the mean) | Fixed by construction (no free text to read), and in the second-line lock: the 5 recorded right answers it refused now pass it |
+| 9: "1.125e+04 m3/s" | Fixed: `device_ask.display`, whole numbers with commas from 100, three significant figures below, never an exponent |
+| 13 (recheck): five gauges asked, one analysed | Fixed: the search's gauges are facts by key (`E02102A.where`, ...) the model picks |
+| 15: "numerical instabilities" not reaching the review, layers turned on unasked; "rivers in Spain are running low" read as a place | Fixed: the instabilities question and close phrasings reach the review by the rules; a layer the words do not ask for is refused; "which rivers in Spain are running low this month?" is the river status, below normal, in Spain |
+
+**Replaying the recorded replies.** The 14 Ask questions of the third check
+(`tests/fixtures/ondevice_ask_check3.json`) through the new path, with the tools as fixtures holding the recorded
+figures (`tests/test_ai_engine/test_device_ask_pick.py`): the replies are in the old shape, so all 9 free-text
+answers are refused by the schema check, and the 5 loops end at the forced answer step. 0 of 14 put model text on
+the page; 14 of 14 show the package's facts under a one-line reason (the old page showed a stock line with nothing
+under it for 5). The calls hold: 14 of 14 first calls pass `check_call`, the 4 repeats are not run, and the 2
+"uk_ea / abc" calls are refused. Replayed as the new schema allows, the intent of each recorded question (11
+questions: summaries, the 100-year and 50-year floods, both trends, the climate at 25.05, 121.55, Q95 and median,
+the report summary, the five Kingston gauges, the Potomac and Thames comparison) gives a correct answer in 11 of
+11, each sentence the package's own.
+
+**What needs the device.** Whether Chrome's Prompt API accepts these schemas (string enums of up to about 60
+values, an integer range, nested objects) and whether Gemini Nano picks sensible keys: the answer rate on the
+device is not known until it is run. The step messages now list the facts with their sentences, about 3,000 to
+4,000 characters for one gauge, so a step may take longer than before.
