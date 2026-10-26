@@ -617,14 +617,20 @@ def test_severity_and_likelihood_words_come_from_the_thresholds(rp, share, title
     assert [x for x, _ in ms.CHANCE_FROM_SHARE] == [0.75, 0.4, 0.0]
 
 
-def test_a_daily_file_without_the_new_slots_keeps_the_rules_variant():
+def test_a_daily_file_without_the_new_slots_still_takes_every_variant():
+    # The published scout file of the day before a release lacks the new slots: they are worked out from the others.
     f = _three()[0]
     old = {**f, "slots": {k: v for k, v in f["slots"].items() if k not in ("headline", "chance")}}
-    assert ms.variant_text(old, "c") is None
-    res = ms.apply_wording([old], {"pins": [{"id": old["id"], "variant": "c"}]}, by="device")
+    assert ms.variant_text(old, "c") == ms.variant_text(f, "c")
+    past = ms.floods_past_findings([[200, 300, 12, 0]], "2026-01")[0]
+    past_old = {**past, "slots": {k: v for k, v in past["slots"].items() if k != "events_lower"}}
+    assert ms.variant_text(past_old, "b") == ms.variant_text(past, "b")
+    # A slot that cannot be worked out keeps the rules' variant, and says so.
+    bare = {**f, "slots": {k: v for k, v in f["slots"].items() if k not in ("headline", "chance", "rp")}}
+    assert ms.variant_text(bare, "c") is None
+    res = ms.apply_wording([bare], {"pins": [{"id": bare["id"], "variant": "c"}]}, by="device")
     out = res["findings"][0]
-    assert out["variant"] == "a" and out["title"] == ms.variant_text(old, "a")[0] and out["by"] == "device"
-    assert "variant c cannot be written for it" in res["refused"][0]
+    assert out["variant"] == "a" and out["by"] == "device" and "variant c cannot be written for it" in res["refused"][0]
 
 
 def test_a_place_name_filled_later_keeps_the_picked_variant():

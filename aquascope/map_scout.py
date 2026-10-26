@@ -481,9 +481,28 @@ def variant_text(f: dict[str, Any], variant: str = "a") -> tuple[str, str] | Non
     if not v:
         return None
     try:
-        return render(v["title"], f["slots"]), render(v["reason"], f["slots"])
+        slots = {**_derived_slots(f["slots"]), **f["slots"]}
+        return render(v["title"], slots), render(v["reason"], slots)
     except (KeyError, IndexError):
         return None
+
+
+def _derived_slots(slots: dict[str, str]) -> dict[str, str]:
+    """The slots a later variant needs, worked out from a finding's other slots (a daily file written before the
+    variant has those): the words lower-cased, the severity from the return-period class, the likelihood from
+    the members' count."""
+    out: dict[str, str] = {}
+    if "events" in slots:
+        out["events_lower"] = slots["events"][:1].lower() + slots["events"][1:]
+    rp = re.match(r"(\d+)-year$", str(slots.get("rp") or ""))
+    if rp:
+        word = severity_words(int(rp.group(1)))
+        out["headline"] = f"{word} flow forecast, the {rp.group(0)} flow" if word else f"{rp.group(0)} flow forecast"
+    members = str(slots.get("members") or "")
+    if "q2" in slots and members:
+        k = MEMBERS if members.startswith("All") else (int(members.split(" ")[0]) if members[:1].isdigit() else None)
+        out["chance"] = chance_words(k, slots["q2"])
+    return out
 
 
 def _finding(fid: str, kind: str, template: str, lat: float, lon: float, *, score: float,
