@@ -81,7 +81,7 @@ async function wordWithModel(findings) {
       return { ...out, by: "device", model: name };
     } catch (err) {
       console.warn("review: on-device pick", err && err.message);
-      asked = { findings: null, refused: [askedFailed(err, DEVICE_WAIT_MS)] };
+      asked = { findings: null, by: "device", model: name, refused: [askedFailed(err, DEVICE_WAIT_MS)] };
     }
   }
   const cfg = askModelConfig();
@@ -198,20 +198,22 @@ export async function reviewModel({ say: sayOut = null, anywhere = false } = {})
     const res = await meshAsk("review", { context });
     if (my !== running || !currentMesh() || currentMesh().meta.name !== meta.name) return null;
     let findings = res.findings || [];
-    let by = "rules", model = "", refused = [], leftOut = 0;
+    let by = "rules", model = "", refused = [], leftOut = 0, asked = "";
     const modelReady = Boolean(askModelConfig()) || await localModelReady();
     if (modelReady && findings.length) {
       try {
         const worded = await wordWithModel(findings);
         if (my !== running) return null;
-        if (worded && worded.findings && worded.findings.length) {
+        if (worded && worded.findings && worded.findings.length && worded.ordered !== false) {
           findings = worded.findings;
           by = worded.by;
           model = worded.model || "";
           refused = worded.refused || [];
           leftOut = (worded.left_out || []).length;
-        } else if (worded && worded.refused) {
-          refused = worded.refused;
+        } else if (worded) {
+          // Asked, and its reply refused whole or not given: the rules' pins, and the line says the model was asked.
+          refused = worded.refused || [];
+          asked = worded.model || (worded.by === "key" ? "your model" : "the on-device model");
         }
       } catch (err) {
         refused = [`the model could not be asked (${err.message}); the rules' wording is kept`];
@@ -228,13 +230,13 @@ export async function reviewModel({ say: sayOut = null, anywhere = false } = {})
         console.warn("review pin", err && err.message);
       }
     }
-    const [who, how] = reviewWho(by, model);
+    const [who, how] = reviewWho(by, model, asked);
     last = { name: meta.name, res, who, how, refused };
     drawFlags();
     refreshMeshLegend();
     const n = lastPins.length;
     // The count and the first refusal's reason (#590), as Scout's line gives them.
-    const notes = refused.length ? [refusedNote(refused)] : [];
+    const notes = refused.length ? [/^it was asked/.test(refused[0]) ? refused[0] : refusedNote(refused)] : [];
     tell(`<b class="ma-who">Review</b><span class="ma-how">${escapeHtml(who)}, ${escapeHtml(how)}</span>` +
       `<span>${escapeHtml(reviewLine(res, n, meta.name, { picked: by !== "rules", leftOut }))}</span>` +
       (notes.length ? `<span class="ma-note">${escapeHtml(notes.join("; "))}</span>` : ""), res.counts && res.counts.problem ? "warn" : "ok");

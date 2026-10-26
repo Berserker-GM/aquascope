@@ -57,6 +57,9 @@ test("the severities, the checks and the words", () => {
   assert.deepEqual(reviewWho("rules"), ["Rules", "checks by code, no model"]);
   assert.equal(reviewWho("key", "claude via anthropic")[0], "claude via anthropic");
   assert.match(reviewWho("device")[1], /picked on this device; checks and words by code/);
+  // Asked, and its reply refused or timed out: said, not "no model" (#590).
+  assert.deepEqual(reviewWho("rules", "", "Chrome's built-in model"),
+    ["Rules", "Chrome's built-in model asked, its choice not used; checks and words by code"]);
   assert.equal(reviewLine({ summary: "Nothing flagged; 5 of 9 checks ran." }, 3),
     "Nothing flagged; 5 of 9 checks ran. 3 pins, most severe first.");
   assert.equal(reviewLine({ summary: "Nothing flagged." }, 0), "Nothing flagged. No pin to drop.");

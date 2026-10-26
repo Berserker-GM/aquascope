@@ -58,10 +58,14 @@ export function flaggedCells(pins, mesh) {
   return out;
 }
 
-/** Who picked the review's pins, for the line under the bar: [who, how]. The words are always the package's. */
-export function reviewWho(by, model = "") {
+/**
+ * Who picked the review's pins, for the line under the bar: [who, how]. The words are always the package's. `asked`
+ * names a model that was asked but whose choice is on no pin (refused, or no answer): said, not "no model" (#590).
+ */
+export function reviewWho(by, model = "", asked = "") {
   if (by === "device") return [model || "On-device model", "picked on this device; checks and words by code"];
   if (by === "key") return [model || "Your model", "picked with your key; checks and words by code"];
+  if (asked) return ["Rules", `${asked} asked, its choice not used; checks and words by code`];
   return ["Rules", "checks by code, no model"];
 }
 
