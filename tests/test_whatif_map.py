@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -230,3 +232,89 @@ def test_a_second_scenario_reuses_the_calibration_and_agrees(toy_model):
     assert [r["mean_change_pct"] for r in again["reaches"]] == pytest.approx(
         [r["mean_change_pct"] for r in first["reaches"]], abs=step)
     assert adv._given_params({"X1": 1, "X2": "x"}) is None and adv._given_params({"X1": 1}) is None
+
+
+# ── on the device (#590): correct readings are not refused ──────────────────
+
+
+@pytest.mark.parametrize("line, reply, key, value", [
+    # The replies are Gemini Nano's, recorded through Chrome's Prompt API on 2026-10-25.
+    ("what if the town pumps 300 litres per second out of the river",
+     {"dp_pct": None, "dt_c": None, "dpet_pct": None, "demand_cms": 0.3}, "demand_cms", 0.3),
+    ("summers get much hotter, maybe three degrees",
+     {"dp_pct": None, "dt_c": 3, "dpet_pct": None, "demand_cms": None}, "dt_c", 3.0),
+    ("drought: precipitation down by a quarter with 1.5 C of warming",
+     {"dp_pct": -25, "dt_c": 1.5, "dpet_pct": None, "demand_cms": None}, "dt_c", 1.5),
+])
+def test_recorded_device_readings_pass_the_lock(line, reply, key, value):
+    out = wm.parse_scenario_reply(json.dumps(reply), line)
+    assert out["scenario"] and out["scenario"][key] == pytest.approx(value) and not out["errors"], out
+
+
+def test_the_lock_still_refuses_what_the_words_do_not_say():
+    out = wm.parse_scenario_reply({"dp_pct": -10, "dt_c": 1, "dpet_pct": None, "demand_cms": None},
+                                  "a hotter and drier climate")
+    assert out["scenario"] is None and len(out["errors"]) == 2
+    # "m3/s" holds a 3 that nobody said; "a hotter one" holds no number.
+    assert wm._numbers_in("take 5 m3/s") == [5.0]
+    assert wm.parse_scenario_reply({"dt_c": 3}, "take 5 m3/s")["scenario"] is None
+    assert wm.parse_scenario("a hotter one")["scenario"] is None
+
+
+@pytest.mark.parametrize("line, key, value", [
+    ("take 300 litres per second", "demand_cms", 0.3),
+    ("take 300 liters a second", "demand_cms", 0.3),
+    ("take 300 L/s", "demand_cms", 0.3),
+    ("take five cubic metres per second", "demand_cms", 5.0),
+    ("three degrees warmer", "dt_c", 3.0),
+    ("one degree warmer", "dt_c", 1.0),
+    ("twenty percent less rain", "dp_pct", -20.0),
+    ("rain falls by one fifth", "dp_pct", -20.0),
+])
+def test_units_and_numbers_in_words_are_read(line, key, value):
+    out = wm.parse_scenario(line)
+    assert out["matched"] and out["scenario"][key] == pytest.approx(value), out
+
+
+def test_every_clause_is_read_or_named():
+    # The rules read the evaporation clause; the page used to drop it (no slider of its own).
+    out = wm.parse_scenario("rain falls by a fifth and evaporation goes up 10 percent")
+    assert out["matched"] and out["scenario"]["dp_pct"] == -20 and out["scenario"]["dpet_pct"] == 10
+    assert out["said"] == "20% less rain, 10% more evaporation"
+    # A word the rules cannot read is named, so the page can say it and does not run on half the line.
+    out = wm.parse_scenario("drought: precipitation down by a quarter with 1.5 C of warming")
+    assert not out["matched"] and out["unknown"] == ["drought"] and out["said"] == "25% less rain, 1.5 °C warmer"
+
+
+def test_a_basin_over_the_limit_says_why_before_a_run():
+    assert wm._too_large(1_379.0) is None
+    why = wm._too_large(143_851.0)
+    assert why.startswith("143,851 km2 drain to this reach") and "100,000 km2" in why
+
+
+# ── on the device, round 2 (#590): nothing reads as nought, no season widened in silence ─────────────────────
+
+
+def test_a_small_demand_keeps_its_figures():
+    # Gemini Nano read "the factory takes twenty litres a second" as 0.02 m³/s, right; the status line and the map
+    # log said "0 m³/s taken".
+    out = wm.parse_scenario_reply({"dp_pct": None, "dt_c": None, "dpet_pct": None, "demand_cms": 0.02},
+                                  "what if the factory takes twenty litres a second")
+    assert out["scenario"]["demand_cms"] == pytest.approx(0.02) and not out["errors"], out
+    assert out["said"] == "0.02 m³/s taken"
+    assert wm.scenario_label({"demand_cms": 0.001}) == "0.001 m³/s taken"
+    assert wm.scenario_label({"dp_pct": -100 / 3, "dt_c": 1.25}) == "33.3% less rain, 1.25 °C warmer"
+    assert wm.scenario_label({"demand_cms": 1234.5, "dp_pct": 20}) == "20% more rain, 1235 m³/s taken"
+    assert wm.scenario_label({}) == "no change"
+
+
+def test_a_season_the_words_name_is_said_not_widened():
+    # Nano, 2026-10-26: "summers ... three degrees" read as +3 °C and run over the whole year without a word.
+    out = wm.parse_scenario_reply({"dp_pct": None, "dt_c": 3, "dpet_pct": None, "demand_cms": None},
+                                  "summers get much hotter, maybe three degrees")
+    assert out["scenario"]["dt_c"] == 3.0 and out["season"] == ["summers"]
+    assert wm.parse_scenario("20% less rain in the dry season")["season"] == ["dry season"]
+    assert wm.parse_scenario("20% less rain and 2 degrees warmer")["season"] == []
+    # Words that only look like a season are not one: "rain may fall", "rain falls by a fifth".
+    assert wm.season_words("rain may fall 20%, and it falls by a fifth") == []
+    assert wm.season_words("in May rain falls 10%, less in the fall") == ["in May", "in the fall"]

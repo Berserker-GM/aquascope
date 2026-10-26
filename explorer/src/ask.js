@@ -19,6 +19,7 @@ import { map } from "./map.js?v=__BUILD__";
 import { visibleLayerSummary } from "./layer-ui.js?v=__BUILD__";
 import { initShowcase } from "./showcase.js?v=__BUILD__";
 import { askLocally, describeLocal, localAnswerHtml, localModelPossible } from "./local-model.js?v=__BUILD__";
+import { deviceAnswerMarkdown, selectedGaugeContext, withCatalogueName } from "./ask-local-core.js?v=__BUILD__";
 
 // Providers come from the package's registry (aquascope/ai_engine/providers.py),
 // written to explorer/providers.json by `python -m aquascope.ai_engine.providers`.
@@ -110,13 +111,27 @@ export function askModelConfig() {
   return { provider, model, api_key: key || "none", base_url, label: `${model} via ${provider}` };
 }
 
+// The map's view as {west, south, east, north}, or null before the map is up.
+function mapView() {
+  if (!state.mapOk || !map) return null;
+  try {
+    const b = map.getBounds();
+    return { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() };
+  } catch {
+    return null;
+  }
+}
+
 // What the user is looking at, in one line the model can act on. Shown in the
-// drawer so it is never a hidden prompt.
-export function currentContext() {
+// drawer so it is never a hidden prompt. A selected gauge that is off screen is
+// left out for the map's roles (they are about the view) and said as "selected
+// earlier and now off screen" for Ask (`offScreen: "say"`), where "this gauge"
+// still means it (#590 recheck).
+export function currentContext({ offScreen = "omit" } = {}) {
   const bits = [];
   if (state.selected) {
-    const r = state.selected;
-    bits.push(`the gauge ${r.name || r.station_id} (source ${r.source}, id ${r.station_id}, ${r.lat.toFixed(3)}, ${r.lon.toFixed(3)})`);
+    const gauge = selectedGaugeContext(state.selected, mapView(), { offScreen });
+    if (gauge) bits.push(gauge);
   } else if (state.point) {
     bits.push(`the point ${state.point.lat}, ${state.point.lon}`);
   }
@@ -132,7 +147,7 @@ export function currentContext() {
 }
 
 function contextLine() {
-  const ctx = currentContext();
+  const ctx = currentContext({ offScreen: "say" });
   const el = $("ask-context-text");
   el.textContent = ctx || "nothing selected yet";
   // The context itself is five lines of generated prose naming the station, the
@@ -275,13 +290,21 @@ async function runLocally(question) {
   $("ask-checks").hidden = true;
   askStatus("Starting the model on your device…");
   try {
+    // The worker runs each tool and hands back the package's compact result (stats, trend, return levels, no
+    // series), and the package's lock holds the answer to this question's results (#590,
+    // aquascope.ai_engine.device_ask): a number, id or trend word that is not in them and the page shows the
+    // tools' facts with one line saying the model's wording was refused.
     const res = await askLocally(question, {
-      callTool: (name, args) => call("tool", { name, arguments: args }),
+      // The catalogue's name and river go with an analysis, so the model can name the gauge and the lock can
+      // tell which gauge a sentence is about when two are compared.
+      callTool: async (name, args) => withCatalogueName(
+        await call("device_ask", { op: "tool", name, arguments: args }), args, state.byKey),
+      lock: (answer, results, words) => call("device_ask", { op: "lock", answer, results, words }),
       onEvent: (m) => (m.startsWith("tool ") ? askLog(m) : askStatus(m)),
       context: ctx,
     });
     askStatus("");
-    state.ask.markdown = `# ${question}\n\n${res.answer}\n`;
+    state.ask.markdown = deviceAnswerMarkdown(question, res);
     $("ask-result").innerHTML = localAnswerHtml(res);
     $("ask-result").hidden = false;
     revealResult();

@@ -507,6 +507,51 @@ def test_the_claim_lock_refuses(mesh_of, title, reason, why):
     assert not out["ordered"] and [f["id"] for f in out["findings"]] == [f["id"] for f in res["findings"]]
 
 
+@pytest.mark.parametrize("reason", [
+    # Gemini Nano on the HEC-RAS Portsmouth run, 2026-10-25 and 2026-10-26, on the deepest-water pins. The rules
+    # say "Worth a look if it is not a channel or a pit you expect."
+    "Deepest water is {F1} at {F1.when}; investigate if it's an expected feature.",
+    "Deepest water of {F1}: check if expected (e.g. channel or pit).",
+])
+def test_a_wording_that_drops_the_rules_not_is_refused(mesh_of, reason):
+    m = mesh_of()
+    res = R.review(m, context=clean_context(m))
+    deep = found(res, "deepest")[0]
+    reason = reason.replace("F1", deep["facts"][0]["id"])
+    out = R.apply_words(res["findings"], {"order": [], "notes": [{"id": deep["id"], "title": "Deepest water",
+                                                                   "reason": reason}]}, by="device")
+    kept = next(f for f in out["findings"] if f["id"] == deep["id"])
+    assert kept["reason"] == deep["rules_reason"] and kept["by"] == "rules"
+    assert out["refused"] == [f"{deep['id']}: drops the 'not' of the rules wording "
+                              "('if it is not a channel or a pit you expect')"]
+
+
+@pytest.mark.parametrize("reason", [
+    "Deepest water is {F1} at {F1.when}; worth a look unless it is a channel or a pit you expect.",
+    "Deepest water is {F1}; check it if it is not an expected channel or pit.",
+    "Deepest water is {F1}; investigate if it is an unexpected feature.",
+])
+def test_a_wording_that_keeps_the_not_passes(mesh_of, reason):
+    m = mesh_of()
+    res = R.review(m, context=clean_context(m))
+    deep = found(res, "deepest")[0]
+    reason = reason.replace("F1", deep["facts"][0]["id"])
+    out = R.apply_words(res["findings"], {"order": [], "notes": [{"id": deep["id"], "title": "Deepest water",
+                                                                   "reason": reason}]}, by="device")
+    assert out["refused"] == []
+    assert "Keep every 'not'" in R.review_prompt(res["findings"])["system"]
+
+
+def test_a_negated_statement_said_without_its_not_is_refused():
+    rules = "Gauge Kingston: no record for the run. It has no observations during the run."
+    assert R.negation_flip(rules, "The gauge has a record for the run.") == "no record for the run"
+    assert R.negation_flip(rules, "No record at this gauge covers the run.") is None
+    assert R.negation_flip(rules, "The gauge has records outside the run period.") is None   # other words
+    film = "This cell never gets deeper than 0.02 m, under 0.03 m."
+    assert R.negation_flip(film, "This cell gets deeper than {f1}.") == "never gets deeper than 0.02 m"
+    assert R.negation_flip(film, "A thin film, at most {f1} deep.") is None
+
+
 def test_the_prompt_names_placeholders_not_numbers_to_type(mesh_of):
     res = _review_with_problems(mesh_of)
     p = R.review_prompt(res["findings"])
@@ -592,15 +637,38 @@ def test_explorer_check_labels_and_worker_ops_match():
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1] / "explorer"
-    js = (root / "src" / "mesh-review-core.js").read_text()
+    js = (root / "src" / "mesh-review-core.js").read_text(encoding="utf-8")
     block = re.search(r"export const CHECK_LABELS = \{(.*?)\};", js, re.S).group(1)
     assert dict(re.findall(r'(\w+): "([^"]+)"', block)) == R.CHECKS
     sev = re.search(r"export const SEVERITY = \{(.*?)\n\};", js, re.S).group(1)
     assert re.findall(r"^  (\w+):", sev, re.M) == list(R.SEVERITIES)
-    mesh_worker = (root / "src" / "mesh-worker.js").read_text()
+    mesh_worker = (root / "src" / "mesh-worker.js").read_text(encoding="utf-8")
     for call in ("gauges_inside", "_review.review(", "review_prompt", "apply_words"):
         assert call in mesh_worker
-    worker = (root / "worker.js").read_text()
+    worker = (root / "worker.js").read_text(encoding="utf-8")
     assert '"mesh_review"' in re.search(r"const LITE_TYPES = new Set\(\[([^\]]*)\]\)", worker).group(1)
     for call in ("gather_floods", "gauge_series", "model_words"):
         assert f"_mr.{call}(" in worker
+
+
+def test_a_count_is_said_under_its_own_threshold(mesh_of):
+    # On the device the review read "8 cells ... (< 0.0269 m)": both numbers are facts, but the 8 cells are those
+    # under 0.03 m and 0.0269 m is one cell's largest depth (#590).
+    d = clean_depths()
+    for r in (1, 2, 3):
+        d[3, cell(r, WET_COLS)] = 0.02
+    m = mesh_of(d)
+    res = R.review(m, context=clean_context(m))
+    film = found(res, "tiny")[0]
+    ids = {x["label"]: x["id"] for x in film["facts"]}
+    largest, count, limit = ids["Largest depth"], ids["Cells wetted only by a film"], ids["A film is shallower than"]
+    assert next(x for x in film["facts"] if x["id"] == limit)["shown"] == "0.03"
+    bad = {"id": film["id"], "title": "Only a film",
+           "reason": f"{{{count}}} cells are wetted only by a film (< {{{largest}}} m)."}
+    out = R.apply_words(res["findings"], {"order": [], "notes": [bad]})
+    assert out["refused"] and "the count is of those under 0.03" in out["refused"][0]
+    good = {"id": film["id"], "title": "Only a film",
+            "reason": f"{{{count}}} cells stay under {{{limit}}} m; this one never gets deeper than {{{largest}}} m."}
+    out = R.apply_words(res["findings"], {"order": [], "notes": [good]}, by="device")
+    kept = next(f for f in out["findings"] if f["id"] == film["id"])
+    assert not out["refused"] and kept["by"] == "device" and "3 cells stay under 0.03 m" in kept["reason"]

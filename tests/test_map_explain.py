@@ -402,7 +402,7 @@ def test_a_placeholder_with_nothing_to_put_in_is_refused(facts):
 def test_a_reply_that_is_not_notes_is_refused_whole(facts):
     assert me.check_model_notes("Sorry, I cannot help.", facts["facts"])["notes"] == []
     assert me.check_model_notes({"actions": []}, facts["facts"])["refused"] == ["the model did not reply with notes"]
-    note = {"facts": ["f1", "f4"], "title": "Wet", "text": "Mostly {f4}."}
+    note = {"facts": ["f1", "f4"], "title": "Wet", "text": "Mostly {f4} of the land."}
     fenced = "```json\n" + json.dumps({"notes": [note]}) + "\n```"
     out = me.check_model_notes(fenced, facts["facts"])
     assert out["notes"][0]["text"].startswith("Mostly ") and out["notes"][0]["title"] == "Wet"
@@ -496,3 +496,116 @@ def test_the_worker_runs_the_same_functions():
     assert '"map_explain"' in worker.split("LITE_TYPES", 1)[1].split("\n", 1)[0]
     for fn in ("explain", "check_model_notes", "model_notes", "name_notes"):
         assert f"_me.{fn}(" in worker and hasattr(me, fn)
+
+
+# ── on the device (#590): right numbers read right ──────────────────────────
+
+
+def _one(facts, fact_ids, title, text):
+    return me.check_model_notes({"notes": [{"facts": fact_ids, "title": title, "text": text}]}, facts["facts"],
+                                VIEW["bbox"])
+
+
+def test_a_value_is_written_once(facts):
+    # Gemini Nano's notes read "54% (54%)", "6,000,000 km² km²" and "1,550 m³/s (1,550 m³/s)".
+    area, size = by_kind(facts, "status_area", **{"class": "below"})[0], by_kind(facts, "status_size")[1]
+    peak, ratio = by_kind(facts, "fa_peak")[0], by_kind(facts, "fa_ratio")[0]
+    by_id = me._by_id(facts["facts"])
+    a, s, p, r = (ph(f["id"]) for f in (area, size, peak, ratio))
+    assert me._fill(f"{a} ({a}) of the land, {s} (590,000 km²).", by_id) == "4% of the land, 590,000 km²."
+    assert me._fill(f"An area of {s} km².", by_id) == "An area of 590,000 km²."
+    assert me._fill(f"A peak of {p} ({p}) ({r} (3.0 times)).", by_id) == "A peak of 2,400 m³/s (3.0 times)."
+    assert me._fill(f"A peak of {p} m3/s, {r} times the 2-year flow.", by_id) == \
+        "A peak of 2,400 m³/s, 3.0 times the 2-year flow."
+    # A bracket that says something else stays.
+    assert me._fill(f"A peak of {p} (forecast).", by_id) == "A peak of 2,400 m³/s (forecast)."
+
+
+def test_prompt_text_is_not_copied_into_a_note(facts):
+    p = me.notes_prompt(facts["facts"])["system"]
+    assert "a point on the map" not in p
+    area = by_kind(facts, "status_area", **{"class": "below"})[0]
+    out = _one(facts, [area["id"]], "Dry land",
+               f"{ph(area['id'])} of the land is below normal. This is located at a point on the map.")
+    assert out["notes"][0]["text"] == "4% of the land is below normal."
+    out = _one(facts, [area["id"]], "Dry land", "This is located at a point on the map.")
+    assert not any(n.get("title") == "Dry land" for n in out["notes"]) and "only copies the prompt" in out["refused"][0]
+
+
+def test_a_claim_must_match_the_fact_it_cites(facts):
+    share = by_kind(facts, "status_share", side="below")[0]
+    below, much = by_kind(facts, "status_area", **{"class": "below"})[0], by_kind(facts, "status_area")[0]
+    assert much["class"] == "much_above"
+    # Europe: "96% ... significantly below normal" when the 96% is of land below OR much below normal.
+    out = _one(facts, [share["id"], below["id"]], "Dry land",
+               f"{ph(share['id'])} of the land is significantly below normal.")
+    assert not out["notes"] and "significantly below normal" in out["refused"][0]
+    assert "below or much below normal" in out["refused"][0]
+    # The fact's own words pass, and so does the stronger class where a fact of that class is cited.
+    assert _one(facts, [share["id"], below["id"]], "Dry land",
+                f"{ph(share['id'])} of the land is below or much below normal.")["refused"] == []
+    assert _one(facts, [much["id"]], "Wet land", f"{ph(much['id'])} of the land is much above normal.")["refused"] == []
+    # The wrong side of normal is refused too.
+    out = _one(facts, [below["id"]], "Wet land", f"{ph(below['id'])} of the land is above normal.")
+    assert "other side of normal" in out["refused"][0]
+    # Facts with no side (a forecast peak) are not held to this.
+    assert me.class_claims("well above normal", [by_kind(facts, "fa_peak")[0]]) is None
+
+
+# ── on the device, round 2 (#590): shares are not flows, nothing copied, nothing twice ─────────────────────
+
+
+def test_a_share_of_the_land_is_not_written_as_a_flow(facts):
+    # Gemini Nano, 2026-10-26: "The river is mapped at 21% above normal" (Bangladesh), "flow at least 81% below
+    # normal" and "flow above normal at 6%" (Africa). Each % is a share of the mapped land in view.
+    share_below = by_kind(facts, "status_share", side="below")[0]
+    share_above = by_kind(facts, "status_share", side="above")[0]
+    area = by_kind(facts, "status_area", **{"class": "much_above"})[0]
+    a, b, u = ph(area["id"]), ph(share_below["id"]), ph(share_above["id"])
+    for cited, text in (
+        ([area["id"]], f"The river is mapped at {a} above normal in {ph(area['id'], 'when')}."),
+        ([area["id"], share_below["id"]], f"Here the flow is at least {b} below normal."),
+        ([area["id"], share_above["id"]], f"The river shows flow above normal at {u}."),
+    ):
+        out = _one(facts, cited, "River high", text)
+        assert all(n.get("by") == "rules" for n in out["notes"]), text
+        assert "of the mapped land" in out["refused"][0] and "not a flow" in out["refused"][0], out["refused"]
+    # Written as a share, the same facts pass.
+    ok = _one(facts, [area["id"]], "Wet land", f"{a} of the mapped land is much above normal in "
+                                               f"{ph(area['id'], 'when')}.")
+    assert ok["refused"] == []
+    assert ok["notes"][0]["text"] == "21% of the mapped land is much above normal in September 2026."
+    assert _one(facts, [area["id"], share_below["id"]], "Dry and wet",
+                f"Rivers across {b} of the view are below or much below normal.")["refused"] == []
+    # The prompt says what a share is.
+    p = me.notes_prompt(facts["facts"])["system"]
+    assert f"{area['shown']} of the mapped land in view (a share of land, not a flow" in p
+    assert "never '{f1} below normal'" in p
+
+
+def test_prompt_words_are_not_copied_and_a_date_says_on_once(facts):
+    p = me.notes_prompt(facts["facts"])["system"]
+    assert "pinned, unnamed" not in p and "unnamed" not in p
+    area = by_kind(facts, "status_area", **{"class": "below"})[0]
+    # Nano, Africa: "... is pinned, unnamed".
+    out = _one(facts, [area["id"]], "Dry land",
+               f"{ph(area['id'])} of the mapped land is below normal. This area is pinned, unnamed.")
+    assert out["notes"][0]["text"] == "4% of the mapped land is below normal."
+    # "on on Sat 7 Nov": the date is "on Mon 12 Oct" here.
+    reach = by_kind(facts, "fa_class")[0]
+    assert reach["when"].startswith("on ")
+    out = _one(facts, [reach["id"]], "Flow ahead",
+               f"This reach passes its {ph(reach['id'])} on {ph(reach['id'], 'when')}.")
+    assert out["notes"][0]["text"] == "This reach passes its 10-year flow on Mon 12 Oct."
+    by_id = me._by_id(facts["facts"])
+    assert me._fill(f"Flow passes it {ph(reach['id'], 'when')}.", by_id) == "Flow passes it on Mon 12 Oct."
+    assert me._fill(f"Upon {ph(reach['id'], 'when')}.", by_id) == "Upon on Mon 12 Oct."   # a word, not "on"
+
+
+def test_a_units_superscript_is_not_a_number_in_the_reasons(facts):
+    # Nano, Bangladesh: "a number not in its facts (760000, ²)", where the ² was the km² after it.
+    area = by_kind(facts, "status_area", **{"class": "below"})[0]
+    assert me.claim_lock("An area of 760000 km² and 5 m³/s.", [area]) == ["5", "760000"]
+    out = _one(facts, [area["id"]], "Dry", f"{ph(area['id'])} of the land, about 760000 km².")
+    assert out["refused"] == ["note 1: a number not in its facts (760000)"]
+    assert me.claim_lock("Up 10² times.", [area]) == ["10", "²"]       # after a digit it is a power

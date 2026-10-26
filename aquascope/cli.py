@@ -2354,7 +2354,7 @@ def cmd_area_study(args: argparse.Namespace) -> None:
 
 
 def cmd_gym(args: argparse.Namespace) -> None:
-    """`aquascope gym basins|run|leaderboard`: HydroGym, the calibration environment over real basins (Phase 0),
+    """`aquascope gym basins|run|leaderboard`: AquaScope Bench, the calibration environment over real basins (Phase 0),
     `aquascope gym tasks|bench|leaderboard FILES`: the playbook benchmark (Phase 1), `aquascope gym plans
     list|show|validate|score|rescore`: the plan-quality benchmark (Phase 2), and `aquascope gym reports
     list|show|score|bench`: report-quality scoring over a finished study bundle (#382)."""
@@ -5058,7 +5058,7 @@ def main() -> None:
     p_bbuild.add_argument("--max-features", type=int, default=None)
     p_bbuild.add_argument("--fgb", action="store_true", help="Also write lev12.fgb from Python (needs memory)")
 
-    # ── gym (HydroGym) ───────────────────────────────────────────────
+    # ── gym (AquaScope Bench) ───────────────────────────────────────────────
     from aquascope.methods import METHODS as _METHODS
 
     p_assess = sub.add_parser(
@@ -5113,7 +5113,13 @@ def main() -> None:
     p_area.add_argument("--output", "-o", default=None, help="Write .xlsx, .csv, .geojson or .json")
     p_area.add_argument("--json", action="store_true")
 
-    p_gym = sub.add_parser("gym", help="HydroGym: a gym-style calibration environment over real basins (#175)")
+    p_gym = sub.add_parser(
+        "gym",
+        help="AquaScope Bench (was HydroGym): hydrology agents scored on real sites (#175)",
+        description="AquaScope Bench, formerly HydroGym (#440): the calibration environment (basins, run, "
+        "leaderboard), the playbook tasks (tasks, bench), the plan-quality references (plans) and report "
+        "scoring (reports). The CLI verb stays `aquascope gym` and the module `aquascope.gym`.",
+    )
     gym_sub = p_gym.add_subparsers(dest="gym_cmd", required=True)
     p_gb = gym_sub.add_parser("basins", help="Suggest gauged basins from the Archive that make good tasks")
     p_gb.add_argument("--n", type=int, default=10)
@@ -5451,7 +5457,7 @@ def main() -> None:
         "score", help="One study's scorecard: outcome, gates, Critic, report quality, plan accuracy, time and cost")
     p_eval_score.add_argument("study", nargs="+", help="A study bundle directory or its workspace.json (repeatable)")
     p_eval_score.add_argument("--case", default=None,
-                              help="Score the plan against this HydroGym reference case (aquascope gym plans list)")
+                              help="Score the plan against this AquaScope Bench reference case (aquascope gym plans list)")
     p_eval_score.add_argument("--json", action="store_true")
     p_eval_trace = eval_sub.add_parser(
         "trace", help="One study as a timeline: phases, steps with their gates, model calls per role")

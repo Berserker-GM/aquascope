@@ -228,7 +228,12 @@ choosing from a few more than ten. It never writes a number: every number, date,
 place and ranking is a slot (`{area}`, `{peak}`, `{month}`) that the package fills in,
 and wording with a digit, a percent sign, a number word or a word like "record" or
 "largest" outside the slots is refused, and so is a sign set against a slot ("-{peak}",
-"minus {area}"), so the rules' wording stays (the line says how many were refused). The maintainer's keys are never used for visitors.
+"minus {area}"), so the rules' wording stays. A wording must also keep what its finding says (`CLAIMS`): "much
+below normal" stays below, and "the models miss this river" is not turned into "questions about the gauge's
+measurement". The line says who worded the pins (the rules, when no wording of the model's was used) and gives the
+first refusal's reason. A slot's exact value written
+out ("September 2026" for `{month}`) counts as that slot, so a correct wording is not refused for it. The findings
+the model leaves out, or whose ids it mangles, follow in the rules' order, so none is dropped. The maintainer's keys are never used for visitors.
 
 The same scan is `aquascope layers scout [--bbox W S E N] [--month YYYY-MM]
 [--published]`, the MCP tool `map_scout`, and, for an assistant in the browser, the
@@ -280,8 +285,16 @@ Who words the notes:
    from the facts, and a note whose words hold any other number, in digits or in words
    ("twelve", "half"), or with a sign or a digit set against a placeholder ("-{f3}", "minus {f3}",
    "{f3}0", which would change the number code puts in), is refused (the claim lock, the same check
-   Scout and the mesh review make); the line under the box says how many were refused and why. When fewer than
-   three pass, notes in fixed wording on the other facts make up the rest.
+   Scout and the mesh review make); the line under the box says how many were refused and why. A note whose
+   numbers are all in its facts can still claim more than they say: "96% of the land is significantly below
+   normal" when the 96% is of land below *or* much below normal is refused, and so is a side of normal its
+   facts are not on. A share of the mapped land is written as a share ("{f4} of the mapped land"): written
+   bare, as in "the river is mapped at 21% above normal" or "flow at least 81% below normal", it reads as a
+   change in flow that no fact holds, and the note is refused. A value the model writes again after its
+   placeholder ("54% (54%)", "km² km²", "on on Sat 7 Nov") is written once, and a sentence that only copies
+   the prompt is dropped. When fewer than
+   three pass, notes in fixed wording on the other facts make up the rest. When none passes, the line
+   says the model's wording was refused, with the reasons, not that no model was asked.
 
 A layer still reading its file (just after the page opens, or after a new date) is
 waited for before the view is read. A click on a note opens it in the map card, with every fact it cites and the full
@@ -317,7 +330,8 @@ with the scenario (`aquascope.whatif_map.whatif`, in the worker):
 - **The basin** comes from the GEOGLOWS v2 routing tables, the ones the upstream area
   and the trace to the sea read. The forcing is ERA5 (Open-Meteo) at the basin's
   area-weighted centre; a basin over 100,000 km² is refused, since one cell cannot
-  stand for its weather.
+  stand for its weather. The panel says so as it opens (the Rhine at Cologne, 143,881
+  km²), before any words are read, and Run stays off.
 - **The model** is GR4J, with a degree-day snow store where enough of the rain falls
   below freezing (`aquascope.advanced.catchment_model`). On a gauge it is calibrated on
   the gauge's record; on a reach without one, on the reach's GEOGLOWS simulated flow,
@@ -356,13 +370,21 @@ Who reads the line, in the same order as Ask the map:
 
 1. **No model, no key**: fixed rules (`parse_scenario`) read "20% less rain and 2
    degrees warmer", "a fifth less rain", "take 5 m3/s for irrigation", "rain -10%,
-   +1.5 °C". This always works.
+   +1.5 °C", "300 litres per second" (or l/s), "three degrees warmer". This always works.
+   An evaporation change has no slider but goes with the run, and the line says it. When
+   the rules read only part of the line, it goes to a model whole; with none to ask, the
+   line says what the rules read and which words they could not, puts the part read on
+   the sliders, and does not run.
 2. **The model on your device**, then **your own key** from Ask ✨. The model only
    fills the four parameters (rain %, warming, evaporation %, demand). A number it
    gives that is not in your words, one your words say once but it uses twice, one
    going the other way from your words ("20% more rain" is never -20), or one outside
    the limits is refused (the claim lock), and the line under the box says who read it. The values go into the sliders before the run, so you see
-   exactly what runs.
+   exactly what runs. When a model's reading is refused, the line says which model and why,
+   and suggests only a way not yet tried. The model changes the whole year, so a line that names
+   a part of it ("summers get much hotter, maybe three degrees") runs as a year-round change and
+   the line says the season was not applied. A small value keeps its figures: 20 litres a second
+   reads "0.02 m³/s taken", never "0 m³/s".
 
 Every run is in the action log with its undo; a new run replaces the painting and undo
 puts the one before back. A second scenario on the same basin reuses the calibration
@@ -1450,7 +1472,7 @@ so when a record is shorter.
 
 Discharge records in m3/s with a catchment area get a **Rainfall-runoff model**
 card. "Calibrate GR4J" fetches daily precipitation and FAO-56 ET0 at the gauge
-from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and HydroGym
+from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and AquaScope Bench
 use), converts the record to mm/d over the station's catchment area (agency,
 else BasinATLAS), and calibrates the four GR4J parameters by differential
 evolution (population 20, 40 generations, KGE on the first 65 % of the record

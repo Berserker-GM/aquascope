@@ -95,7 +95,7 @@ async function ask(type, payload = {}) {
 // ── for the review (#564, mesh-review.js): the open mesh, its worker, and a word when it goes ────
 
 /** The model on the map: { meta, arrays } (the arrays are the reader's typed arrays), or null. */
-export const currentMesh = () => (mesh ? { meta: mesh.meta, arrays: mesh.arrays } : null);
+export const currentMesh = () => (mesh ? { meta: mesh.meta, arrays: mesh.arrays, openedAt: mesh.openedAt, visible } : null);
 
 /** A call to the mesh worker, where the file is open. */
 export const meshAsk = (type, payload = {}) => ask(type, payload);
@@ -208,7 +208,7 @@ export async function openModelFile(file, crs = null, geometry = null, { sample 
   }
   clearMesh({ keepStatus: true, keepWorker: true });   // the worker has already put the new file in its place
   const { meta, arrays } = res;
-  mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable), sample };
+  mesh = { meta, arrays, index: buildIndex(arrays), scale: scaleFor(arrays.max_value, meta.variable), sample, openedAt: Date.now() };
   dbg.mesh = { name: meta.name, size_bytes: meta.size_bytes, cells: meta.cells, steps: meta.times.length,
     read_ms: meta.read_ms, heap_mb: meta.heap_mb };   // for the timing checks in the PR
   view = "max";
@@ -693,7 +693,7 @@ function registerRow() {
       else if (name === "largest") { showLargest(); }
       else if (name === "zoom") zoomTo(900);
       else if (name === "open") { pickFile(); }
-      else if (name === "review") { if (actions.reviewModel) void actions.reviewModel(); }
+      else if (name === "review") { if (actions.reviewModel) void actions.reviewModel({ anywhere: true }); }
       else if (name === "clear") { clearMesh(); }
       else if (name.startsWith("tool:")) { const t = meshTools.find((x) => `tool:${x.id}` === name); if (t) t.run(); }
     },

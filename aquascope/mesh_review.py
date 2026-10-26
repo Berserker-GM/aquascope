@@ -401,11 +401,16 @@ def _tiny(m: Mesh, sc: dict[str, Any], ids: _Ids, unit: str | None, k: float) ->
         i = int(i)
         f1 = _fact(ids, "Largest depth", round(float(hi[i]), 4), unit, fmt(hi[i]), lat=m.lat[i], lon=m.lon[i])
         if f2 is None:
+            # The depth the count is under is a fact of its own, so a model's words can say it; the count names
+            # it as its bound, so "{cells} cells under {largest depth}" is refused (_locked).
+            f4 = _fact(ids, "A film is shallower than", round(TINY_DEPTH_M * k, 4), unit, limit)
+            f4["threshold"] = True
             f2 = _fact(ids, "Cells wetted only by a film", int(film.size), "cells", _count(film.size))
+            f2["under"] = f4["id"]
             share = 100 * film.size / max(wet, 1)
             f3 = _fact(ids, "Share of the cells that get wet", round(film.size / max(wet, 1), 4), "",
                        f"{fmt(share, 2) if share < 1 else round(share)}%")
-            facts = [f1, f2, f3]
+            facts = [f1, f2, f3, f4]
             reason = (f"This cell never gets deeper than {f1['shown']}{u}, under {limit}{u}. "
                       f"{f2['shown']} {'cell in all is' if film.size == 1 else 'cells in all are'} like it, "
                       f"{f3['shown']} of those that get wet: rain on the grid, "
@@ -916,6 +921,8 @@ def review_prompt(findings: list[dict[str, Any]], context: str = "") -> dict[str
         "number is thrown away. Use only the placeholders of that finding's own facts.",
         "Do not judge the model right or wrong, and do not add causes or advice the rules wording does not hold. "
         "Do not use a ranking word (deepest, largest, worst...) unless the rules wording uses it.",
+        "Keep every 'not', 'no', 'never' and 'unless' of the rules wording: 'worth a look if it is not a channel "
+        "or a pit you expect' never becomes 'if it is expected'.",
         'Reply with ONE JSON object: {"order": [ids], "notes": [{"id", "title", "reason"}]}.',
     ])
     if context:
@@ -940,6 +947,96 @@ def _reply_json(reply: Any) -> Any:
         return data
     except ValueError:
         return None
+
+
+# "under {f1}", "< {f1}", "below {f1}", "less than {f1}": a count said to be under a value.
+_UNDER = re.compile(r"(?:[<\u2264]\s*|\b(?:under|below|less than|shallower than|at most|up to)\s+)\{(f\d+)\}",
+                    re.IGNORECASE)
+
+
+def _wrong_bound(words: str, own: dict[str, dict[str, Any]]) -> str | None:
+    """Why ``words`` put a count under the wrong value, or None. A count of cells under a threshold names that
+    threshold (``under``); in a sentence that says the count, "under" a value must be that threshold. All the
+    numbers can be in the facts and the claim still wrong: "8 cells (< 0.0269 m)" when 0.0269 m is one cell's
+    largest depth and the 8 cells are those under 0.03 m."""
+    for sentence in re.split(r"(?<=[.!?;])\s+", words or ""):
+        counts = [own[m.group(1)] for m in re.finditer(r"\{(f\d+)\}", sentence)
+                  if m.group(1) in own and own[m.group(1)].get("under")]
+        for c in counts:
+            for m in _UNDER.finditer(sentence):
+                if m.group(1) != c["under"]:
+                    bound = own.get(c["under"])
+                    return (f"says {c['label'].lower()} {m.group(0).strip()!r}, the count is of those under "
+                            f"{bound['shown'] if bound else 'another value'}")
+    return None
+
+
+# A "not" and the words that do its work. "un-" before a word ("unexpected") is read where the word is compared.
+_NEGATION = re.compile(r"\b(?:not|no|never|none|nor|without|unless|cannot)\b|n't\b", re.IGNORECASE)
+_CONDITION = re.compile(r"\b(?:if|unless)\b", re.IGNORECASE)
+_PLACEHOLDER_ANY = re.compile(r"\{\w+(?:\.\w+)?\}")
+_LITTLE = frozenset("""a an the it its it's is are was were be been this that these those there here you your we
+    our they their of in on at to for from by with and or as than then so do does did has have had can could may
+    might will would should what which who how where when whether e g i""".split())
+
+
+def _stems(text: str) -> list[str]:
+    """The content words of ``text`` in order, cut to a rough stem ("expected" and "expect" are one word)."""
+    out = []
+    for w in re.findall(r"[^\W\d_]+(?:'[^\W\d_]+)?", _PLACEHOLDER_ANY.sub(" ", text or "")):
+        w = w.lower()
+        if w in _LITTLE or _NEGATION.fullmatch(w) or w.endswith("n't"):
+            continue
+        for suffix in ("ing", "ed", "es", "s"):
+            if w.endswith(suffix) and len(w) - len(suffix) >= 4:
+                w = w[:-len(suffix)]
+                break
+        out.append(w)
+    return out
+
+
+def _clauses(text: str) -> list[str]:
+    return [c for c in re.split(r"[.!?;:,()]+(?=\s|$)|[;:,()]|\s[-\u2013\u2014]\s|\bbut\b", text or "") if c.strip()]
+
+
+def _negated(clause: str, stems: set[str]) -> bool:
+    """Whether ``clause`` holds a negation, an "un-" on one of ``stems`` ("unexpected") included."""
+    if _NEGATION.search(clause) or re.search(r"\bunless\b", clause, re.IGNORECASE):
+        return True
+    return any(w.startswith("un") and (w[2:] in stems or w[2:].startswith(tuple(stems)))
+               for w in (x.lower() for x in re.findall(r"[^\W\d_]+", clause)))
+
+
+def negation_flip(rules: str, words: str) -> str | None:
+    """The rules clause whose "not" ``words`` drop, or None. Each number can be right and the meaning turned
+    round: the rules say a deepest cell is "worth a look if it is not a channel or a pit you expect", and a
+    model wrote "investigate if it's an expected feature" (Gemini Nano, #590). A condition of the rules with a
+    negation ("if it is not ...", "unless ...") may not come back as one without it on the same words; a
+    negated statement ("never gets deeper", "no record for the run") may not come back with its words side by
+    side and no negation."""
+    for rule in _clauses(rules):
+        neg = _NEGATION.search(rule)
+        if not neg:
+            continue
+        scope = _stems(rule[neg.start():])
+        if not scope:
+            continue
+        cond = _CONDITION.search(rule)
+        for clause in _clauses(words):
+            if cond:
+                said = _CONDITION.search(clause)
+                if not said:
+                    continue
+                part = clause[said.start():]
+                if set(_stems(part)) & set(scope) and not _negated(part, set(scope)):
+                    return rule[cond.start():].strip()
+            else:
+                head = scope[:2]
+                got = _stems(clause)
+                hit = any(got[i:i + len(head)] == head for i in range(len(got)))
+                if hit and not _negated(clause, set(scope)):
+                    return rule[neg.start():].strip()
+    return None
 
 
 def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str] | None, str | None]:
@@ -970,10 +1067,16 @@ def _locked(f: dict[str, Any], title: str, reason: str) -> tuple[tuple[str, str]
     stray = claim_lock(words, [{**x, "label": f"{x['label']} {x.get('unit') or ''}"} for x in own.values()])
     if stray:
         return None, f"a number not in its facts ({', '.join(stray)})"
+    wrong = _wrong_bound(words, own)
+    if wrong:
+        return None, wrong
     said = f"{f['rules_title']} {f['rules_reason']}".lower()
     rank = [w for w in _RANKING.findall(words) if w.lower() not in said]
     if rank:
         return None, f"a ranking or judging word ({rank[0]})"
+    flipped = negation_flip(f"{f['rules_title']}. {f['rules_reason']}", words)
+    if flipped:
+        return None, f"drops the 'not' of the rules wording ({flipped!r})"
     if "{" in _PLACEHOLDER.sub("", words) or "}" in _PLACEHOLDER.sub("", words):
         return None, "a stray brace"
     return (_fill(title, own), _fill(reason, own)), None

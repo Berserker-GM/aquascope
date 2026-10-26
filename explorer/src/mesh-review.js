@@ -19,7 +19,11 @@ import { generateJsonLocally, localModelReady, localReaderLabel } from "./local-
 import { call, callLight } from "./worker-client.js?v=__BUILD__";
 import { announce } from "./a11y.js?v=__BUILD__";
 import { currentMesh, meshAsk, meshFlagsBefore, onMeshCleared, refreshMeshLegend, setReviewSection } from "./mesh-view.js?v=__BUILD__";
-import { SEVERITY, checkRows, flaggedCells, gaugesInBox, reviewLine, reviewPin, reviewWho, runSpan } from "./mesh-review-core.js?v=__BUILD__";
+import { modflowShown } from "./groundwater-view.js?v=__BUILD__";
+import {
+  SEVERITY, checkRows, flaggedCells, gaugesInBox, reviewLine, reviewPin, reviewTarget, reviewWho, runSpan,
+} from "./mesh-review-core.js?v=__BUILD__";
+import { refusedNote } from "./scout-core.js?v=__BUILD__";
 
 const FLAGS = "mesh-flags";
 const FLAGS_LINE = "mesh-flags-line";
@@ -150,11 +154,31 @@ function clearLast() {
   lastPins = [];
 }
 
-export async function reviewModel({ say: sayOut = null } = {}) {
+function viewBox() {
+  if (!state.mapOk || !map) return null;
+  try {
+    const b = map.getBounds();
+    return [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Review the model result on screen. With `anywhere` (the mesh's own legend row, which names its mesh, and the
+ * WebMCP tool) the loaded mesh is reviewed wherever the map is. From Ask the map, the model on screen decides
+ * (#590): a MODFLOW model there, or a mesh off screen, is said in the line rather than an older mesh reviewed out
+ * of sight.
+ */
+export async function reviewModel({ say: sayOut = null, anywhere = false } = {}) {
   const m = currentMesh();
   const tell = sayOut || say;
-  if (!m) {
-    tell("No model result on the map to review. Drop a HEC-RAS plan or a UGRID NetCDF file on the map first.", "warn");
+  const target = reviewTarget({
+    mesh: m ? { name: m.meta.name, bbox: m.meta.bbox, openedAt: m.openedAt, visible: m.visible } : null,
+    modflow: anywhere ? null : modflowShown(), view: anywhere ? null : viewBox(),
+  });
+  if (!m || !target.review) {
+    tell(escapeHtml(target.line), "warn");
     return null;
   }
   const my = ++running;
@@ -199,9 +223,10 @@ export async function reviewModel({ say: sayOut = null } = {}) {
     drawFlags();
     refreshMeshLegend();
     const n = lastPins.length;
-    const notes = refused.length ? [`${refused.length} wording${refused.length === 1 ? "" : "s"} refused by the claim lock, rules kept`] : [];
+    // The count and the first refusal's reason (#590), as Scout's line gives them.
+    const notes = refused.length ? [refusedNote(refused)] : [];
     tell(`<b class="ma-who">Review</b><span class="ma-how">${escapeHtml(who)}, ${escapeHtml(how)}</span>` +
-      `<span>${escapeHtml(reviewLine(res, n))}</span>` +
+      `<span>${escapeHtml(reviewLine(res, n, meta.name))}</span>` +
       (notes.length ? `<span class="ma-note">${escapeHtml(notes.join("; "))}</span>` : ""), res.counts && res.counts.problem ? "warn" : "ok");
     if (n) setLogOpen(false);
     announce(`Review dropped ${n} pins: ${res.summary}`);

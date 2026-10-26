@@ -1,4 +1,11 @@
-# HydroGym benchmark: hydrology agents on the playbooks
+# AquaScope Bench: hydrology agents on the playbooks
+
+AquaScope Bench (code: `aquascope.gym`, CLI: `aquascope gym`) was called HydroGym until
+October 2026. It was renamed because an unrelated reinforcement-learning platform for
+fluid dynamics has that name ([#440](https://github.com/Rekin226/aquascope/issues/440)).
+Only the name changed: the module, the CLI verb, the file names and the recorded results
+stay where they were, and the dated leaderboards under `aquascope/gym/results/` keep the
+name they were recorded with.
 
 Phase 1 of [#175](https://github.com/Rekin226/aquascope/issues/175): a
 verifiable benchmark of hydrology agents on real sites. The

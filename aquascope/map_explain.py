@@ -973,8 +973,10 @@ def _numbers(text: str) -> set[str]:
     text = text or ""
     out = {m.replace(",", "") for m in _NUMBER.findall(text)}
     out |= {m.lower() for m in _NUMBER_WORDS.findall(text)}
-    # Any other character that stands for a number: a fraction (½), a Roman numeral (Ⅻ), a superscript.
-    out |= {c for c in text if not "0" <= c <= "9" and unicodedata.numeric(c, None) is not None}
+    # Any other character that stands for a number: a fraction (½), a Roman numeral (Ⅻ), a superscript. A
+    # superscript two or three after a letter is a unit's (km², m³/s), not a number of its own.
+    out |= {c for i, c in enumerate(text) if not "0" <= c <= "9" and unicodedata.numeric(c, None) is not None
+            and not (c in "\u00b2\u00b3" and i and text[i - 1].isalpha())}
     return out
 
 
@@ -1026,13 +1028,155 @@ def _part(fact: dict[str, Any], part: str | None) -> str:
     return str(fact["shown"])
 
 
+def _norm_value(text: str) -> str:
+    """A value as compared for a repeat: spaces, case and superscript digits (km² and km2) set aside."""
+    t = str(text or "").lower().replace("²", "2").replace("³", "3")
+    return re.sub(r"\s+", " ", t).strip()
+
+
+def _drop_lead(before: str, value: str) -> str:
+    """``before`` without the words ``value`` opens with, when it ends with them ("peaks on " before "on Sat 7
+    Nov" is "peaks ")."""
+    lead = re.match(r"\s*((?:[^\W\d_]+\s+)*)", value + " ").group(1).split()
+    for k in range(len(lead), 0, -1):
+        tail = re.search(r"(?:^|(?<=\s))" + r"\s+".join(map(re.escape, lead[:k])) + r"\s*$", before, re.IGNORECASE)
+        if tail:
+            return before[:tail.start()]
+    return before
+
+
+def drop_repeats(words: str, pattern: re.Pattern[str], value_of: Any) -> str:
+    """``words`` without what a model wrote again after a placeholder that already says it: a bracket holding
+    the value ("{f3} ({f3})", "{f3} (54%)", "{f6} (4.6 times)") and the unit the value ends with ("{f4} km²"
+    where ``f4`` reads "6,000,000 km²"). ``value_of(match)`` is what the placeholder puts in. Explain, Scout and
+    mesh review fill through this, so a value is never written twice."""
+    words = words or ""
+    out: list[str] = []
+    pos = 0
+    for m in pattern.finditer(words):
+        if m.start() < pos:
+            continue
+        try:
+            value = str(value_of(m) or "")
+        except (KeyError, IndexError):
+            value = ""
+        # The words the value opens with, written again just before it: "on {f9.when}" where the date reads
+        # "on Sat 7 Nov" would say "on on".
+        out.append(_drop_lead(words[pos:m.start()], value) + m.group(0))
+        pos = m.end()
+        if not value:
+            continue
+        nv = _norm_value(value)
+        b = re.match(r"\s*\(([^()]*)\)", words[pos:])
+        if b:
+            try:
+                inner = _norm_value(pattern.sub(lambda x: str(value_of(x) or ""), b.group(1)))
+            except (KeyError, IndexError):
+                inner = ""
+            if inner and inner in nv:
+                pos += b.end()
+        # The unit: what the value says after its last digit ("km²", "m³/s", "%", "times").
+        unit = re.search(r"\d([^\d]*)$", value)
+        tail = unit.group(1).strip(" -") if unit else ""
+        if tail and not re.search(r"\d", tail):
+            rest = words[pos:]
+            lead = re.match(r"\s*", rest).end()
+            if _norm_value(rest[lead:lead + len(tail)]) == _norm_value(tail) and \
+                    not re.match(r"\w", rest[lead + len(tail):lead + len(tail) + 1]):
+                pos += lead + len(tail)
+    out.append(words[pos:])
+    return "".join(out)
+
+
 def _fill(words: str, facts: dict[str, dict[str, Any]]) -> str:
     def one(m: re.Match[str]) -> str:
         return _part(facts[m.group(1)], m.group(2))
 
-    out = re.sub(r"\s+", " ", _PLACEHOLDER.sub(one, words or "")).strip()
+    words = drop_repeats(words or "", _PLACEHOLDER, lambda m: _part(facts[m.group(1)], m.group(2)))
+    out = re.sub(r"\s+", " ", _PLACEHOLDER.sub(one, words)).strip()
     # A value that opens a sentence ("at least 45") starts it with a capital.
     return re.sub(r"(^|[.!?] )([a-z])", lambda m: m.group(1) + m.group(2).upper(), out)
+
+
+# Words of the prompt a model may copy into a note ("This is located at a point on the map."): the sentence that
+# holds them says nothing about the river, so it goes.
+_ECHO = re.compile(r"\b(?:a point on the map|un-?named|has no name yet|placeholders?|pin: (?:yes|no))\b|"
+                   r"\(write \{", re.IGNORECASE)
+
+
+def _drop_echo(text: str) -> str:
+    sentences = re.split(r"(?<=[.!?])\s+", text or "")
+    return " ".join(x for x in sentences if x and not _ECHO.search(x)).strip()
+
+
+# A claim about how far from normal: "much below normal", "significantly above average", "notably low".
+_STRONG = re.compile(
+    r"\b(?:much|significantly|far|well|substantially|considerably|severely|extremely|exceptionally|strongly|"
+    r"greatly|very|way|notably)\s+(below|above|under|over|lower than|higher than)\s+(?:the\s+)?"
+    r"(?:normal|average|usual)\b|\bnotably\s+(low|high)\b", re.IGNORECASE)
+_MILD = re.compile(r"\b(below|above|under|over|lower than|higher than)\s+(?:the\s+)?(?:normal|average|usual)\b",
+                   re.IGNORECASE)
+# Code's own words for a share of both classes on one side: not a claim of the stronger class alone.
+_BOTH = re.compile(r"\b(below|above) or much (?:below|above)(?: normal)?\b", re.IGNORECASE)
+
+
+def _side(word: str) -> str:
+    return "below" if word.lower() in ("below", "under", "lower than", "low") else "above"
+
+
+def _fact_sides(f: dict[str, Any]) -> tuple[str | None, bool]:
+    """The side of normal a fact is on and whether it says the stronger class: ``(side, strong)``."""
+    cls = f.get("class")
+    if cls in ("much_below", "below", "much_above", "above"):
+        return ("below" if cls.endswith("below") else "above"), cls.startswith("much_")
+    side = f.get("side")
+    if side in ("below", "above"):
+        # A gauge count is of gauges much above or much below normal; a status share is of both classes.
+        return side, f.get("kind") == "gauge_count"
+    return None, False
+
+
+def class_claims(words: str, cited: list[dict[str, Any]]) -> str | None:
+    """Why ``words`` claim more than their facts about how far from normal, or None. Each number may be in the
+    facts and the note still wrong: "96% of the land is significantly below normal" when the 96% is of land
+    below or much below normal. A claim of the stronger class ("much below") needs a fact of that class, and a
+    side of normal needs a fact on that side, when the facts cited are on one."""
+    sides = [_fact_sides(f) for f in cited]
+    if not any(s for s, _ in sides):
+        return None
+    bare = _BOTH.sub(" ", _PLACEHOLDER.sub(" ", words or ""))
+    for m in _STRONG.finditer(bare):
+        side = _side(m.group(1) or m.group(2))
+        if not any(s == side and strong for s, strong in sides):
+            held = [f["label"].lower() for f in cited if _fact_sides(f)[0] == side]
+            return (f"says {m.group(0).strip()!r}, its facts say {held[0]!r}" if held
+                    else f"says {m.group(0).strip()!r}, which none of its facts says")
+    for m in _MILD.finditer(bare):
+        side = _side(m.group(1))
+        if not any(s == side for s, _ in sides):
+            return f"says {m.group(0).strip()!r}, its facts are on the other side of normal"
+    return None
+
+
+#: The facts that are a share of the mapped land in view, not a flow: "21%" of the land, never "21% above normal".
+SHARE_KINDS = ("status_share", "status_area")
+# What a share is of, written right after its placeholder: "{f4} of the mapped land", "{f1} of the view".
+_SHARE_OF = re.compile(r"\s*(?:\)\s*)?of\s+(?:(?:the|this|all|its)\s+)?(?:[^\W\d_]+\s+){0,2}?"
+                       r"(?:land|lands|area|areas|view|map|region|basins?)\b", re.IGNORECASE)
+
+
+def share_claims(words: str, facts: dict[str, dict[str, Any]]) -> str | None:
+    """Why ``words`` write a share of the mapped land as something else, or None. A share fact ("21%", of the
+    mapped land in view) must be written as a share: ``{f4} of the mapped land``. Written bare it reads as a
+    flow ("the river is mapped at {f4} above normal", "flow at least {f1} below normal"), a claim no fact holds,
+    with every number in the facts."""
+    for m in _PLACEHOLDER.finditer(words or ""):
+        f = facts.get(m.group(1))
+        if m.group(2) or not f or f.get("kind") not in SHARE_KINDS:
+            continue
+        if not _SHARE_OF.match(words[m.end():]):
+            return f"writes {f['shown']} without 'of the mapped land': it is a share of the land in view, not a flow"
+    return None
 
 
 def notes_schema() -> dict[str, Any]:
@@ -1056,11 +1200,13 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
     lines = []
     for f in facts:
         name = (f.get("place") or {}).get("name")
-        where = f"{name} (write {{{f['id']}.place}})" if name else \
-            ("a point on the map" if f.get("place") else "the whole view")
+        # No words for the model to copy into a note when the place has no name: only whether it can be pinned.
+        where = f"place: {name} (write {{{f['id']}.place}})" if name else f"pin: {'yes' if f.get('place') else 'no'}"
         when = f" when {f['when']} (write {{{f['id']}.when}})" if f.get("when") else ""
-        lines.append(f"{f['id']}: {f['label']} is {f['shown']} (write {{{f['id']}}}){when}; "
-                     f"layer {f['layer']}; where: {where}")
+        # A share is said as a share, with what it is a share of, so it is not read as a change in flow.
+        value = (f"{f['shown']} of the mapped land in view (a share of land, not a flow: write {{{f['id']}}} "
+                 "of the mapped land)" if f.get("kind") in SHARE_KINDS else f"{f['shown']} (write {{{f['id']}}})")
+        lines.append(f"{f['id']}: {f['label']} is {value}{when}; layer {f['layer']}; {where}")
     system = "\n".join([
         "You write short notes pinned on a world map of rivers, explaining what the reader sees.",
         "Here are facts taken from the map by code, each with the placeholder that stands for its value.",
@@ -1075,7 +1221,12 @@ def notes_prompt(facts: list[dict[str, Any]], context: str = "") -> dict[str, An
         "(only the ones listed above; a place without one has no name yet, so do not name it). "
         "Never write a number yourself, in digits or in words (twelve, half, twice): a note with a number "
         "its facts do not hold is thrown away.",
-        "Say only what the facts say. Do not guess causes, impacts or forecasts beyond them. "
+        "Write each value once: the placeholder already holds its unit, and a date its 'on'. Do not say where "
+        "a fact is when its place has no name: the pin shows it. "
+        "A percent of the mapped land is a share of land, not a flow or a change in flow: write it as "
+        "'{f1} of the mapped land is below normal', never '{f1} below normal' or 'flow at {f1}'. "
+        "Say only what the facts say, in their words: below or much below normal is not much below normal. "
+        "Do not guess causes, impacts or forecasts beyond them. "
         "Colours: much below normal is dark brown, below normal tan, above normal light teal, "
         "much above normal dark teal.",
         'Reply with ONE JSON object and nothing else: {"notes": [{"facts": ["f1"], "title": "...", "text": "..."}]}',
@@ -1141,6 +1292,17 @@ def check_model_notes(reply: Any, facts: list[dict[str, Any]], bbox: list[float]
         stray = claim_lock(title + " " + text, cited)
         if stray:
             refused.append(f"note {i}: a number not in its facts ({', '.join(stray)})")
+            continue
+        wrong = class_claims(title + " " + text, cited) or share_claims(title + " " + text, by_id)
+        if wrong:
+            refused.append(f"note {i}: {wrong}")
+            continue
+        if _ECHO.search(title):
+            refused.append(f"note {i}: its title copies the prompt")
+            continue
+        text = _drop_echo(text)
+        if not text:
+            refused.append(f"note {i}: its text only copies the prompt")
             continue
         spot = next((p for p in _spots(_anchor(cited)) if _spaced(notes, p["lat"], p["lon"], bbox, 0.06)), None)
         if spot is None:
