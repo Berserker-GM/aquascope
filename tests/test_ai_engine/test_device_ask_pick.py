@@ -25,6 +25,7 @@ from aquascope.ai_engine.device_ask import (
     step_budget,
     step_schema,
 )
+from aquascope.map_pick import schema_errors
 
 RECORDS = json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "ondevice_ask_check3.json")
                      .read_text(encoding="utf-8"))["records"]
@@ -423,3 +424,121 @@ def test_a_period_in_the_words_is_not_a_gauge_id(token: str) -> None:
                           words)["ok"]
     assert check_call({"tool": "analyze_station", "arguments": {"source": "uk_ea", "station_id": "E02102A"}}, [],
                       words)["ok"]
+
+
+# ── the fourth check (2026-10-26, tests/fixtures/ondevice_ask_check4.json): a closed step schema ──────────────
+
+CHECK4 = [r for r in json.loads((Path(__file__).resolve().parents[1] / "fixtures" / "ondevice_ask_check4.json")
+                                .read_text(encoding="utf-8"))["records"] if r["role"] == "ask"]
+
+
+def _closed(schema: dict, path: str = "schema") -> list[str]:
+    """Where a schema is open: an object without additionalProperties false, or a value with no enum."""
+    bad = []
+    kind = schema.get("type")
+    if kind == "object":
+        if schema.get("additionalProperties") is not False:
+            bad.append(f"{path} takes any key")
+        for k, sub in schema.get("properties", {}).items():
+            bad += _closed(sub, f"{path}.{k}")
+    elif kind == "array":
+        bad += _closed(schema["items"], f"{path}[]")
+    elif "enum" not in schema:
+        bad.append(f"{path} is a free {kind}")
+    return bad
+
+
+def _plans(rec: dict) -> list[dict]:
+    """Every step's plan for one recorded question, as the page's loop builds them over the recorded replies."""
+    words, results, notes, plans = _words(rec["request"]), [], [], []
+    for step, raw in enumerate(rec["replies"], start=1):
+        plan = step_schema(results, words, step=step, notes=notes)
+        plans.append(plan)
+        reply = _parse(raw)
+        if plan["mode"] in ("none", "answer") or not reply.get("tool"):
+            break
+        chk = check_call(reply, results, words)
+        if chk["ok"]:
+            results.append({"name": chk["name"], "arguments": chk["arguments"], "ok": True,
+                            "compact": compact_result(chk["name"], _tool(chk["name"], chk["arguments"]))})
+        else:
+            notes.append(chk["refused"])
+    return plans
+
+
+@pytest.mark.parametrize("rec", CHECK4 + ASK, ids=[f"check4-{r['tag']}" for r in CHECK4] + [r["tag"] for r in ASK])
+def test_every_step_schema_is_closed(rec: dict) -> None:
+    for plan in _plans(rec):
+        assert _closed(plan["schema"]) == [], (rec["tag"], plan["mode"], _closed(plan["schema"]))
+
+
+def test_each_tool_takes_only_its_own_arguments_and_points_only_known_pairs() -> None:
+    words = _words("What is the climate and modelled discharge at 25.05, 121.55?")
+    args = step_schema([], words)["schema"]["properties"]["arguments"]["properties"]
+    assert args["lat"]["enum"] == [25.05, 38.95] and args["lon"]["enum"] == [121.55, -77.127]
+    assert args["near"]["items"]["enum"] == [25.05, 121.55, 38.95, -77.127]
+    assert args["limit"]["enum"] == list(range(1, 11))
+    # No point in the words or results: no lat, lon or near at all.
+    only_ids = step_schema([], "Summarise the record at USGS-01646500")["schema"]["properties"]["arguments"]
+    assert set(only_ids["properties"]) == {"station_id"}
+    # A point already looked up by both point tools is not offered to them again (the catchment's own point is).
+    res = [{"name": t, "arguments": {"lat": 25.05, "lon": 121.55}, "ok": True,
+            "compact": compact_result(t, _anywhere() if t == "anywhere" else CATCHMENT)}
+           for t in ("anywhere", "describe_catchment")]
+    later = step_schema(res, "What is the climate at 25.05, 121.55?", step=2)
+    assert later["schema"]["properties"]["arguments"]["properties"]["lat"]["enum"] == [51.4155]
+
+
+def test_check4_kingston_calls_cannot_be_written_under_the_closed_schema() -> None:
+    """Four searches, each at a made-up point with an invented key ("limit__", "limittypicode"): the schema the
+    step now gives allows none of them, and the call the words hold still fits."""
+    rec = next(r for r in CHECK4 if r["tag"] == "ask-kingston")
+    plan = step_schema([], _words(rec["request"]))
+    for raw in rec["replies"]:
+        assert schema_errors(_parse(raw), plan["schema"]), raw
+    assert schema_errors({"tool": "find_stations", "arguments": {"query": "Kingston upon Thames", "limit": 5}},
+                         plan["schema"]) == []
+    assert "near one of [38.95, -77.127]" in plan["prompt"]
+
+
+def test_check4_right_calls_still_fit_the_schema() -> None:
+    for rec in CHECK4:
+        if rec["tag"] in ("ask-kingston", "ask-compare", "ask-100yr-2", "ask-new-list-thames"):
+            continue
+        plan = step_schema([], _words(rec["request"]))
+        assert schema_errors(_parse(rec["replies"][0]), plan["schema"]) == [], rec["tag"]
+
+
+@pytest.mark.parametrize("question, bad", [
+    ("List the gauges on the Thames near Kingston and their mean flows", {"List"}),
+    ("Compare the mean flow of the Potomac (USGS-01646500) with the Thames at Kingston", {"USGS-", "Potomac USGS-"}),
+    ("Is the Potomac at Little Falls getting drier? Use the annual-mean trend.", {"Use"}),
+])
+def test_search_phrases_are_names_never_an_opening_verb_or_an_ids_letters(question: str, bad: set) -> None:
+    plan = step_schema([], _words(question))
+    offered = set(plan["schema"]["properties"]["arguments"]["properties"]["query"]["enum"])
+    assert not offered & bad, offered
+    assert offered & {"Thames near Kingston", "Thames at Kingston", "Potomac at Little Falls"}
+
+
+@pytest.mark.parametrize("rec", CHECK4, ids=[r["tag"] for r in CHECK4])
+def test_check4_replies_replayed_reach_the_page_only_as_the_packages_sentences(rec: dict) -> None:
+    out = drive(rec["replies"], _words(rec["request"]))
+    shown = out["sentences"] if out["ok"] else out["facts"]
+    allowed = _written(_results_of(out))
+    for line in shown:
+        assert line in allowed, (rec["tag"], line)
+
+
+def test_check4_the_packages_own_trend_connective_is_no_claim() -> None:
+    """ask-summary-2: the right picks with say.daily, say.floods and say.trend were refused because the second
+    line read "a p-value below 0.05 is called significant" as a claim. Now the answer is written."""
+    rec = next(r for r in CHECK4 if r["tag"] == "ask-summary-2")
+    out = drive(rec["replies"], _words(rec["request"]))
+    assert out["ok"], out["refused"]
+    assert CONNECTIVES["say.trend"] in out["sentences"]
+    assert any("no significant trend in the annual mean" in s for s in out["sentences"])
+    # A claim next to it is still held: the trend is not significant, so "a significant trend" is refused.
+    res = _results_of(out)
+    wrong = CONNECTIVES["say.trend"] + " There is a significant upward trend in the annual mean."
+    assert not lock_answer(wrong, res, _words(rec["request"]))["ok"]

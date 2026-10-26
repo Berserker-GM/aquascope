@@ -288,6 +288,10 @@ async function runLocally(question) {
   $("ask-log").hidden = false;
   $("ask-result").hidden = true;
   $("ask-checks").hidden = true;
+  // Stop ends the question on the facts gathered so far; so does each step's time limit (askLoop).
+  const stop = new AbortController();
+  cancelAsk = () => stop.abort();
+  $("ask-stop").hidden = false;
   askStatus("Starting the model on your device…");
   try {
     // The model picks, the package writes (#590, round 3; aquascope.ai_engine.device_ask). Each step's reply is
@@ -306,6 +310,7 @@ async function runLocally(question) {
       render: (reply, results, words, why) => ask("render", { reply, results, words, why }),
       onEvent: (m) => (m.startsWith("tool ") ? askLog(m) : askStatus(m)),
       context: ctx,
+      signal: stop.signal,
     });
     askStatus("");
     state.ask.markdown = deviceAnswerMarkdown(question, res);
@@ -319,6 +324,8 @@ async function runLocally(question) {
   } catch (err) {
     askStatus(`The on-device model could not run: ${err.message}`, "error");
   } finally {
+    cancelAsk = null;
+    $("ask-stop").hidden = true;
     state.ask.running = false;
     $("ask-run").disabled = false;
     $("ask-run").textContent = "Ask";

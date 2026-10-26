@@ -156,10 +156,21 @@ export function withCatalogueName(out, args, byKey) {
   return Object.keys(extra).length ? { ...out, compact: { ...c, ...extra } } : out;
 }
 
+/** How long one step's prompt may run on the device, as for the map's one-off calls (generateJsonLocally). The
+ * fourth check's prompts took 0.6 to 5.3 s; one wrote a number for 176 s until Chrome's output limit. */
+export const STEP_MS = 25000;
+
+/** A step that ended before the model replied: `kind` "timeout" (the time limit) or "stop" (the reader). */
+function cut(kind, ms) {
+  const err = new Error(kind === "stop" ? "stopped" : `no reply in ${Math.round(ms / 1000)} s`);
+  err.kind = kind;
+  return err;
+}
+
 /**
  * One question on the device. The package does every check and writes every sentence; the model only picks.
  *
- * - `open()` gives a fresh conversation `{generate(prompt, schema), close()}`;
+ * - `open()` gives a fresh conversation `{generate(prompt, schema, signal), close()}`;
  * - `plan({results, words, step, budget, force, notes})` is the package's step (device_ask.step_schema):
  *   `{mode, schema, prompt, budget}`, mode "tool" (the first step), "either", "answer" (the last step, or after a
  *   repeated call) or "none" (nothing in the words to look up);
@@ -167,23 +178,49 @@ export function withCatalogueName(out, args, byKey) {
  *   `{ok, name, arguments, compact}`, or `{refused}` (not run), or `{repeat: true}` (already run: not run again);
  * - `render(reply, results, words, why)` writes the answer from the keys (device_ask.render_answer):
  *   `{ok, text, sentences, refused, facts, notes}`.
+ * - `signal` is the Stop button's; `stepMs` the time limit of one step's prompt. Either one ends the question
+ *   on the facts gathered so far, with one line saying why (the fourth check: a prompt ran 176 s, with no Stop).
  *
  * Returns `{answer, toolCalls, results, lock, canned, stopped}`; `lock` is render's verdict, never null, so the
  * page always shows either the package's sentences or the facts gathered so far with one line why.
  */
-export async function askLoop(question, { open, plan, callTool, render, onEvent = () => {}, context = "", maxSteps = 8 } = {}) {
+export async function askLoop(question, { open, plan, callTool, render, onEvent = () => {}, context = "", maxSteps = 8,
+                                          signal = null, stepMs = STEP_MS } = {}) {
   const words = context ? `${question}\n\nContext: ${context}` : question;
   const toolCalls = [];
   const results = [];
   const notes = [];
   let force = false;
   let budget = null;
+  // One prompt in its own conversation, ended by the time limit or the Stop button, whichever comes first. The
+  // abort reaches the session (Chrome's prompt takes a signal); the race ends the step even if it does not.
   const once = async (prompt, schema) => {
-    const conv = await open();
+    if (signal && signal.aborted) throw cut("stop");
+    const ctl = new AbortController();
+    let conv = null;
+    let done = false;
+    let timer = null;
+    let onStop = null;
+    const ended = new Promise((_, reject) => {
+      timer = setTimeout(() => { reject(cut("timeout", stepMs)); ctl.abort(); }, stepMs);
+      onStop = () => { reject(cut("stop")); ctl.abort(); };
+      if (signal) signal.addEventListener("abort", onStop, { once: true });
+    });
+    const run = (async () => {
+      const c = await open();
+      if (done) { try { c.close(); } catch { /* fine */ } throw cut("stop"); }
+      conv = c;
+      return c.generate(prompt, schema, ctl.signal);
+    })();
+    run.catch(() => {});
+    ended.catch(() => {});
     try {
-      return await conv.generate(prompt, schema);
+      return await Promise.race([run, ended]);
     } finally {
-      try { conv.close(); } catch { /* fine */ }
+      done = true;
+      clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onStop);
+      try { if (conv) conv.close(); } catch { /* fine */ }
     }
   };
   const finish = async (reply, why = null, stopped = null) => {
@@ -197,27 +234,43 @@ export async function askLoop(question, { open, plan, callTool, render, onEvent 
     return { answer: verdict.ok ? verdict.text : "", toolCalls, results, lock: verdict, canned: !verdict.ok,
       stopped: stopped || why };
   };
+  // Why a question ends with no tool run: the calls the model made were refused (check4: four searches, each at a
+  // made-up point, then "nothing in the question to look up"), or there was nothing to call.
+  const noneWhy = () => {
+    const refused = toolCalls.filter((c) => c.refused);
+    if (refused.length) {
+      const n = refused.length;
+      return `${n === 1 ? "the model's one call was" : `all ${n} of the model's calls were`} refused ` +
+        `(${refused[n - 1].name}: ${refused[n - 1].refused})`;
+    }
+    return results.length ? "the tools have nothing more to give for this question"
+      : "nothing in the question to look up: name the gauge (its id) or the place (lat, lon)";
+  };
+  const cutWhy = (err, step) => (err.kind === "stop"
+    ? `you stopped it at step ${step}`
+    : `the on-device model gave no reply within ${Math.round(stepMs / 1000)} s at step ${step}, so it was stopped`);
   for (let step = 1; step <= maxSteps; step++) {
+    if (signal && signal.aborted) return finish(null, cutWhy(cut("stop"), step));
     const p = await plan({ results, words, step, budget, force, notes });
     budget = p.budget || budget || maxSteps;
-    if (p.mode === "none") {
-      return finish(null, results.length ? "the tools have nothing more to give for this question"
-        : "nothing in the question to look up: name the gauge (its id) or the place (lat, lon)");
-    }
+    if (p.mode === "none") return finish(null, noneWhy());
     // A small model takes a few seconds a step; without a running commentary that reads as a hang.
     onEvent(`Thinking… (step ${step} of ${budget})`);
     let text;
     try {
       text = await once(p.prompt, p.schema);
     } catch (first) {
+      if (first.kind) return finish(null, cutWhy(first, step));
       onEvent(`Step ${step} failed (${first.message}); trying it once more in a fresh session…`);
       try {
         text = await once(p.prompt, p.schema);
       } catch (err) {
+        if (err.kind) return finish(null, cutWhy(err, step));
         if (!results.length) throw err;
         return finish(null, `the on-device model stopped at step ${step}, twice (${err.message})`);
       }
     }
+    if (signal && signal.aborted) return finish(null, cutWhy(cut("stop"), step));
     const reply = parseReply(text);
     const isTool = reply && typeof reply.tool === "string" && reply.tool;
     if (p.mode === "answer" || !isTool) return finish(reply);
@@ -248,7 +301,8 @@ export async function askLoop(question, { open, plan, callTool, render, onEvent 
     results.push({ name: out.name || reply.tool, arguments: out.arguments || {}, compact: out.compact || {}, ok });
     toolCalls.push({ name: out.name || reply.tool, arguments: out.arguments || {}, ok });
   }
-  return finish(null, `the model used its ${budget} steps without picking its facts`);
+  return finish(null, results.length || !toolCalls.some((c) => c.refused)
+    ? `the model used its ${budget} steps without picking its facts` : noneWhy());
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -261,6 +315,10 @@ export function deviceAnswerHtml(result) {
   const head = `<div class="showcase-note">Answered on your device by ${esc(result.model || "a local model")}, ` +
     `with a reduced tool set and no key. The model chose the tools and picked the facts; AquaScope wrote every ` +
     `sentence from the tool results. For a hard question, bring a key above.</div>`;
+  // Under a refusal or a stop nothing was answered, so no "Answered" header (check4): the facts are the tools',
+  // in AquaScope's words, and a line below says where it ran.
+  const foot = `<div class="showcase-note">Ran on your device by ${esc(result.model || "a local model")}, with no ` +
+    `key; the lines above are AquaScope's, from the tool results. For a hard question, bring a key above.</div>`;
   const lock = result.lock || { ok: false, refused: ["no answer"], facts: [], notes: [] };
   const notes = Array.isArray(lock.notes) && lock.notes.length
     ? `<p class="ask-device-note">${lock.notes.map(esc).join(" ")}</p>` : "";
@@ -273,7 +331,7 @@ export function deviceAnswerHtml(result) {
   const facts = Array.isArray(lock.facts) && lock.facts.length
     ? `<ul class="ask-device-facts">${lock.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`
     : "<p>No tool ran for this question, so there are no results to show. Ask again, naming the gauge or the place.</p>";
-  return `${head}<p class="ask-refused">${esc(leadLine(result))}. What the tools returned:</p>` + facts + notes;
+  return `<p class="ask-refused">${esc(leadLine(result))}. What the tools returned:</p>` + facts + notes + foot;
 }
 
 // A list of gauges (two or more search rows picked) reads as a list, one gauge a line.
