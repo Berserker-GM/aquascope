@@ -1146,8 +1146,9 @@ _COORD_PAIR = re.compile(r"(?<![\w.])(-?\d{1,2}(?:\.\d+)?)\s*°?\s*[NS]?\s*,\s*(
 _CTX_GAUGE = re.compile(r"source (?P<src>[\w-]+), id (?P<id>[^,\s)]+)")
 _SLASH_GAUGE = re.compile(r"\((?P<src>[a-z][\w-]*) ?/ ?(?P<id>[^)\s]+)\)", re.I)
 #: A gauge id in the reader's own words: letters and digits mixed ("E02102A", "USGS-01646500"), or six digits
-#: or more. "100-year", "7-day" and dates are not ids.
-_WORD_ID = re.compile(r"(?<![\w-])(?!\d+-[A-Za-z]+\b)(?:[A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*|"
+#: or more. "100-year", "100yr", "1930s", "7-day" and dates are not ids.
+_WORD_ID = re.compile(r"(?<![\w-])(?!\d+-[A-Za-z]+\b)(?!\d+(?:yrs?|years?|s|th|st|nd|rd|km2?|mm|cm|m3s?)\b)"
+                      r"(?:[A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*|"
                       r"\d+[A-Za-z][A-Za-z0-9_-]*|\d{6,})(?![\w-])")
 _STOP = frozenset("""a an and are as at be by can do does find for from gauge gauges give has have how i in is it its
 me my near nearest of on or show station stations tell than that the their there these this to us was what

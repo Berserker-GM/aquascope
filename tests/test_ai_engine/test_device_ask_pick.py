@@ -414,3 +414,12 @@ def test_the_gauge_is_named_in_full_once_then_by_its_id() -> None:
 ])
 def test_display_never_writes_an_exponent(x: float, shown: str) -> None:
     assert display(x) == shown
+
+
+@pytest.mark.parametrize("token", ["100-year", "100yr", "1930s", "7-day"])
+def test_a_period_in_the_words_is_not_a_gauge_id(token: str) -> None:
+    words = f"What is the {token} flood at E02102A since 1930-03-01?"
+    assert not check_call({"tool": "analyze_station", "arguments": {"source": "uk_ea", "station_id": token}}, [],
+                          words)["ok"]
+    assert check_call({"tool": "analyze_station", "arguments": {"source": "uk_ea", "station_id": "E02102A"}}, [],
+                      words)["ok"]
