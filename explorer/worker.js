@@ -1162,7 +1162,8 @@ json.dumps(_out, default=str)
 }
 
 // ── Talk to the map (#561): aquascope.map_commands, the same functions as `aquascope map` and the MCP tool.
-// op "parse" reads a request with the keyless grammar; "prompt" is the system prompt and schema for a model;
+// op "parse" reads a request with the keyless grammar; "prompt" is the system prompt and schema for a model
+// (with "text", the schema for that request: the places and layers its words name, and no free text);
 // "reply" checks a model's reply; "validate" checks actions from anywhere (an agent over WebMCP); "resolve"
 // looks place names up in the gazetteer (Photon); "llm" asks the reader's own model with their key (the main
 // worker only: the provider client lives beside the Analyst).
@@ -1182,6 +1183,9 @@ try:
         _out = _mc.parse_command(_a["text"], today=_a["today"])
     elif _a["op"] == "prompt":
         _out = _mc.model_prompt(_a["context"], today=_a["today"])
+        if _a["text"]:
+            # The device's schema for this request: places and layers its words name, no free text (#590).
+            _out["schema"] = _mc.reply_schema(_a["text"])
     elif _a["op"] == "reply":
         _out = _mc.parse_model_reply(_a["reply"], today=_a["today"], text=_a["text"] or None)
     elif _a["op"] == "validate":

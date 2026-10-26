@@ -122,3 +122,14 @@ def test_the_page_sends_what_the_worker_reads():
     assert "parseBriefReply(reply, text)" in studio
     worker = WORKER.read_text(encoding="utf-8")
     assert 'if (m.type === "device_ask") return await deviceAsk(m);' in worker
+
+
+def test_the_map_prompt_op_gives_the_requests_own_schema(monkeypatch):
+    run = _runner(monkeypatch, "mapCommand", "__aqMap")
+    out = run({"op": "prompt", "text": "can you show me how the Danube is doing compared with normal",
+               "today": "2026-10-26", "context": "", "reply": None, "actions": [], "llm": {}})
+    item = out["schema"]["properties"]["actions"]["items"]["properties"]
+    assert item["place"]["enum"] == ["Danube"] and item["layer"]["enum"] == ["status"]
+    plain = run({"op": "prompt", "text": "", "today": "2026-10-26", "context": "", "reply": None, "actions": [],
+                 "llm": {}})
+    assert "enum" not in plain["schema"]["properties"]["actions"]["items"]["properties"]["place"]
