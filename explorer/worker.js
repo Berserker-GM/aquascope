@@ -12,7 +12,7 @@ let ready = null;
 // once, so those reads no longer queue behind the main worker's record, one sync request after another.
 let lite = false;
 const LITE_TYPES = new Set(["context", "river", "now", "map_command", "scout", "map_explain", "mesh_review",
-  "whatif_words"]);
+  "whatif_words", "flood_exposure"]);
 
 function post(type, extra = {}) { self.postMessage({ type, ...extra }); }
 
@@ -1002,6 +1002,52 @@ json.dumps(_out, default=str)
   post("result", { id, result: JSON.parse(out) });
 }
 
+// ── On-device Ask (#590): aquascope.ai_engine.device_ask. The model picks, the package writes (round 3).
+// op "plan" is a step's reply schema and message (step_schema: enums built from this question); op "tool" checks
+// the model's call (check_call: an id, point or search phrase the words or results hold, no repeat) and runs it,
+// returning only the compact result; op "render" writes the answer from the fact keys the model picked
+// (render_answer). op "lock" holds free text to the results (lock_answer), kept as the second line of defence.
+async function deviceAsk({ id, op, reply, results, words, step, budget, force, notes, why, answer }) {
+  self.__aqDev = JSON.stringify({ op: String(op || ""), reply: reply === undefined ? null : reply,
+    results: results || [], words: String(words || ""), step: Number(step) || 1,
+    budget: Number(budget) || null, force: Boolean(force), notes: Array.isArray(notes) ? notes.map(String) : [],
+    why: why ? String(why) : null, answer: String(answer || "") });
+  const code = `
+import json
+from js import __aqDev
+from aquascope.ai_engine import analyst as _analyst
+from aquascope.ai_engine import device_ask as _dev
+_a = json.loads(__aqDev)
+if _a["op"] == "plan":
+    _out = _dev.step_schema(_a["results"], _a["words"], step=_a.get("step") or 1, budget=_a.get("budget"),
+                            force_answer=bool(_a.get("force")), notes=_a.get("notes") or [])
+elif _a["op"] == "tool":
+    _out = _dev.check_call(_a.get("reply"), _a["results"], _a["words"])
+    if _out.get("ok"):
+        _spec = {s.name: s for s in _analyst._tool_specs()}.get(_out["name"])
+        try:
+            _payload = _spec.func(**_out["arguments"]) if _spec else {"error": f"unknown tool {_out['name']}"}
+        except Exception as exc:
+            _payload = {"error": f"{type(exc).__name__}: {exc}"}
+        _payload = json.loads(json.dumps(_payload, default=str))
+        _out["ok"] = not (isinstance(_payload, dict) and _payload.get("error"))
+        _out["compact"] = _dev.compact_result(_out["name"], _payload)
+elif _a["op"] == "render":
+    _out = _dev.render_answer(_a.get("reply"), _a["results"], _a["words"], why=_a.get("why"))
+elif _a["op"] == "lock":
+    _out = _dev.lock_answer(_a.get("answer") or "", _a["results"], _a["words"])
+else:
+    _out = {"error": "unknown op"}
+json.dumps(_out, default=str)
+`;
+  try {
+    const out = await pyodide.runPythonAsync(code);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqDev = null;
+  }
+}
+
 // ── Study this area: aquascope.area_study over the gauges the page selected ──
 // op "run" studies them (the Archive first, live fetches capped) and keeps the
 // result; "areas" fills in catchment areas the page read afterwards; "csv" and
@@ -1116,7 +1162,8 @@ json.dumps(_out, default=str)
 }
 
 // ── Talk to the map (#561): aquascope.map_commands, the same functions as `aquascope map` and the MCP tool.
-// op "parse" reads a request with the keyless grammar; "prompt" is the system prompt and schema for a model;
+// op "parse" reads a request with the keyless grammar; "prompt" is the system prompt and schema for a model
+// (with "text", the schema for that request: the places and layers its words name, and no free text);
 // "reply" checks a model's reply; "validate" checks actions from anywhere (an agent over WebMCP); "resolve"
 // looks place names up in the gazetteer (Photon); "llm" asks the reader's own model with their key (the main
 // worker only: the provider client lives beside the Analyst).
@@ -1136,8 +1183,11 @@ try:
         _out = _mc.parse_command(_a["text"], today=_a["today"])
     elif _a["op"] == "prompt":
         _out = _mc.model_prompt(_a["context"], today=_a["today"])
+        if _a["text"]:
+            # The device's schema for this request: places and layers its words name, no free text (#590).
+            _out["schema"] = _mc.reply_schema(_a["text"])
     elif _a["op"] == "reply":
-        _out = _mc.parse_model_reply(_a["reply"], today=_a["today"])
+        _out = _mc.parse_model_reply(_a["reply"], today=_a["today"], text=_a["text"] or None)
     elif _a["op"] == "validate":
         _out = _mc.parse_model_reply({"actions": _a["actions"]}, today=_a["today"])
     elif _a["op"] == "resolve":
@@ -1209,7 +1259,10 @@ json.dumps(_out, default=str)
 // whatif_map. Type "whatif" (the main worker: GR4J needs scipy and pandas): op "run" calibrates the basin's model
 // and carries the scenario downstream; op "llm" reads the reader's line with their own key. Type "whatif_words"
 // (a light worker can): op "parse" is the keyless rules, "prompt" the system prompt and schema for the on-device
-// model, "reply" checks a model's reply against the reader's words (the claim lock).
+// model, "read" both in one call, "reply" reads a model's parse against the reader's words (the code takes each
+// number from the words and converts its unit, #590).
+// Op "basin" (the main worker: the routing tables need pandas) says whether the reach's basin is within the size
+// a run takes, before any calibration.
 async function whatIf({ id, type, op, args, text, reply, context, provider, model, api_key, base_url }) {
   self.__aqWhatIf = JSON.stringify({
     op: String(op || (type === "whatif" ? "run" : "parse")), args: args || {}, text: String(text || ""),
@@ -1229,7 +1282,16 @@ try:
     elif _a["op"] == "parse":
         _out = _wi.parse_scenario(_a["text"])
     elif _a["op"] == "prompt":
-        _out = _wi.scenario_prompt(_a["context"])
+        _out = _wi.scenario_prompt(_a["context"], _a["text"])
+    elif _a["op"] == "read":
+        # The rules' reading and, when they do not read it all, the device's prompt (its number enum is the
+        # line's own number tokens): one call, not two (#590).
+        _out = _wi.parse_scenario(_a["text"])
+        if not _out["matched"]:
+            _out["prompt"] = _wi.scenario_prompt(_a["context"], _a["text"])
+    elif _a["op"] == "basin":
+        _x = _a["args"]
+        _out = _wi._basin_check(_x.get("river_id"), _x.get("lat"), _x.get("lon"))
     elif _a["op"] == "reply":
         _out = _wi.parse_scenario_reply(_a["reply"], _a["text"])
     elif _a["op"] == "llm":
@@ -1281,6 +1343,31 @@ json.dumps(_out, default=str)
     post("result", { id, result: JSON.parse(out) });
   } finally {
     self.__aqReview = null;
+  }
+}
+
+// ── What gets flooded (#622): aquascope.flood_exposure.read_sources reads the buildings and roads (Overture Maps
+// GeoParquet, pyarrow loaded here on first use) and the population grid (GHS-POP COG tiles) around the model; the
+// counting runs in mesh-worker.js, beside the file.
+let pyarrowLoaded = false;
+async function floodExposureOp({ id, bbox, what }) {
+  if (!pyarrowLoaded) {
+    post("progress", { text: "Loading pyarrow to read Overture's GeoParquet…" });
+    await pyodide.loadPackage(["pyarrow"]);
+    pyarrowLoaded = true;
+  }
+  self.__aqExposure = JSON.stringify({ bbox: bbox || null, what: what || ["buildings", "roads", "population"] });
+  try {
+    const out = await pyodide.runPythonAsync(`
+import json
+from js import __aqExposure
+from aquascope import flood_exposure as _fx
+_a = json.loads(__aqExposure)
+json.dumps(_fx.read_sources(_a["bbox"], what=tuple(_a["what"])))
+`);
+    post("result", { id, result: JSON.parse(out) });
+  } finally {
+    self.__aqExposure = null;
   }
 }
 
@@ -1368,6 +1455,7 @@ json.dumps(_out)
     }
     return;
   }
+  if (op === "views") { await groundwaterViews(m); return; }
   if (op !== "modflow") throw new Error(`unknown groundwater op ${op}`);
   if (!pyprojLoaded) {
     // Placing a projected grid needs pyproj (3.8 MB, once, only when a model is dropped).
@@ -1379,7 +1467,8 @@ json.dumps(_out)
   const hds = write("heads", m.hds);
   const grid = m.grid ? write(`grid-${String(m.gridName || "grid").replace(/[^A-Za-z0-9._-]/g, "_")}`, m.grid) : null;
   const sidecars = (m.sidecars || []).map((b, i) => write(`sidecar-${i}`, b));
-  self.__aqGw = JSON.stringify({ hds, grid, sidecars, place: m.place || {} });
+  const wel = m.wel ? write("wells", m.wel) : null;
+  self.__aqGw = JSON.stringify({ hds, grid, sidecars, wel, place: m.place || {} });
   const code = `
 import json
 import numpy as np
@@ -1388,6 +1477,7 @@ from aquascope.groundwater.surface import read_modflow_heads as _read, modflow_s
 _a = json.loads(__aqGw)
 _p = _a["place"]
 _GW_RINGS = _GW_HEADS = None
+_GW_RES = _GW_WELLS = None
 try:
     _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"), rotation=_p.get("rotation"),
                  crs=_p.get("crs"), cell_size=_p.get("cell_size"), start_date=_p.get("start_date"),
@@ -1400,6 +1490,15 @@ try:
         _GW_HEADS = _h.tobytes()
     _out = _summary(_res)
     _out.pop("frame", None)
+    if not _res.get("error"):
+        _GW_RES = _res  # kept for the views (#623, #624): contours, arrows, drawdown, pathlines, capture zones
+        if _a.get("wel"):
+            from aquascope.groundwater.views import read_wells as _read_wells
+            try:
+                _GW_WELLS = _read_wells(_a["wel"])
+                _out["wells_file"] = {"format": _GW_WELLS["format"], "wells": len(_GW_WELLS["wells"])}
+            except ValueError as exc:
+                _out.setdefault("notes", []).append(f"The well file could not be read: {exc}")
     _out["times"], _out["dates"] = _res.get("times"), _res.get("dates")
     _out["kstpkper"] = _res.get("kstpkper")
 except (ValueError, ImportError) as exc:
@@ -1412,7 +1511,7 @@ json.dumps(_out, default=str)
     const take = (name) => { const p = pyodide.globals.get(name); const u8 = p.toJs(); p.destroy(); return u8; };
     const rings = take("_GW_RINGS"), offs = take("_GW_OFFS"), heads = take("_GW_HEADS");
     const shape = pyodide.globals.get("_GW_SHAPE").toJs();
-    pyodide.runPython("_GW_RINGS = _GW_HEADS = _GW_OFFS = _res = None");
+    pyodide.runPython("_GW_RINGS = _GW_HEADS = _GW_OFFS = _res = None");  // _GW_RES stays, for the views
     const result = {
       ...meta, shape,
       rings: new Float64Array(rings.buffer, rings.byteOffset, rings.byteLength / 8),
@@ -1422,8 +1521,183 @@ json.dumps(_out, default=str)
     self.postMessage({ type: "result", id, result }, [rings.buffer, offs.buffer, heads.buffer]);
   } finally {
     self.__aqGw = null;
-    for (const f of [hds, grid, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* already gone */ } }
+    for (const f of [hds, grid, wel, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* already gone */ } }
   }
+}
+
+// What a hydrogeologist reads off the heads (#623, #624), for one step and layer of the model op "modflow" read:
+// aquascope.groundwater.views.model_views, the same function as `aquascope modflow --views`. Geometry comes back in
+// lon/lat, small enough for JSON.
+async function groundwaterViews(m) {
+  const { id } = m;
+  self.__aqGv = JSON.stringify({ t: Number(m.t) || 0, layer: m.layer ?? null, reference: m.reference ?? 0,
+    show: Array.isArray(m.show) ? m.show : null });
+  const code = `
+import json
+from js import __aqGv
+from aquascope.groundwater.views import model_views as _views, model_wells as _model_wells
+_a = json.loads(__aqGv)
+try:
+    if globals().get("_GW_RES") is None:
+        raise ValueError("no model is open")
+    _key = (_a["layer"], id(_GW_RES), id(globals().get("_GW_WELLS")))
+    if globals().get("_GW_WELLS_KEY") != _key:
+        _GW_WELLS_FOR = _model_wells(_GW_RES, _a["layer"], globals().get("_GW_WELLS"))
+        _GW_WELLS_KEY = _key
+    _v = _views(_GW_RES, _a["t"], _a["layer"], reference=_a["reference"], wells=_GW_WELLS_FOR, show=_a["show"])
+except ValueError as exc:
+    _v = {"kind": "modflow_views", "error": str(exc)}
+json.dumps(_v)
+`;
+  try {
+    post("result", { id, result: JSON.parse(await pyodide.runPythonAsync(code)) });
+  } finally {
+    self.__aqGv = null;
+  }
+}
+
+// ── Groundwater views (#625, #626): aquascope.groundwater.layers and .budget, the same functions as
+// `aquascope modflow --layers --section --cell --budget`. op "open" reads the model again beside the map's copy and
+// keeps it in this worker (with its layers and, when a .cbc came, its water budget); "section" cuts it along a line
+// drawn on the map, "hydrograph" gives one cell's heads in every layer, "close" lets it go. Arrays come back as
+// typed arrays.
+async function gwLayers(m) {
+  const { id, op } = m;
+  const f32 = (name) => {
+    const p = pyodide.globals.get(name);
+    if (!p) return null;
+    const u8 = p.toJs();
+    p.destroy();
+    return new Float32Array(u8.buffer, u8.byteOffset, u8.byteLength / 4);
+  };
+  if (op === "close") {
+    await pyodide.runPythonAsync("_GWV = None");
+    post("result", { id, result: { ok: true } });
+    return;
+  }
+  if (op === "open") {
+    if (!pyprojLoaded) { await pyodide.loadPackage(["pyproj"]); pyprojLoaded = true; }
+    pyodide.FS.mkdirTree("/tmp/gwv");
+    const write = (name, buf) => { pyodide.FS.writeFile(`/tmp/gwv/${name}`, new Uint8Array(buf)); return `/tmp/gwv/${name}`; };
+    const hds = write("heads", m.hds);
+    const grid = m.grid ? write(`grid-${String(m.gridName || "grid").replace(/[^A-Za-z0-9._-]/g, "_")}`, m.grid) : null;
+    const sidecars = (m.sidecars || []).map((b, i) => write(`sidecar-${i}`, b));
+    const cbc = m.cbc ? write("budget", m.cbc) : null;
+    self.__aqGwv = JSON.stringify({ hds, grid, sidecars, cbc, place: m.place || {} });
+    const code = `
+import json
+import numpy as np
+from js import __aqGwv
+from aquascope.groundwater.surface import read_modflow_heads as _read
+from aquascope.groundwater import layers as _views, budget as _budget
+_a = json.loads(__aqGwv)
+_p = _a["place"]
+_out = {}
+_GWV_TOP = _GWV_BOTM = _GWV_TOPS = None
+# The map's read (op "modflow" of "groundwater", kept as _GW_RES for the #623/#624 views) is the same model:
+# use it rather than holding a second copy of the heads; read again only when it is not there.
+_res = globals().get("_GW_RES")
+if _res is None:
+    _res = _read(_a["hds"], _a["grid"], sidecars=_a["sidecars"], origin=_p.get("origin"),
+                 rotation=_p.get("rotation"), crs=_p.get("crs"), cell_size=_p.get("cell_size"),
+                 start_date=_p.get("start_date"), approximate_at=_p.get("approximate_at"))
+_GWV = {"res": _res, "layers": None, "budget": None}
+if _res.get("error"):
+    _out["error"] = _res["error"]
+else:
+    if _a["grid"]:
+        try:
+            _l = _views.model_layers(_res, _a["grid"])
+            _GWV["layers"] = _l
+            _out["layers"] = _views.layers_summary(_l)
+            _GWV_TOP = np.ascontiguousarray(_l["top"], dtype="<f4").tobytes()
+            _GWV_BOTM = np.ascontiguousarray(_l["botm"], dtype="<f4").tobytes()
+            _GWV_TOPS = np.ascontiguousarray(_l["tops"], dtype="<f4").tobytes()  # each layer's own top (LAYCBD)
+        except ValueError as exc:
+            _out["layers_error"] = str(exc)
+    else:
+        _out["layers_error"] = "Without the grid file the layers' tops and bottoms are not known."
+    if _a["cbc"]:
+        try:
+            _GWV["budget"] = _budget.water_budget(_a["cbc"], heads=_res)
+            _out["budget"] = _GWV["budget"]
+        except ValueError as exc:
+            _out["budget_error"] = str(exc)
+json.dumps(_out, default=str)
+`;
+    try {
+      const meta = JSON.parse(await pyodide.runPythonAsync(code));
+      const top = f32("_GWV_TOP"), botm = f32("_GWV_BOTM"), tops = f32("_GWV_TOPS");
+      pyodide.runPython("_GWV_TOP = _GWV_BOTM = _GWV_TOPS = _res = None");
+      const result = { ...meta, top, botm, tops };
+      self.postMessage({ type: "result", id, result }, [top, botm, tops].filter(Boolean).map((a) => a.buffer));
+    } finally {
+      self.__aqGwv = null;
+      for (const f of [hds, grid, cbc, ...sidecars]) { if (f) try { pyodide.FS.unlink(f); } catch (err) { /* gone */ } }
+    }
+    return;
+  }
+  if (op === "section") {
+    self.__aqGwv = JSON.stringify({ line: m.line || [] });
+    const code = `
+import json
+import numpy as np
+from js import __aqGwv
+from aquascope.groundwater import layers as _views
+_GWV_A = None
+_GWV = globals().get("_GWV")
+if _GWV is None or _GWV.get("layers") is None:
+    _out = {"error": "The model's layers are not read yet."}
+else:
+    try:
+        _s = _views.cross_section(_GWV["res"], _GWV["layers"], json.loads(__aqGwv)["line"])
+    except ValueError as exc:
+        _s = {"error": str(exc)}
+    _out = {k: v for k, v in _s.items() if k not in ("top", "bottom", "heads", "water_table")}
+    if not _s.get("error"):
+        _out["shape"] = list(_s["heads"].shape)
+        _GWV_A = [np.ascontiguousarray(_s[k], dtype="<f4").tobytes() for k in ("top", "bottom", "heads", "water_table")]
+json.dumps(_out, default=str)
+`;
+    try {
+      const meta = JSON.parse(await pyodide.runPythonAsync(code));
+      if (meta.error) { post("result", { id, result: meta }); return; }
+      const p = pyodide.globals.get("_GWV_A");
+      const arrs = p.toJs().map((u8) => new Float32Array(u8.buffer, u8.byteOffset, u8.byteLength / 4));
+      p.destroy();
+      pyodide.runPython("_GWV_A = None");
+      const [top, bottom, heads, waterTable] = arrs;
+      self.postMessage({ type: "result", id, result: { ...meta, top, bottom, heads, water_table: waterTable } },
+        arrs.map((a) => a.buffer));
+    } finally {
+      self.__aqGwv = null;
+    }
+    return;
+  }
+  if (op === "hydrograph") {
+    self.__aqGwv = JSON.stringify({ cell: Number(m.cell) });
+    const code = `
+import json
+from js import __aqGwv
+from aquascope.groundwater import layers as _views
+_GWV = globals().get("_GWV")
+if _GWV is None:
+    _out = {"error": "The model is not read yet."}
+else:
+    try:
+        _out = _views.cell_hydrograph(_GWV["res"], json.loads(__aqGwv)["cell"], _GWV.get("layers"))
+    except ValueError as exc:
+        _out = {"error": str(exc)}
+json.dumps(_out, default=str)
+`;
+    try {
+      post("result", { id, result: JSON.parse(await pyodide.runPythonAsync(code)) });
+    } finally {
+      self.__aqGwv = null;
+    }
+    return;
+  }
+  throw new Error(`unknown groundwater views op ${op}`);
 }
 
 self.onmessage = async (e) => {
@@ -1452,6 +1726,7 @@ self.onmessage = async (e) => {
     if (m.type === "load_table") return await loadTable(m);
     if (m.type === "workbench") return await workbench(m);
     if (m.type === "tool") return await runTool(m);
+    if (m.type === "device_ask") return await deviceAsk(m);
     if (m.type === "frame_from_station") return await frameFromStation(m);
     if (m.type === "area_study") return await areaStudy(m);
     if (m.type === "context") return await placeContext(m);
@@ -1460,8 +1735,10 @@ self.onmessage = async (e) => {
     if (m.type === "scout") return await scoutOp(m);
     if (m.type === "map_explain") return await mapExplain(m);
     if (m.type === "mesh_review") return await meshReviewOp(m);
+    if (m.type === "flood_exposure") return await floodExposureOp(m);
     if (m.type === "whatif" || m.type === "whatif_words") return await whatIf(m);
     if (m.type === "groundwater") return await groundwater(m);
+    if (m.type === "gw_layers") return await gwLayers(m);
   } catch (err) {
     // Pyodide raises PythonError with the full traceback in .message; keep the
     // exception line (last non-empty) and log the whole thing for debugging.

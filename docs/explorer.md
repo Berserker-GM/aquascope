@@ -158,7 +158,11 @@ Who reads the words, in order, and the line under the box says which one did:
 
 Whatever answers, the actions are checked by the package before they run (a model's
 reply that names an unknown layer or a future date is refused, and the line says
-so), and place names are looked up in the same gazetteer as the search (Photon by
+so). A model picks and the package writes (#590): the place it may name is a run
+of your own words, the layers it may switch are the ones your words ask for
+("running low" asks for the river status, "flood" for a flood layer), and a pin's
+title is the place, never the model's words. A place, a box or a layer your words
+do not hold is refused, and the line says which. Place names are looked up in the same gazetteer as the search (Photon by
 komoot, OpenStreetMap data, ODbL); a name it does not hold is tried as a gauge in
 the catalogue. A river is lit from the point the gazetteer gives for it ("the Nile"
 starts at Lake Nasser), so "what drains to the Nile at Khartoum" or a click picks a
@@ -223,12 +227,32 @@ the globe at the newest month, Scout uses that file, and the line under the bar 
 scans the view in your browser, in a few seconds once the engine has started.
 
 **With a model.** Keyless, the rules' own sentences are used. With Chrome's built-in
-model ready, or a key in Ask ✨, the model puts the findings in order and words them,
-choosing from a few more than ten. It never writes a number: every number, date,
-place and ranking is a slot (`{area}`, `{peak}`, `{month}`) that the package fills in,
-and wording with a digit, a percent sign, a number word or a word like "record" or
-"largest" outside the slots is refused, and so is a sign set against a slot ("-{peak}",
-"minus {area}"), so the rules' wording stays (the line says how many were refused). The maintainer's keys are never used for visitors.
+model ready, or a key in Ask ✨, the model picks and the code writes (#590): the model
+decides the order of the findings, choosing from a few more than ten, and for each one
+which of three fixed wordings (variants `a`, `b`, `c`) the package shows. Its reply is a
+JSON object held to a schema whose values are enums: the finding ids on screen and the
+variant ids (`map_scout.wording_schema`, passed to Chrome as `responseConstraint`). It
+writes no title and no reason, so no number, date, place, severity or likelihood of its
+own can reach a pin. A reply outside the schema is refused whole
+(`aquascope.map_pick.pick`), the line says so in one short sentence, and the rules'
+order and wording stay. The findings the model leaves out follow in the rules' order, so
+none is dropped. If the model is asked and does not answer (it timed out after 40 s), the
+line says it was asked and timed out, not "no model".
+
+Severity and likelihood words come only from the facts, by fixed thresholds:
+
+| Word | When |
+|---|---|
+| "severe flow forecast" | the reach is forecast at its 50-year flow or more |
+| "high flow forecast" | at its 10-year or 25-year flow |
+| (none) | at its 2-year or 5-year flow |
+| "every ensemble member reaches" | all 51 GEOGLOWS members reach the 2-year flow |
+| "a high chance of passing" | at least three quarters of the 51 members (39 or more) |
+| "a substantial chance of passing" | at least two fifths (21 to 38 members) |
+| "a small chance of passing" | fewer than 21 members |
+
+These are `SEVERITY_FROM_RP` and `CHANCE_FROM_SHARE` in `aquascope.map_scout`. The maintainer's keys are never
+used for visitors.
 
 The same scan is `aquascope layers scout [--bbox W S E N] [--month YYYY-MM]
 [--published]`, the MCP tool `map_scout`, and, for an assistant in the browser, the
@@ -270,18 +294,25 @@ or a gauge. The cards take whichever side keeps them clear of each other.
 
 ![Explain on the globe](img/globe/explain-globe.png)
 
-Who words the notes:
+Who chooses the notes:
 
-1. **No model, no key**: fixed wording from the same facts (`template_notes`). This
-   always works.
+1. **No model, no key**: the package's notes in their first wording (`template_notes`).
+   This always works.
 2. **The model on your device** or **your own key** from Ask ✨, in the same order as
-   Ask the map. The model only chooses and orders the facts and writes the words
-   between them. It writes each number as a placeholder (`{f3}`), which code fills in
-   from the facts, and a note whose words hold any other number, in digits or in words
-   ("twelve", "half"), or with a sign or a digit set against a placeholder ("-{f3}", "minus {f3}",
-   "{f3}0", which would change the number code puts in), is refused (the claim lock, the same check
-   Scout and the mesh review make); the line under the box says how many were refused and why. When fewer than
-   three pass, notes in fixed wording on the other facts make up the rest.
+   Ask the map. The model picks and the code writes (#590): the model decides which of
+   the package's notes to show, in which order, and which of each note's three fixed
+   wordings (variants `a`, `b`, `c`) reads best. Its reply is a JSON object held to a schema
+   whose values are enums, the note ids (`n1`, `n2`...) and the variant ids
+   (`map_explain.notes_schema`, passed to Chrome as `responseConstraint`). It writes no word
+   of a note: every value, date, place, comparison and claim is written by the package
+   from the facts. A share of the whole view is said as "N% of the mapped land in view is
+   below or much below normal"; the largest single area as that area's share ("the
+   largest area much below normal in view covers 14% of the mapped land in view"), never as
+   the share of all land; and where a note compares two areas ("more than", "less than"),
+   the package compares their values. A reply outside the schema is refused whole
+   (`aquascope.map_pick.pick`), the line under the box says so in one short sentence, and
+   the fixed wording stays. When the model picks fewer than three, notes in fixed wording
+   on the other facts make up the rest.
 
 A layer still reading its file (just after the page opens, or after a new date) is
 waited for before the view is read. A click on a note opens it in the map card, with every fact it cites and the full
@@ -317,7 +348,8 @@ with the scenario (`aquascope.whatif_map.whatif`, in the worker):
 - **The basin** comes from the GEOGLOWS v2 routing tables, the ones the upstream area
   and the trace to the sea read. The forcing is ERA5 (Open-Meteo) at the basin's
   area-weighted centre; a basin over 100,000 km² is refused, since one cell cannot
-  stand for its weather.
+  stand for its weather. The panel says so as it opens (the Rhine at Cologne, 143,881
+  km²), before any words are read, and Run stays off.
 - **The model** is GR4J, with a degree-day snow store where enough of the rain falls
   below freezing (`aquascope.advanced.catchment_model`). On a gauge it is calibrated on
   the gauge's record; on a reach without one, on the reach's GEOGLOWS simulated flow,
@@ -356,13 +388,28 @@ Who reads the line, in the same order as Ask the map:
 
 1. **No model, no key**: fixed rules (`parse_scenario`) read "20% less rain and 2
    degrees warmer", "a fifth less rain", "take 5 m3/s for irrigation", "rain -10%,
-   +1.5 °C". This always works.
+   +1.5 °C", "300 litres per second" (or l/s), "three degrees warmer". This always works.
+   An evaporation change has no slider but goes with the run, and the line says it. When
+   the rules read only part of the line, it goes to a model whole; with none to ask, the
+   line says what the rules read and which words they could not, puts the part read on
+   the sliders, and does not run.
 2. **The model on your device**, then **your own key** from Ask ✨. The model only
-   fills the four parameters (rain %, warming, evaporation %, demand). A number it
-   gives that is not in your words, one your words say once but it uses twice, one
-   going the other way from your words ("20% more rain" is never -20), or one outside
-   the limits is refused (the claim lock), and the line under the box says who read it. The values go into the sliders before the run, so you see
-   exactly what runs.
+   parses (#590): for each clause it names a change (`less_rain`, `warmer`, `take_water`...),
+   the number exactly as your words write it ("7.5", "twenty", "one and a half", "a fifth"),
+   the unit your words give it (`percent`, `fraction`, `degC`, `K`, `degF`, `m3/s`, `l/s`,
+   `m3/day`, `ML/day`, `mm`) and the part of the year, all enums
+   (`whatif_map.scenario_schema`; the numbers it may name are your words' own number tokens).
+   The package does the rest: it takes the number from your words, checks the unit against
+   the one your words give it, converts it ("a brewery draws 7.5 l/s" runs as 0.0075 m³/s
+   taken, never 7.5 m³/s), sets the sign from the change, refuses a direction your words
+   say the other way ("20% more rain" is never -20) and holds the value to the limits. A
+   change in mm of rain cannot be run (the model takes rain as a percent) and is said. The
+   values go into the sliders before the run, so you see exactly what runs. When a model's
+   reading is refused, the line says which model and why, and suggests only a way not yet
+   tried. The model changes the whole year, so a line that names a part of it ("summers get
+   much hotter, maybe three degrees") runs as a year-round change and the line says the
+   season was not applied. A small value keeps its figures: 20 litres a second reads "0.02
+   m³/s taken", never "0 m³/s".
 
 Every run is in the action log with its undo; a new run replaces the painting and undo
 puts the one before back. A second scenario on the same basin reuses the calibration
@@ -656,9 +703,49 @@ heads** in the legend picks the layer, steps through the times with a slider, an
 the run with the time bar when the model has dates. The colours span the whole run, so a
 falling head looks like one. A click on a cell gives its row, column, layer and head.
 
+On a structured grid the row offers three ways to look, each following the layer and the
+time bar ([how they are computed](modflow.md#contours-flow-drawdown-and-capture-zones)):
+
+- **Head**: a smooth head surface with labelled contours (heavier every fifth) and arrows
+  for the direction groundwater flows, down the head gradient.
+- **Drawdown**: the change since a reference step, brown where the water table fell, with
+  rings around each well's cone. **Measure from this step** makes the step on show the
+  reference; when the wells' heads are highest at another step, the row offers it.
+- **Capture**: each pumping well's capture zone, shaded in its colour, with pathlines
+  showing where its water comes from.
+
+Wells come from a `.wel` file dropped with the model (the Freyberg sample brings its own),
+or are found in the heads where the drawdown peaks, and the row says which. A click on a
+well gives its row, column, layer, rate, drawdown and capture zone. These are streamlines
+of one step in one layer, not travel times: a head file holds no conductivity or porosity.
+
 The same in Python: `aquascope modflow model.hds --grid model.dis.grb [--crs EPSG:27700]
-[--origin X Y] [--layer N] [--time I] [--geojson out.geojson]` and the MCP tool
+[--origin X Y] [--layer N] [--time I] [--geojson out.geojson] [--views] [--wel model.wel]` and the MCP tool
 `modflow_heads`. More in [MODFLOW heads on the map](modflow.md).
+
+**Beyond the plan view** (#625, #626), from the same legend row:
+
+- **3D layers** stacks every layer between its top and bottom from the grid file, coloured
+  by its head now, on the map. The vertical exaggeration is chosen so the stack stands about
+  an eighth of the model's width and is said on the row (x1 to x500, one click each); a layer
+  can be hidden, and **Pulled apart** lifts each layer off the one below to show its top.
+  The plan view's contours, arrows and capture zones step aside while the stack stands.
+  **Plan** goes back to 2D.
+- **Cross-section**: click points across the model from A to A′, double-click to finish.
+  The dock under the map shows every layer under the line (tops and bottoms as the model
+  holds them, cell by cell), the saturated ground in blue, the water table (the head of the
+  uppermost layer that has one) and the heads of the deeper layers, with the drawing's own
+  vertical exaggeration. It steps with the time bar. **Around the heads** zooms the vertical
+  range onto the water, where a cone of depression shows. Hover for a cell's row, column and
+  each layer's top, bottom and head. Where the uppermost layer's head stands above its top
+  (a confined layer), the dock says the line is a potentiometric surface, not a water table.
+- **A cell's card** draws its head over the whole run in every layer, one line each.
+- **Water budget**: drop the cell-by-cell budget file (`.cbc`, `.bud` or `.cbb`) with the
+  other files. The dock charts each term in (above zero) and out (below) for every saved
+  time, with the current time's table and MODFLOW's percent discrepancy beside it. A click
+  on a column takes the map to that time.
+
+![The synthetic three-layer model: the section through a pumping well, around the heads](img/models/gw-section.png)
 
 ![On a phone: the head surface over England](img/globe/groundwater-phone.png)
 
@@ -1156,7 +1243,8 @@ installed and nothing is uploaded: the file is read in your browser.
 into the page and read like a dropped file, with their credit on the legend row:
 
 - **MODFLOW: the Freyberg model**, FloPy's transient example, from FloPy's GitHub repository
-  (USGS, public domain; CC0 1.0 outside the US). Its name file places it.
+  (USGS, public domain; CC0 1.0 outside the US). Its name file places it, and its well
+  file gives the six pumping wells for the drawdown and capture views.
 - **HEC-RAS 2D: compound flooding in Portsmouth, Virginia**, one plan result of Zanko
   Zandsalimi's GNN4CF dataset on HydroShare (CC BY 4.0), read from the Archive's copy
   (`samples/hec-ras/`, because HydroShare's storage does not let a web page fetch it). Until
@@ -1168,7 +1256,7 @@ into the page and read like a dropped file, with their credit on the legend row:
   see-through when shallow, deep blue when deep), on a square-root scale up to the
   file's own 99th percentile. A file without bed levels shows the water surface instead,
   and says so. From zoom 13 the cell edges are drawn faintly.
-- **The arrows.** One arrow for about every 34 pixels on screen, pointing where the water
+- **The arrows.** One arrow for about every 46 pixels on screen, pointing where the water
   goes, longer when faster. In the largest view they show the step with the most water
   on the mesh.
 - **Particles.** Tick **Particles** in the legend and white traces drift with the current
@@ -1182,6 +1270,32 @@ into the page and read like a dropped file, with their credit on the legend row:
 - **One legend row** with the file's name: the ramp and its units, the arrows and
   particles, **Zoom to** and **Remove**.
 
+**Smooth depth, contours, 3D and lenses** (#619, #620). Once the file is read, the mesh
+worker builds the smooth picture and the lenses (`aquascope.mesh_views`, [mesh.md](mesh.md#smooth-depth-contours-and-the-flood-lenses)):
+
+- **Smooth** (on by default): the depth interpolated between cell centres instead of square
+  cells, with labelled depth contours at a round interval and a line at the edge of the water.
+  Step or play the time bar and the picture and its lines are redrawn at each step, so the
+  flood front advances across the map. Untick **Smooth** to see the cells as the model
+  computed them; **Contours** turns the lines off.
+- **3D**: the map's terrain (AWS Terrain Tiles) comes on, the camera tilts over the model and
+  the water is draped over the relief. Untick it to put the map back as it was.
+- **Lenses**, one at a time: **Depth** (the time bar's), **Hazard** (H1 to H6 from depth and
+  speed at every step, the AIDR Guideline 7-3 curves, with the area in each class and the
+  source in the key), **Arrival** (when each place first has 0.1 m of water, with lines of
+  equal arrival), **Max depth** and **Max speed**. Moving the time bar goes back to **Depth**.
+  A click on a cell under a lens explains the value there: the class, the step and the depth
+  and speed that put the cell in it, and the class's limits; or when the water arrived; or
+  the largest depth or speed and its step.
+
+![Smooth depth and labelled contours on a HEC-RAS 2D run](img/models/619-smooth-contours.jpg)
+
+![The flood draped over the terrain in 3D](img/models/619-3d.jpg)
+
+![The hazard lens, H1 to H6, with a cell's card](img/models/620-hazard.jpg)
+
+![The arrival-time lens with lines of equal arrival](img/models/620-arrival.jpg)
+
 ![A UGRID mesh of San Diego Bay (ADH), the largest depth](img/globe/555-ugrid-sandiego.png)
 
 **Review these results** (#564) on the legend row, or "review my model" in Ask the map, runs
@@ -1191,8 +1305,21 @@ by radar and in the news, and the modelled peak against the Archive's gauges ins
 mesh. The findings drop as numbered pins (red a problem, amber worth a look, slate for
 information), flag the cells they are about, and go in the action log with an undo each;
 the legend row lists the nine checks and what each found. A model, on the device or with
-your key, may only order and word them, held to the numbers by the claim lock
+your key, only picks which findings to pin, in what order, and one of three fixed wordings
+of each; the words, numbers and counts are the package's
 ([mesh.md](mesh.md#review-my-model-results)).
+
+**Draw a section** (#621) on the legend row: drag a line across the flood, or tap its two ends,
+and a panel above the time bar draws the ground and the water from A to A′, stepping with the
+time bar, the highest water of the run dashed; hover or touch it to read a point. A click on a
+cell puts its hydrograph in the card: the depth and the water level over the run, with the
+arrival, the peak and the time under water marked (as HEC-RAS Mapper defines them).
+**What gets flooded** (#622) counts the buildings, the road length and the people under the
+water at each step and at the peak, from Overture Maps (ODbL) and GHS-POP (CC BY 4.0) read in
+the browser, lights the flooded buildings and roads on the map, and says the limits of each
+count ([mesh.md](mesh.md#what-gets-flooded)).
+
+![A section on a phone](img/models/621-phone.png)
 
 A file that does not say its coordinate system gets one question: its EPSG code (the
 UGRID sample above needs 26911, UTM zone 11N). A file the viewer cannot read gets one
@@ -1295,10 +1422,36 @@ and shows the fresh numbers beside the recorded ones. The traces are produced by
 **On your device.** If your browser has Chrome's built-in Prompt API, Ask uses
 it directly. Otherwise you can choose to download a small open model (about 2 GB,
 WebLLM over WebGPU, cached by the browser after the first time). Neither is
-reliable at native tool calling at that size, so this tier uses a smaller loop:
-the model picks one tool at a time from five by replying with JSON, and after a
-few steps it writes the answer. It is labelled "on your device, reduced tool
-set" rather than presented as the full Analyst.
+reliable at native tool calling at that size, so this tier uses a smaller loop,
+and the model in it writes nothing you read (#590). Each step it replies with
+JSON held to a schema of choices the package builds from your question
+(`aquascope.ai_engine.device_ask`, internal):
+
+- **It decides** which tool to run next (find_stations, analyze_station,
+  anywhere, describe_catchment), with a gauge id, a point or a search phrase that
+  your words, the context line or an earlier result hold; then which facts
+  answer the question, and in what order, by key (`USGS-01646500.trend.mean`,
+  `USGS-01646500.gev.100`, ...), with a few connecting sentences by id.
+- **It cannot** write a number, a date, an id, a unit, a place or a claim. Every
+  sentence is AquaScope's, written from the tool results: it names the gauge,
+  the label, the value with its unit and the method (GEV or LP3, Mann-Kendall),
+  and a trend is the package's reading of the test. A call with an id or a
+  point your words and the results do not hold is not run, nor is a call
+  already made; the last step may only answer. A reply outside the choices is
+  refused, and the page shows the facts the tools returned, under one line
+  saying why.
+- **The schema is closed.** A call's arguments are only those its tools take,
+  each a choice: a gauge id, a source, a search phrase (a name from your words,
+  never an opening verb or the letters of an id), and a latitude, longitude or
+  search point only from the points your words or the results give (none when
+  there are none), never a free number.
+- **Each step has a time limit** of 25 s, and **Stop** ends the question at once.
+  Either way the page shows the facts gathered so far, under one line saying
+  why. When every call the model made was refused, that line says so and why.
+
+It is labelled "on your device, reduced tool set" rather than presented as the
+full Analyst. Your own key runs the full Analyst, which writes its own prose and
+is checked by its own verifier: this design does not apply to it.
 
 **Your own key**, as described above, for the full tool loop.
 
@@ -1371,7 +1524,7 @@ so when a record is shorter.
 
 Discharge records in m3/s with a catchment area get a **Rainfall-runoff model**
 card. "Calibrate GR4J" fetches daily precipitation and FAO-56 ET0 at the gauge
-from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and HydroGym
+from Open-Meteo (the ERA5-Land/ERA5 blend the Caravan exporter and AquaScope Bench
 use), converts the record to mm/d over the station's catchment area (agency,
 else BasinATLAS), and calibrates the four GR4J parameters by differential
 evolution (population 20, 40 generations, KGE on the first 65 % of the record

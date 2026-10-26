@@ -339,12 +339,20 @@ def test_an_area_needs_an_outline_not_a_point():
 
 def test_the_prompt_carries_examples_computed_by_the_grammar():
     prompt = mc.model_prompt("a map centred on 23.7, 90.4", today=TODAY)
-    for ex in mc.EXAMPLES:
+    # The examples' places are stand-ins (#590 recheck: "are the depths in my flood model realistic?" flew to
+    # the Nile, the place in the example): the shape is taught, no place is given.
+    for ex in ("show the <river>", "where are rivers much above normal in <region> last July",
+               "play the last 5 years", "trace the <river> to the sea"):
         assert f"Request: {ex}" in prompt["system"]
+    for name in ("Nile", "Rhine", "South Asia", "south_asia", "60.5"):
+        assert name not in prompt["system"], name
     replies = re.findall(r"Reply: (\{.*\})", prompt["system"])
     assert len(replies) == len(mc.EXAMPLES)
     for reply in replies:
         assert mc.parse_model_reply(reply, today=TODAY)["errors"] == []
+    # A model that copies a stand-in moves nothing.
+    copied = mc.parse_model_reply(replies[-1], today=TODAY, text="what is going on with the drought")
+    assert copied["actions"] == [] and "<river>, a place the words do not name" in copied["errors"][0]
     assert "Today is 2026-10-10" in prompt["system"] and "23.7, 90.4" in prompt["system"]
     assert prompt["schema"] == mc.action_schema()
 
@@ -454,3 +462,203 @@ def test_the_status_classes_are_the_maps():
     from aquascope.map_layers import STATUS_CLASSES
 
     assert mc.STATUS_IDS == tuple(c["id"] for c in STATUS_CLASSES)
+
+
+# ── #590: what the on-device run found ──────────────────────────────────────
+
+
+@pytest.mark.parametrize("text", [
+    "is anything wrong with my flood model?", "is there anything wrong with the HEC-RAS model",
+    "what's wrong with my model run", "any problems with my MODFLOW model?", "does my model look right",
+    "sanity check my flood model results please", "is my model broken", "check my model",
+])
+def test_the_ways_people_ask_about_their_model_reach_the_review(text):
+    res = mc.parse_command(text, today=TODAY)
+    assert res["control"] == "review", text   # recorded: the device turned Floods past on instead
+
+
+@pytest.mark.parametrize("text", ["check the river status", "check the floods past", "show floods past"])
+def test_a_layer_request_is_not_a_review(text):
+    assert mc.parse_command(text, today=TODAY)["control"] != "review"
+
+
+@pytest.mark.parametrize("text", ["what does this view show", "describe the view", "tell me about this map",
+                                  "what am I looking at on the map"])
+def test_more_ways_to_ask_about_the_view(text):
+    assert mc.parse_command(text, today=TODAY)["control"] == "explain"
+
+
+def test_the_model_may_answer_with_the_review_or_the_notes():
+    assert set(mc.action_schema()["properties"]["control"]["enum"]) == {"review", "explain"}
+    system = mc.model_prompt(today=TODAY)["system"]
+    assert '"control": "review"' in system and '"control": "explain"' in system
+    out = mc.parse_model_reply('{"actions": [{"type": "set_layer", "layer": "floods_past", "on": true}], '
+                               '"control": "review"}', TODAY, text="is anything wrong with my flood model?")
+    assert out["control"] == "review" and out["actions"] == []
+    assert mc.parse_model_reply('{"actions": [], "control": "delete"}', TODAY)["control"] is None
+
+
+def test_the_recorded_made_up_box_for_africa_becomes_africas_extent():
+    # Recorded on the device: fly_to bbox [15, 20, 30, 40] for "where is it driest in Africa right now? zoom there".
+    reply = {"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]},
+                         {"type": "set_layer", "layer": "status", "on": True}]}
+    out = mc.parse_model_reply(reply, TODAY, text="where is it driest in Africa right now? zoom there")
+    assert out["actions"][0] == {"type": "fly_to", "region": "africa", "bbox": mc.REGIONS["africa"]["bbox"],
+                                 "label": "Africa"}
+    assert out["said"][0] == "Fly to Africa"
+    assert any("replaced by the extent of Africa" in e for e in out["errors"])
+
+
+def test_a_made_up_box_with_no_place_in_the_words_is_refused_and_says_what_is_needed():
+    out = mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]}]}, TODAY,
+                               text="where is it driest right now? zoom there")
+    assert out["actions"] == []
+    assert "name a place or a region" in out["errors"][0]
+    pin = mc.parse_model_reply({"actions": [{"type": "add_pin", "lat": 10, "lon": 20, "title": "dry"}]}, TODAY,
+                               text="pin the driest place in Africa")
+    assert pin["actions"] == [] and "made up" in pin["errors"][0]
+
+
+def test_coordinates_the_words_hold_and_named_places_are_kept():
+    said = mc.parse_model_reply({"actions": [{"type": "fly_to", "center": [47.5, -7.6], "zoom": 6}]}, TODAY,
+                                text="go to 47.5, -7.6")
+    assert said["actions"][0]["center"] == [47.5, -7.6] and not said["errors"]
+    placed = mc.parse_model_reply({"actions": [{"type": "fly_to", "center": [47.5, 7.6], "place": "Basel"}]}, TODAY,
+                                  text="zoom to Basel")
+    assert placed["actions"] == [{"type": "fly_to", "place": "Basel"}]
+    labelled = mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [7, 47, 8, 48], "label": "Basel"}]},
+                                    TODAY, text="zoom to Basel")
+    assert labelled["actions"] == [{"type": "fly_to", "place": "Basel"}]
+    # Without the words (the page's own validate op), nothing changes.
+    assert mc.parse_model_reply({"actions": [{"type": "fly_to", "bbox": [15, 20, 30, 40]}]}, TODAY)["actions"]
+
+
+# ── #590 recheck: places the words do not name, and review and explain in other words ──
+
+
+def test_the_recorded_fly_to_the_nile_for_a_review_question_is_refused():
+    # Recorded on the device, 2026-10-26: the Nile from the prompt's example, 2 actions applied.
+    reply = {"actions": [{"type": "fly_to", "place": "Nile"},
+                         {"type": "highlight_river", "place": "Nile", "direction": "downstream"}]}
+    out = mc.parse_model_reply(reply, TODAY, text="are the depths in my flood model realistic?")
+    assert out["actions"] == []
+    assert all("Nile, a place the words do not name" in e for e in out["errors"])
+
+
+@pytest.mark.parametrize(("text", "place"), [
+    ("show the Rhine", "Rhine River"), ("trace the nile to the sea", "Nile"),
+    ("go to Kingston", "Kingston upon Thames"), ("zoom to São Paulo", "Sao Paulo"),
+    ("take me to Bangladesh", "Bangladesh"),
+])
+def test_a_place_the_words_name_is_kept(text, place):
+    out = mc.parse_model_reply({"actions": [{"type": "fly_to", "place": place}]}, TODAY, text=text)
+    assert out["actions"] == [{"type": "fly_to", "place": place}] and not out["errors"]
+
+
+def test_a_selected_gauge_from_the_context_is_not_a_place_the_words_name():
+    # Recorded: "tell me in plain words what this map is showing me" flew to the selected gauge.
+    out = mc.parse_model_reply({"actions": [{"type": "fly_to", "place": "POTOMAC RIVER NEAR WASH, DC LITTLE FALLS"},
+                                            {"type": "set_layer", "layer": "status", "on": True}]},
+                               TODAY, text="show me something interesting")
+    # The status layer is refused too since check3: "show me something interesting" asks for no layer.
+    assert out["actions"] == []
+    assert "a place the words do not name" in out["errors"][0]
+    assert "World river status, a layer the words do not ask for" in out["errors"][1]
+
+
+@pytest.mark.parametrize("text", [
+    "are the depths in my flood model realistic?", "does this simulation look plausible to you?", "check my model",
+    "are the depths right", "are the velocities in this mesh realistic", "do these results look believable",
+])
+def test_more_ways_to_ask_for_the_review(text):
+    assert mc.parse_command(text, today=TODAY)["control"] == "review"
+
+
+@pytest.mark.parametrize("text", [
+    "tell me in plain words what this map is showing me", "what is this map showing me",
+    "explain what the map is showing", "tell me what this view is saying",
+])
+def test_more_ways_to_ask_what_the_map_shows(text):
+    assert mc.parse_command(text, today=TODAY)["control"] == "explain"
+
+
+@pytest.mark.parametrize("text", ["is the flow ok", "are the levels right at Kingston", "show the Rhine"])
+def test_the_wider_review_words_leave_other_requests_alone(text):
+    assert mc.parse_command(text, today=TODAY)["control"] is None
+
+
+# ── #590 check3 and round 3: places and layers from the words, no model text on the map ──
+
+RECORDED = {r["tag"]: r for r in json.loads(
+    (Path(__file__).resolve().parent / "fixtures" / "ondevice_ask_check3.json").read_text(encoding="utf-8"))["records"]}
+
+
+def test_rivers_in_spain_running_low_is_the_status_in_spain():
+    # Recorded: read as a place called "Spain are running low", and the device was not asked.
+    out = mc.parse_command(RECORDED["map-new-rivers-low-spain"]["request"], today=TODAY)
+    assert out["matched"]
+    assert out["said"] == ["Turn on World river status", "River status: only much below normal or below normal",
+                           "Map date: October 2026", "Fly to Spain"]
+    for text, where in (("rivers in Spain are running low", "Spain"), ("where are rivers in Europe much below normal",
+                                                                      "Europe")):
+        said = mc.parse_command(text, today=TODAY)["said"]
+        assert said[0] == "Turn on World river status" and said[-1] == f"Fly to {where}", said
+    assert not any("are running" in s for s in mc.parse_command("which rivers in Spain are running low",
+                                                                  today=TODAY)["said"])
+
+
+@pytest.mark.parametrize("text", [
+    "are there any numerical instabilities in this run?", "any instabilities in my model?",
+    "does my model have oscillations", "check my run for instabilities", "is the model stable?",
+    "are there negative depths in this mesh", "is there wet-dry flicker in my flood model",
+])
+def test_instabilities_and_close_phrasings_reach_the_review(text):
+    assert mc.parse_command(text, today=TODAY)["control"] == "review"
+
+
+def test_the_recorded_instabilities_reply_switches_no_layer():
+    rec = RECORDED["review-new-instabilities"]
+    out = mc.parse_model_reply(rec["replies"][0], "2026-10-26", text=rec["request"])
+    assert not any(a["type"] == "set_layer" for a in out["actions"])
+    assert sum("a layer the words do not ask for" in e for e in out["errors"]) == 3
+    assert any("36.81, -76.32, a place the words do not name" in e or "made up" in e for e in out["errors"])
+
+
+def test_layers_the_words_ask_for_are_kept_and_others_refused():
+    # Check 1: "where is it driest in Africa" turned the status, surface water and land cover on.
+    reply = {"actions": [{"type": "set_layer", "layer": "status", "on": True},
+                         {"type": "set_layer", "layer": "surface-water", "on": True},
+                         {"type": "set_layer", "layer": "landcover", "on": True}]}
+    out = mc.parse_model_reply(reply, TODAY, text="where is it driest in Africa right now? zoom there")
+    assert out["actions"] == [{"type": "set_layer", "layer": "status", "on": True}]
+    danube = RECORDED["map-new-danube"]
+    out = mc.parse_model_reply(danube["replies"][0], "2026-10-26", text=danube["request"])
+    assert {a["type"] for a in out["actions"]} >= {"set_layer", "focus_status"} and not out["errors"]
+    for text, layer in (("show floods ahead in Bangladesh", "floods_ahead"), ("turn on groundwater", "groundwater"),
+                        ("what did the Indus look like during the big Pakistan floods?", "floods_past")):
+        kept = mc.parse_model_reply({"actions": [{"type": "set_layer", "layer": layer, "on": True}]}, TODAY,
+                                    text=text)
+        assert kept["actions"], (text, kept["errors"])
+
+
+def test_the_device_schema_for_a_request_holds_only_its_places_and_layers():
+    schema = mc.reply_schema("can you show me how the Danube is doing compared with normal")
+    item = schema["properties"]["actions"]["items"]["properties"]
+    assert item["place"]["enum"] == ["Danube"] and item["layer"]["enum"] == ["status"]
+    assert not {"label", "title", "text"} & set(item)
+    none = mc.reply_schema("are there any numerical instabilities in this run?")["properties"]["actions"]["items"]
+    assert "layer" not in none["properties"] and "set_layer" not in none["properties"]["type"]["enum"]
+    assert "focus_status" not in none["properties"]["type"]["enum"]
+    assert mc.reply_schema("zoom to Kingston upon Thames")["properties"]["actions"]["items"]["properties"][
+        "place"]["enum"][0] == "Kingston upon Thames"
+    assert mc.action_schema() == mc.model_prompt(today=TODAY)["schema"]   # the key path's schema is unchanged
+
+
+def test_a_pin_is_titled_by_the_package_not_the_model():
+    reply = {"actions": [{"type": "add_pin", "place": "Basel", "title": "Severe flooding expected",
+                          "text": "The Rhine is 3 m above normal.", "facts": [{"label": "level", "value": 3}]}]}
+    out = mc.parse_model_reply(reply, TODAY, text="pin Basel")
+    assert out["actions"] == [{"type": "add_pin", "place": "Basel", "title": "Basel"}]
+    area = mc.parse_model_reply({"actions": [{"type": "draw_area", "place": "Basel", "label": "Danger zone"}]},
+                                TODAY, text="outline Basel")
+    assert area["actions"] == [{"type": "draw_area", "place": "Basel"}]

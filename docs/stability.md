@@ -125,13 +125,17 @@ benchmark:
 
 - **Python:** `aquascope.rivers`, `river_path`, `nownext`, `evidence`, `watch`, `bulletin`, `context`,
   `flood_depth`, `flowstatus`, `waterbalance`, `whatif_map`, `mesh_review`, the `map_*` modules
-  (`map_commands`, `map_explain`, `map_layers`, `map_scout`, `map_time`), `io.mesh`, `io.swmm`,
-  `io.engineering`, `groundwater.surface`, `hydrology.b17c_check`, and `aquascope.gym` (to be renamed, #440).
+  (`map_commands`, `map_explain`, `map_layers`, `map_pick`, `map_scout`, `map_time`), `io.mesh`, `io.swmm`,
+  `io.engineering`, `groundwater.surface`, `hydrology.b17c_check`, and `aquascope.gym` (AquaScope Bench, #440).
 - **CLI:** `layers`, `map`, `whatif`, `mesh`, `swmm`, `bulletin`, `warnings`, `waterbalance`, `flowstatus`,
   `now`, `watch`, `river`, `evidence`, `context`, `modflow`, `export`, `gym`, and the `surface` flags of
   `groundwater`.
 - **MCP:** the 36 tools those modules expose (`snap_to_river`, `reach_record`, `flow_forecast`, `map_command`,
   `mesh_review`, `water_balance`, ...; the full list is `aquascope.experimental.MCP_TOOLS`).
+- **Added since 0.27.0:** `aquascope.mesh_views` (smooth depth, contours and flood lenses, #619, #620), its MCP
+  tool `mesh_lenses` and `aquascope mesh lenses`; `aquascope.groundwater.views` (contours, flow and capture zones, #623,
+  #624); `aquascope.groundwater.layers` and `aquascope.groundwater.budget` (MODFLOW layers, sections and the water budget, #625, #626), with
+  their flags of `aquascope modflow` and arguments of `modflow_heads`.
 
 Experimental means:
 

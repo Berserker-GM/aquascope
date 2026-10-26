@@ -196,7 +196,7 @@ export function registerWebMcpTools({ actions }) {
             if (!actions.reviewModel || !actions.hasModel || !actions.hasModel()) {
               return textResult({ error: "No model result is on the map: the reader drops one first." });
             }
-            const done = await actions.reviewModel();
+            const done = await actions.reviewModel({ anywhere: true });
             if (!done) return textResult({ error: "The review could not run; the line under the bar says why." });
             return textResult({ by: done.by, summary: done.summary, findings: done.findings.map((f) => ({ rank: f.rank,
               severity: f.severity, check: f.label, title: f.title, reason: f.reason, lat: f.lat, lon: f.lon,

@@ -1263,6 +1263,9 @@ def cmd_mesh(args: argparse.Namespace) -> None:
     if args.file == "review" and args.review_file:
         _mesh_review(args)
         return
+    if args.file == "lenses" and args.review_file:
+        _mesh_lenses(args)
+        return
     res = mesh_summary(args.file, crs=args.crs, geometry=args.geometry)
     if args.json:
         print(json.dumps(res, indent=2, ensure_ascii=False))
@@ -1383,6 +1386,41 @@ def _mesh_review(args: argparse.Namespace) -> None:
         print(f"      Source: {f['source']}")
     for e in res.get("errors") or []:
         print(f"  note: {e}")
+
+
+def _mesh_lenses(args: argparse.Namespace) -> None:
+    """`aquascope mesh lenses FILE` (#620): the hazard, arrival time, largest depth and speed the Explorer shows."""
+    from aquascope.mesh_views import lens_summary
+
+    res = lens_summary(args.review_file, crs=args.crs, geometry=args.geometry)
+    if args.json:
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        if not res.get("ok"):
+            sys.exit(1)
+        return
+    if not res.get("ok"):
+        print(f"  {res['error']}")
+        _mesh_hint(res["error"])
+        sys.exit(1)
+    print(f"  {res['name']}: {res['cells']:,} cells, {res['time_steps']} time steps")
+    h = res.get("hazard")
+    if h:
+        print(f"  Flood hazard, {h['rule']} ({h['source']}):")
+        for c in h["classes"]:
+            print(f"    {c['code']}  {c['area_km2']:>9.4f} km2  {c['cells']:>7,} cells  {c['words']}")
+        print(f"    {h['url']}")
+    a = res.get("arrival") or {}
+    if a.get("last_h") is not None:
+        print(f"  Arrival ({a['rule']}): {a['wet_at_start']:,} cells wet from the start, the last after "
+              f"{a['last_h']:g} h; {a['reached']:,} cells reached")
+    for key, label in (("max_depth", "Largest depth"), ("max_speed", "Largest speed")):
+        x = res.get(key)
+        if x:
+            unit = f" {x['unit']}" if x.get("unit") else ""
+            when = f" at {x['time']}" if x.get("time") else ""
+            print(f"  {label}: {x['value']}{unit}{when}, {x['lat']}, {x['lon']} (cell {x['cell']})")
+    for note in res.get("notes") or []:
+        print(f"  note: {note}")
 
 
 def cmd_basins(args: argparse.Namespace) -> None:
@@ -2316,7 +2354,7 @@ def cmd_area_study(args: argparse.Namespace) -> None:
 
 
 def cmd_gym(args: argparse.Namespace) -> None:
-    """`aquascope gym basins|run|leaderboard`: HydroGym, the calibration environment over real basins (Phase 0),
+    """`aquascope gym basins|run|leaderboard`: AquaScope Bench, the calibration environment over real basins (Phase 0),
     `aquascope gym tasks|bench|leaderboard FILES`: the playbook benchmark (Phase 1), `aquascope gym plans
     list|show|validate|score|rescore`: the plan-quality benchmark (Phase 2), and `aquascope gym reports
     list|show|score|bench`: report-quality scoring over a finished study bundle (#382)."""
@@ -3969,8 +4007,21 @@ def cmd_modflow(args: argparse.Namespace) -> None:
                              cell_size=(cell[0] if cell and len(cell) == 1 else cell), start_date=args.start_date,
                              time_units=args.time_units, sidecars=args.sidecar)
     out = modflow_summary(res, args.time, args.layer)
+    views = None
+    if (args.views or args.wel) and not res.get("error"):
+        from aquascope.groundwater.views import model_views, views_summary
+
+        ref = args.reference if args.reference in (None, "highest") else int(args.reference)
+        views = model_views(res, args.time, args.layer, reference=0 if ref is None else ref, wells=args.wel)
+        out["views"] = views_summary(views)
     if args.geojson and not res.get("error"):
         Path(args.geojson).write_text(json.dumps(modflow_geojson(res, args.time, args.layer)), encoding="utf-8")
+    if not res.get("error") and (args.layers or args.section or args.cell or args.budget):
+        try:
+            out.update(_modflow_layers(res, args))
+        except ValueError as exc:
+            print(f"  {exc}", file=sys.stderr)
+            sys.exit(1)
     if args.json:
         print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
     elif res.get("error"):
@@ -3986,10 +4037,105 @@ def cmd_modflow(args: argparse.Namespace) -> None:
         print(f"  layer {f['layer']}, {when}: heads {lo} on {f['cells_with_head']:,} cells")
         for note in out.get("notes") or []:
             print(f"  {note}")
+        if views is not None:
+            _print_modflow_views(out["views"])
+        _print_modflow_layers(out)
         if args.geojson:
             print(f"  wrote {args.geojson}")
     if res.get("error"):
         sys.exit(1)
+
+
+def _modflow_layers(res: dict, args: argparse.Namespace) -> dict:
+    """The experimental views of `aquascope modflow` (#625, #626): layers, a section, a cell's heads, the budget."""
+    from aquascope.groundwater import budget as gb
+    from aquascope.groundwater import layers as gv
+
+    out: dict = {}
+    lay = None
+    if args.layers or args.section or args.cell:
+        if args.grid:
+            lay = gv.model_layers(res, args.grid)
+            out["layer_geometry"] = gv.layers_summary(lay)
+        elif args.layers or args.section:
+            raise ValueError("--layers and --section need the grid file (--grid) for the layers' tops and bottoms")
+    if args.section:
+        pts = []
+        for p in args.section:
+            try:
+                lon, lat = (float(v) for v in p.split(","))
+            except ValueError as exc:
+                raise ValueError(f"--section takes points as LON,LAT, not {p!r}") from exc
+            pts.append([lon, lat])
+        out["section"] = gv.section_summary(gv.cross_section(res, lay, pts), args.time)
+    if args.cell:
+        g = res["grid"]
+        if g.get("type") != "dis" or int(g.get("block") or 1) > 1:
+            raise ValueError("--cell ROW COL needs a structured grid drawn cell by cell")
+        row, col = args.cell
+        if not (1 <= row <= g["nrow"] and 1 <= col <= g["ncol"]):
+            raise ValueError(f"--cell is outside the grid ({g['nrow']} rows x {g['ncol']} columns)")
+        out["hydrograph"] = gv.cell_hydrograph(res, (row - 1) * g["ncol"] + (col - 1), lay)
+    if args.budget:
+        wb = gb.water_budget(args.budget, heads=res)
+        out["budget"] = wb
+        out["budget_at"] = gb.budget_at(wb, args.time)
+    return out
+
+
+def _print_modflow_layers(out: dict) -> None:
+    if out.get("layer_geometry"):
+        lay = out["layer_geometry"]
+        print(f"  layers: {len(lay['layers'])}, from {lay['base']:g} to {lay['crest']:g}; "
+              f"a 3D view would use vertical exaggeration x{lay['exaggeration']}")
+        for row in lay["per_layer"]:
+            print(f"    layer {row['layer']}: mean top {row['mean_top']}, bottom {row['mean_bottom']}, "
+                  f"thickness {row['mean_thickness']}")
+    sec = out.get("section")
+    if sec:
+        if sec.get("error"):
+            print(f"  section: {sec['error']}")
+        else:
+            wt = [v for v in sec["water_table_at_time"] if v is not None]
+            print(f"  section: {sec['summary']}" + (f" Water table {min(wt):g} to {max(wt):g}." if wt else ""))
+    h = out.get("hydrograph")
+    if h:
+        print(f"  cell row {h['row']}, column {h['col']}: {h['summary']}")
+    b = out.get("budget_at")
+    if b:
+        when = b["date"] or f"stress period {b['kstpkper'][1]}, step {b['kstpkper'][0]}"
+        print(f"  water budget at {when} ({b['unit']}):")
+        for row in b["terms"]:
+            print(f"    {row['label']:<28} in {row['in']:>14,.2f}   out {row['out']:>14,.2f}")
+        disc = "" if b["discrepancy_pct"] is None else f", discrepancy {b['discrepancy_pct']:.2f}%"
+        print(f"    {'Total':<28} in {b['total_in']:>14,.2f}   out {b['total_out']:>14,.2f}{disc}")
+
+
+def _print_modflow_views(v: dict) -> None:
+    if v.get("error"):
+        print(f"  views: {v['error']}")
+        return
+    unit = " m" if (v.get("length_unit") or "") in ("meters", "metres", "m") else ""
+    if v.get("head"):
+        print(f"  contours every {v['head']['step']:g}{unit} ({v['head']['levels']} lines)")
+    fl = v.get("flow") or {}
+    if fl.get("towards"):
+        print(f"  flow mostly to the {fl['towards']} ({fl['bearing']:g} degrees), median gradient {fl['gradient']:.2g}")
+    dd = v.get("drawdown") or {}
+    if dd:
+        print(f"  drawdown from step {dd['reference']}" + (f" (wells' heads highest at step {dd['suggested_reference']})"
+                                                           if dd.get("suggested_reference") is not None else ""))
+    print(f"  wells {v.get('wells_how', '')}")
+    zones = {c["well"]: c["area_km2"] for c in v.get("capture") or []}
+    for w in v.get("wells") or []:
+        bits = [f"row {w['model_row']}, column {w['model_col']}, layer {w['layer']}",
+                "pumping" if w.get("pumping") else "not pumping"]
+        if w.get("drawdown") is not None:
+            bits.append(f"drawdown {w['drawdown']:g}{unit}")
+        if w["id"] in zones:
+            bits.append(f"capture zone {zones[w['id']]:g} km2")
+        print(f"    {w['id']}: " + ", ".join(bits))
+    print(f"  {v.get('limits', '')}")
 
 
 def _print_groundwater_surface(res: dict) -> None:
@@ -4705,9 +4851,10 @@ def main() -> None:
     p_mesh = sub.add_parser("mesh", help="What a HEC-RAS 2D plan HDF5 or UGRID NetCDF mesh result holds: cells, "
                             "times, the largest depth and speed")
     p_mesh.add_argument("file", help="A HEC-RAS plan file (*.p01.hdf) or a UGRID NetCDF file; or 'review' then the "
-                        "file, to check the run (#564)")
+                        "file, to check the run (#564); or 'lenses' then the file, for the flood hazard, arrival "
+                        "time and largest depth and speed (#620)")
     p_mesh.add_argument("review_file", nargs="?", default=None, metavar="FILE",
-                        help="With 'review': the model result to check")
+                        help="With 'review' or 'lenses': the model result")
     p_mesh.add_argument("--crs", default=None, help="The coordinate system when the file states none (EPSG code)")
     p_mesh.add_argument("--geometry", default=None, metavar="G01_HDF",
                         help="The HEC-RAS geometry file (*.g01.hdf) for a stripped plan file that holds the "
@@ -4911,7 +5058,7 @@ def main() -> None:
     p_bbuild.add_argument("--max-features", type=int, default=None)
     p_bbuild.add_argument("--fgb", action="store_true", help="Also write lev12.fgb from Python (needs memory)")
 
-    # ── gym (HydroGym) ───────────────────────────────────────────────
+    # ── gym (AquaScope Bench) ───────────────────────────────────────────────
     from aquascope.methods import METHODS as _METHODS
 
     p_assess = sub.add_parser(
@@ -4966,7 +5113,13 @@ def main() -> None:
     p_area.add_argument("--output", "-o", default=None, help="Write .xlsx, .csv, .geojson or .json")
     p_area.add_argument("--json", action="store_true")
 
-    p_gym = sub.add_parser("gym", help="HydroGym: a gym-style calibration environment over real basins (#175)")
+    p_gym = sub.add_parser(
+        "gym",
+        help="AquaScope Bench (was HydroGym): hydrology agents scored on real sites (#175)",
+        description="AquaScope Bench, formerly HydroGym (#440): the calibration environment (basins, run, "
+        "leaderboard), the playbook tasks (tasks, bench), the plan-quality references (plans) and report "
+        "scoring (reports). The CLI verb stays `aquascope gym` and the module `aquascope.gym`.",
+    )
     gym_sub = p_gym.add_subparsers(dest="gym_cmd", required=True)
     p_gb = gym_sub.add_parser("basins", help="Suggest gauged basins from the Archive that make good tasks")
     p_gb.add_argument("--n", type=int, default=10)
@@ -5304,7 +5457,7 @@ def main() -> None:
         "score", help="One study's scorecard: outcome, gates, Critic, report quality, plan accuracy, time and cost")
     p_eval_score.add_argument("study", nargs="+", help="A study bundle directory or its workspace.json (repeatable)")
     p_eval_score.add_argument("--case", default=None,
-                              help="Score the plan against this HydroGym reference case (aquascope gym plans list)")
+                              help="Score the plan against this AquaScope Bench reference case (aquascope gym plans list)")
     p_eval_score.add_argument("--json", action="store_true")
     p_eval_trace = eval_sub.add_parser(
         "trace", help="One study as a timeline: phases, steps with their gates, model calls per role")
@@ -5490,6 +5643,19 @@ def main() -> None:
     p_mf.add_argument("--time", type=int, default=-1, help="Which time step (index, default the last)")
     p_mf.add_argument("--layer", type=int, default=None, help="Which layer (1-based, default the first)")
     p_mf.add_argument("--geojson", default=None, help="Write that time and layer's cells with their head here")
+    p_mf.add_argument("--views", action="store_true", help="Also contours, flow direction, drawdown, wells and "
+                      "capture zones for that time and layer (#623, #624)")
+    p_mf.add_argument("--wel", default=None, help="The model's well file (.wel, MODFLOW-2005 or 6), for --views; "
+                      "without it the wells are found in the heads")
+    p_mf.add_argument("--reference", default=None, help="For --views: the step drawdown is measured from (index, "
+                      "default 0), or 'highest' for the step when the wells' heads are highest")
+    p_mf.add_argument("--layers", action="store_true", help="Each layer's top, bottom and thickness from --grid (#625)")
+    p_mf.add_argument("--section", nargs="+", default=None, metavar="LON,LAT",
+                      help="A cross-section along these points (two or more), through every layer, at --time (#625)")
+    p_mf.add_argument("--cell", nargs=2, type=int, default=None, metavar=("ROW", "COL"),
+                      help="One cell's head over time in every layer (1-based row and column, #626)")
+    p_mf.add_argument("--budget", default=None, metavar="CBC",
+                      help="The cell-by-cell budget file (.cbc): the water budget at --time and over the run (#626)")
     p_mf.add_argument("--json", action="store_true")
 
     # ── climate ──────────────────────────────────────────────────────
