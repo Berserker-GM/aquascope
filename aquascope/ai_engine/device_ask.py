@@ -381,6 +381,10 @@ def _trend_check(answer: str, compacts: list[tuple[str, dict[str, Any]]]) -> lis
                 if isinstance(holder.get(key), dict) and key not in tests:
                     tests[key] = holder[key]
     refused = []
+    # The package's own connective sentences say how a trend is tested ("a p-value below 0.05 is called
+    # significant"), never what a test found: they are no claim to hold (check4 refused a right answer for it).
+    for line in CONNECTIVES.values():
+        answer = answer.replace(normalise(line), " ")
     for sentence in _SENTENCE.split(answer):
         if not _TREND_TOPIC.search(sentence):
             continue
@@ -1155,7 +1159,9 @@ me my near nearest of on or show station stations tell than that the their there
 when where which with you your five four three two six seven eight nine ten summarise summarize compare record
 flow flows mean median river rivers flood floods discharge rain rainfall trend trends climate catchment water level
 levels low high year years period frequency peak peaks drier wetter dry wet getting bigger smaller annual daily
-modelled""".split())
+modelled list use using please name get check describe explain why will would should could did had""".split())
+#: Where a search phrase stops: punctuation, and anything that is not a word of letters (a number, an id's digits).
+_PHRASE_BREAK = re.compile(r"[^A-Za-z'\s-]+|\s-+\s")
 
 
 def _question(words: str) -> str:
@@ -1192,20 +1198,23 @@ def _known(results: list[dict[str, Any]], words: str) -> dict[str, Any]:
                     and isinstance(row.get("longitude"), (int, float)):
                 points.append((float(row["latitude"]), float(row["longitude"])))
     # Search phrases: runs of the question's words, names first ("Kingston upon Thames", "Kingston", "Thames");
-    # all of them only when the question names nothing with a capital and no gauge is known yet.
-    q = re.findall(r"[A-Za-z][A-Za-z'-]*", _question(text))
+    # all of them only when the question names nothing with a capital and no gauge is known yet. A run never
+    # crosses punctuation, a gauge id or a number, so an id's letters are no phrase (check4 offered "USGS-" and
+    # "Potomac USGS-"), and an opening verb is a stop word, not a name ("List", "Use").
     phrases: list[str] = []
     for named in ((True,) if gauges else (True, False)):
-        for n in (3, 2, 1):
-            for i in range(len(q) - n + 1):
-                span = q[i:i + n]
-                if span[0].lower() in _STOP or span[-1].lower() in _STOP or len(" ".join(span)) < 3:
-                    continue
-                if named and not (span[0][0].isupper() and span[-1][0].isupper()):
-                    continue
-                p = " ".join(span)
-                if p not in phrases:
-                    phrases.append(p)
+        for chunk in _PHRASE_BREAK.split(_WORD_ID.sub(" , ", _DATE.sub(" , ", _question(text)))):
+            q = [w.strip("'-") for w in chunk.split() if w.strip("'-")]
+            for n in (4, 3, 2, 1):
+                for i in range(len(q) - n + 1):
+                    span = q[i:i + n]
+                    if span[0].lower() in _STOP or span[-1].lower() in _STOP or len(" ".join(span)) < 3:
+                        continue
+                    if named and not (span[0][0].isupper() and span[-1][0].isupper()):
+                        continue
+                    p = " ".join(span)
+                    if p not in phrases:
+                        phrases.append(p)
         if phrases:
             break
     analysed = {str(r["compact"].get("station_id")).lower() for r in results or []
@@ -1323,6 +1332,40 @@ def _tools_open(results: list[dict[str, Any]], known: dict[str, Any]) -> dict[st
     return out
 
 
+def _arguments_schema(tools: dict[str, dict[str, Any]], known: dict[str, Any]) -> dict[str, Any]:
+    """The ``arguments`` a step's tool call may hold: closed, and only the arguments the open tools take
+    (:data:`DEVICE_TOOLS`), each an enum of what this question gives. A point is never a free number: ``lat``,
+    ``lon`` and ``near`` take only the coordinates of the points the words or the results name, and are left out
+    when there are none. ``limit`` is a whole number from 1 to 10, as an enum.
+
+    The fourth check (2026-10-26) found the open object used: made-up search points ([51.0, -0.3], [51.47, 0.5]),
+    extra keys ("limit__", "limittypicode"), and a number written for 176 s until Chrome's output limit. One flat
+    object for every open tool, which a small model follows better than a ``oneOf`` and Chrome accepts as it
+    accepted the others; :func:`check_call` then keeps only the arguments of the tool named, and holds a point
+    to a pair the words or results give.
+    """
+    props: dict[str, Any] = {}
+    ids = list(tools.get("analyze_station", {}).get("station_id", []))
+    if ids:
+        props["station_id"] = {"type": "string", "enum": ids}
+        sources = sorted({s for s in known["gauges"].values() if s})
+        if sources:
+            props["source"] = {"type": "string", "enum": sources}
+    search = tools.get("find_stations")
+    if search and search["query"]:
+        props["query"] = {"type": "string", "enum": list(search["query"])}
+    pts = list(dict.fromkeys(p for t in ("anywhere", "describe_catchment") for p in tools.get(t, {}).get("points", [])))
+    if pts:
+        props["lat"] = {"type": "number", "enum": list(dict.fromkeys(p[0] for p in pts))}
+        props["lon"] = {"type": "number", "enum": list(dict.fromkeys(p[1] for p in pts))}
+    if search and search["points"]:
+        coords = list(dict.fromkeys(v for p in search["points"] for v in p))
+        props["near"] = {"type": "array", "items": {"type": "number", "enum": coords}, "minItems": 2, "maxItems": 2}
+    if search:
+        props["limit"] = {"type": "integer", "enum": list(range(1, 11))}
+    return {"type": "object", "properties": props, "additionalProperties": False}
+
+
 def step_schema(results: list[dict[str, Any]], words: str = "", *, step: int = 1, budget: int | None = None,
                 force_answer: bool = False, notes: list[str] | None = None) -> dict[str, Any]:
     """The reply this step may give: ``{"mode", "schema", "prompt", "budget", "keys"}``.
@@ -1350,27 +1393,13 @@ def step_schema(results: list[dict[str, Any]], words: str = "", *, step: int = 1
         mode = "either"
     props: dict[str, Any] = {}
     if mode in ("tool", "either"):
-        arg_props: dict[str, Any] = {}
-        ids = list(dict.fromkeys(i for t in ("analyze_station",) for i in tools.get(t, {}).get("station_id", [])))
-        if ids:
-            arg_props["station_id"] = {"type": "string", "enum": ids}
-            sources = sorted({s for s in known["gauges"].values() if s}) or None
-            if sources:
-                arg_props["source"] = {"type": "string", "enum": sources}
-        if "find_stations" in tools and tools["find_stations"]["query"]:
-            arg_props["query"] = {"type": "string", "enum": tools["find_stations"]["query"]}
-            arg_props["limit"] = {"type": "integer", "minimum": 1, "maximum": 10}
-        if any(t in tools for t in ("anywhere", "describe_catchment")) or known["points"]:
-            arg_props["lat"] = {"type": "number"}
-            arg_props["lon"] = {"type": "number"}
-            arg_props["near"] = {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
         props["tool"] = {"type": "string", "enum": list(tools)}
-        props["arguments"] = {"type": "object", "properties": arg_props}
+        props["arguments"] = _arguments_schema(tools, known)
     if mode in ("answer", "either"):
         props["answer"] = {"type": "array", "items": {"type": "string", "enum": keys + list(CONNECTIVES)},
                            "minItems": 1, "maxItems": MAX_PICKS}
     required = ["answer"] if mode == "answer" else ["tool", "arguments"] if mode == "tool" else []
-    schema = {"type": "object", "properties": props, "required": required}
+    schema = {"type": "object", "properties": props, "required": required, "additionalProperties": False}
     return {"mode": mode, "schema": schema, "budget": budget, "keys": keys,
             "prompt": _step_prompt(words, results, table, tools, mode, notes or [])}
 
@@ -1395,7 +1424,8 @@ def _step_prompt(words: str, results: list[dict[str, Any]], table: dict[str, Any
                 if vals["query"]:
                     bits.append("query: words from the question")
                 if vals["points"]:
-                    bits.append("near: [lat, lon] of a point listed here")
+                    pts = "; ".join(f"[{a:g}, {b:g}]" for a, b in vals["points"][:6])
+                    bits.append(f"near one of {pts}")
                 offer.append(f"find_stations ({' or '.join(bits)}; limit up to 10)")
             else:
                 pts = "; ".join(f"{a:g}, {b:g}" for a, b in vals["points"][:6])

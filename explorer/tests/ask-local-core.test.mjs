@@ -339,3 +339,82 @@ test("an analysis carries the catalogue's name and river, so two gauges can be t
   const named = { ok: true, compact: { source: "usgs", station_id: "01646500", name: "Little Falls" } };
   assert.equal(withCatalogueName(named, {}, byKey).compact.name, "Little Falls");
 });
+
+// ── the fourth check (2026-10-26): a time limit, a Stop, and the right reason ─────────────────────────────────
+
+// A conversation whose prompt never replies until its signal aborts, as the 176 s prompt of the fourth check
+// ("List the gauges on the Thames near Kingston", QuotaExceededError at the end).
+function hangingEngine(before = []) {
+  const signals = [];
+  return {
+    signals,
+    open() {
+      return {
+        generate(prompt, schema, signal) {
+          if (before.length) return Promise.resolve(before.shift());
+          signals.push(signal);
+          return new Promise((_, reject) => {
+            if (signal) signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+          });
+        },
+        close() {},
+      };
+    },
+  };
+}
+
+test("a prompt that hangs is ended by the step's time limit, on the facts gathered so far", async () => {
+  const eng = hangingEngine([ANALYSE]);
+  const t0 = Date.now();
+  const res = await askLoop(SUMMARY, { open: () => eng.open(), ...packageStub(), stepMs: 60 });
+  assert.ok(Date.now() - t0 < 2000);
+  assert.equal(eng.signals.length, 1, "the hanging step got a signal");
+  assert.equal(eng.signals[0].aborted, true, "and it was aborted, so the device stops writing");
+  assert.match(res.stopped, /gave no reply within 0 s at step 2, so it was stopped/);
+  const html = deviceAnswerHtml({ ...res, model: "m" });
+  assert.match(html, /No answer: the on-device model gave no reply/);
+  for (const f of SUMMARY_FACTS) assert.ok(html.includes(`<li>${f.replace(/'/g, "&#39;")}</li>`), f);
+  assert.doesNotMatch(html, /Answered on your device/);
+});
+
+test("Stop ends a hanging prompt at once, with the facts gathered and one line why", async () => {
+  const eng = hangingEngine([ANALYSE]);
+  const stop = new AbortController();
+  const events = [];
+  const onEvent = (m) => { events.push(m); if (m.startsWith("Thinking… (step 2")) setTimeout(() => stop.abort(), 20); };
+  const res = await askLoop(SUMMARY, { open: () => eng.open(), ...packageStub(), onEvent, signal: stop.signal, stepMs: 60000 });
+  assert.equal(res.stopped, "you stopped it at step 2");
+  assert.equal(eng.signals[0].aborted, true);
+  assert.equal(res.results.length, 1);
+  assert.match(deviceAnswerHtml(res), /No answer: you stopped it at step 2\. What the tools returned:/);
+  // Stopped before the first step: nothing is prompted.
+  const early = await askLoop(SUMMARY, { open: () => eng.open(), ...packageStub(), signal: AbortSignal.abort() });
+  assert.equal(early.stopped, "you stopped it at step 1");
+});
+
+test("calls that were all refused say so, not 'nothing in the question to look up' (check4, Kingston)", async () => {
+  const replies = [
+    '{"tool": "find_stations", "arguments": {"query": "Kingston upon Thames", "near": [51.0, -0.3], "limit__": 5}}',
+    '{"tool": "find_stations", "arguments": {"query": "Kingston upon Thames", "limit": 5, "near": [51.47, 0.50]}}',
+  ];
+  const eng = recordingEngine([...replies]);
+  let step = 0;
+  const res = await askLoop("Find the five gauges nearest to Kingston upon Thames", {
+    open: () => eng.open(),
+    plan: async () => ({ mode: ++step <= 2 ? "tool" : "none", budget: 5, prompt: "p", schema: {} }),
+    callTool: async () => ({ ok: false, refused: "the search point is in neither your words nor a result" }),
+    render: async (reply, results, words, why) => ({ ok: false, refused: [why], facts: [], notes: [] }),
+  });
+  assert.equal(res.stopped, "all 2 of the model's calls were refused (find_stations: the search point is in neither your words nor a result)");
+  assert.doesNotMatch(deviceAnswerHtml(res), /nothing in the question|Answered on your device/);
+});
+
+test("the 'Answered on your device' header is over answers only", () => {
+  const ok = { lock: { ok: true, sentences: ["The mean is 321 m3/s."], text: "", notes: [] }, model: "m" };
+  assert.match(deviceAnswerHtml(ok), /^<div class="showcase-note">Answered on your device by m/);
+  const refused = { lock: { ok: false, refused: ["AquaScope's own check stopped the answer"], facts: ["x"], notes: [] }, model: "m" };
+  const html = deviceAnswerHtml(refused);
+  assert.doesNotMatch(html, /Answered/);
+  assert.match(html, /^<p class="ask-refused">The model&#39;s reply was refused/);
+  assert.match(html, /Ran on your device by m, with no key/);
+});

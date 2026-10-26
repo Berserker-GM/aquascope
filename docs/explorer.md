@@ -1440,6 +1440,14 @@ JSON held to a schema of choices the package builds from your question
   already made; the last step may only answer. A reply outside the choices is
   refused, and the page shows the facts the tools returned, under one line
   saying why.
+- **The schema is closed.** A call's arguments are only those its tools take,
+  each a choice: a gauge id, a source, a search phrase (a name from your words,
+  never an opening verb or the letters of an id), and a latitude, longitude or
+  search point only from the points your words or the results give (none when
+  there are none), never a free number.
+- **Each step has a time limit** of 25 s, and **Stop** ends the question at once.
+  Either way the page shows the facts gathered so far, under one line saying
+  why. When every call the model made was refused, that line says so and why.
 
 It is labelled "on your device, reduced tool set" rather than presented as the
 full Analyst. Your own key runs the full Analyst, which writes its own prose and

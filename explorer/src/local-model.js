@@ -108,8 +108,10 @@ export async function loadLocalModel(onProgress = () => {}) {
         try { session = typeof base.clone === "function" ? await base.clone() : null; } catch { session = null; }
         if (!session) session = await fresh();
         return {
-          // The step's schema: enums built by the package from this question's words and results.
-          generate: (prompt, schema) => session.prompt(prompt, schema ? { responseConstraint: schema } : {}),
+          // The step's schema: enums built by the package from this question's words and results. The signal is
+          // the step's time limit and the Stop button (askLoop), as generateJsonLocally's timeout is for the map.
+          generate: (prompt, schema, signal) => session.prompt(prompt, {
+            ...(schema ? { responseConstraint: schema } : {}), ...(signal ? { signal } : {}) }),
           close() { try { session.destroy(); } catch { /* fine */ } },
         };
       },
@@ -140,7 +142,8 @@ export async function loadLocalModel(onProgress = () => {}) {
     // WebLLM keeps no conversation: each call is the system prompt and this one prompt.
     async open() {
       return {
-        async generate(prompt, schema) {
+        async generate(prompt, schema, signal) {
+          if (signal) signal.addEventListener("abort", () => { try { mlc.interruptGenerate(); } catch { /* fine */ } }, { once: true });
           const res = await mlc.chat.completions.create({
             messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }],
             temperature: 0.2,
@@ -242,12 +245,15 @@ export async function generateJsonLocally({ system, prompt, schema = null, tempe
 /**
  * Ask the local model. `plan`, `callTool` and `render` are the package's steps in the worker
  * (aquascope.ai_engine.device_ask: step_schema, check_call then the tool, render_answer): the model picks, the
- * package checks and writes. One fresh conversation per step.
+ * package checks and writes. One fresh conversation per step, each prompt ended by the time limit (STEP_MS,
+ * 25 s) or by `signal` (the Stop button).
  * Returns { answer, toolCalls, results, lock, model } and reports each step through onEvent.
  */
-export async function askLocally(question, { plan, callTool, render, onEvent = () => {}, context = "" } = {}) {
+export async function askLocally(question, { plan, callTool, render, onEvent = () => {}, context = "", signal = null,
+                                            stepMs } = {}) {
   const eng = await loadLocalModel(onEvent);
-  const out = await askLoop(question, { open: () => eng.open(), plan, callTool, render, onEvent, context });
+  const out = await askLoop(question, { open: () => eng.open(), plan, callTool, render, onEvent, context, signal,
+    ...(stepMs ? { stepMs } : {}) });
   return { ...out, model: eng.label, sampling: eng.sampling };
 }
 

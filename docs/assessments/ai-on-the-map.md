@@ -508,3 +508,95 @@ the report summary, the five Kingston gauges, the Potomac and Thames comparison)
 values, an integer range, nested objects) and whether Gemini Nano picks sensible keys: the answer rate on the
 device is not known until it is run. The step messages now list the facts with their sentences, about 3,000 to
 4,000 characters for one gauge, so a step may take longer than before.
+
+## Fourth check after #644 and #645
+
+Date: 2026-10-26.
+Browser: the maintainer's Chrome 155 on a Mac, window 865 x 447 CSS px, a new tab, hard-reloaded.
+Model: Gemini Nano through the Prompt API (`LanguageModel.availability()` = "available"). No key read, entered or stored.
+Explorer: the live build at rekin226-aquascope-explorer.static.hf.space, asset version `337cacf` (main after #644 and #645).
+
+How it was run. As in the third check: each request through the page's own entry points (the Ask panel's box and button with the on-device tier, `__aq.mapAsk.run`, `__aq.mapExplain.run`, `__aq.scout.run`, `__aq.review.run`, `__aq.whatIf.read`), with `LanguageModel.create`, `clone` and `prompt` wrapped to log each prompt's `responseConstraint`, the raw reply and its time. Map moves were done from the console. Gauge USGS 01646500 stayed selected all session. The What-if lines ran on GEOGLOWS reach 110888926 (Somali Region, Ethiopia). The review ran on the HEC-RAS Portsmouth and MODFLOW Freyberg samples from the sample chooser. The raw replies are in `ondevice-raw-replies-4.json` (58 requests, 77 prompts).
+
+The design held. Every reply the device gave was ids, keys, variants, tool names or number tokens, and every sentence on the page was the package's. No wrong number and no reversed claim reached the page.
+
+### Schema acceptance
+
+Chrome accepted every schema. No error on `create`, no schema-too-large error, no refusal of a `responseConstraint`.
+
+| Role | Prompts | Largest schema | Largest enum | Errors |
+|---|---|---|---|---|
+| Ask panel | 36 | 2,032 chars | 55 values | 1: `QuotaExceededError` ("the response exceeded output limits") after 176 s |
+| Ask the map | 6 | 1,405 chars | 8 | 0 |
+| Explain | 10 | 367 chars | 10 | 0 |
+| Scout | 9 | 477 chars | 5 | 0 |
+| What if | 8 | 677 chars | 11 | 0 |
+| Review | 8 | 350 chars | 8 | 0 |
+
+Accepted is not the same as enforced. The Ask step schema leaves `arguments` open (no `additionalProperties: false`) and gives `lat`, `lon` and `near` as free numbers. Nano used both: it added keys (`limit__`, `limittypicode`), made up search points ([51.0, -0.3], [51.47, 0.50], ...), and once ran a number until the output limit (the 176 s error). The map roles' schemas are closed, and their replies stayed inside them.
+
+### Escapes
+
+0 in all roles. Checked: every Ask sentence against the tool results (11,247 m3/s GEV 100-year, 9,305 m3/s 50-year, p = 0.953 and 0.96 with "no significant trend"); every Explain and Scout pin against the facts listed under it; every What-if reading against the words; every review pin against the rules' wording.
+
+The third check's blocking items did not recur: no trend claim but the package's; "draws 7.5 l/s" ran as 0.0075 m³/s; the largest area reads "The largest area much below normal in view covers 33% of the mapped land in view (12,000,000 km²)", with the whole-view share as its own sentence; no comparison between areas; no severity or likelihood word in any Scout pin ("31 of 51 ensemble members reach it").
+
+### Ask answer rate
+
+14 questions, gauge USGS 01646500 selected, context on. 10 from the third check, two repeats, two new.
+
+| Result | Count | Questions |
+|---|---|---|
+| Answered, on point | 6 | 100-year flood x2 (GEV, 11,247 m3/s; the second run added the GloFAS cell's 100-year, 87.1 m3/s, labelled modelled), 50-year flood, annual-mean trend, Q95 and median, climate and modelled discharge at 25.05, 121.55 |
+| Answered, off the question | 5 | summary (record, mean, both trends; no flood frequency), "have the annual floods become bigger" (ten return levels, not the annual-maxima trend), two-sentence report summary (ten facts), GEV or LP3 100-year (the 2-year values picked), Potomac vs Thames (the Potomac only; the search found the Kingston gauge but the model never analysed it) |
+| Refused by the second-line lock | 2 | summary (right picks, refused for the package's own `say.trend` sentence); list of Thames gauges near Kingston (`search.count` only, refused as "names 1 of 2 gauges"; the catalogue search returned ten US rivers "near Kingston") |
+| No answer | 1 | five gauges nearest Kingston upon Thames: four calls, each with a made-up search point, all refused; the page said "nothing in the question to look up" |
+
+Answer rate 11 of 14 (third check: 3 of 14), 6 of 14 on point. By kind: summary 1 of 2 answered (neither complete), trend 2 of 2 answered (1 with the wrong facts), comparison 1 answered with one side, list 0 of 2. Repeated calls were not run (3 times), and every refusal listed the facts gathered.
+
+### Pick quality
+
+- **Ask:** the first call was right in 13 of 14 questions. Single-fact questions get the right key. Questions that need the right two or three keys go wrong: the model picks neighbouring keys (2-year for 100-year, return levels for a trend) or fills the ten allowed picks.
+- **Ask the map:** places came only from the words; two made-up points were refused and "rivers in Spain running low" went to the rules (4 actions). The picks are thin: "driest in Africa" moved the map but turned on no status layer; "the Danube compared with normal" kept only the normal class (as in the third check); "floods ahead along the Mekong" turned the layer on without moving there; "my MODFLOW model" was tried as a place.
+- **Explain:** 10 of 10 picks valid. In 5 of 10 the model picked the first three or four notes in order, all variant a; Africa skipped the status notes for the forecasts. Sensible, close to the rules' order.
+- **Scout:** 9 of 9 valid and reasonable orders (status and forecasts ahead of past floods). In South America it picked the one finding three times with three variants; it was shown once.
+- **What if:** 8 of 8 lines read right by the model: "twenty" l/s, "7.5" l/s, "one and a half" degC, "a fifth" as a fraction, seasons noted and not applied, "a much wetter future" left with no number. One right reading was refused by the package ("half a cubic metre per second", below).
+- **Review:** all 8 HEC-RAS phrasings reached the review, "are there any numerical instabilities in this run?" included. The model always chose variant a and in 4 of 8 left out the two wet-dry flicker findings, including for "numerical instabilities" and "is the model stable?", where they are the answer. The line says so ("2 findings not pinned"). On the Freyberg sample the review said, by the rules, that it does not read MODFLOW heads.
+
+### Timings
+
+183 Prompt API calls (29 `create`, 77 `clone`, 77 `prompt`). 1 took 20 s or more: the Ask prompt that ran 176 s to `QuotaExceededError`. `create` took 0.31 to 1.14 s 28 times and 13.3 s once (Ask's first base). The other 76 prompts took 0.59 to 5.3 s: Ask 0.59 to 5.3 s, Ask the map 0.85 to 1.7 s, Explain 0.92 to 1.5 s, Scout 0.70 to 2.4 s, What-if 0.80 to 1.4 s, review 1.5 to 2.1 s. A Scout run takes 17 to 27 s on the page, almost all of it the scan; the first What-if line took 120 s, the GR4J calibration.
+
+During the 176 s prompt the Ask panel showed "Thinking… (step 1 of 5)" and "Working…" with no Stop button.
+
+### Usefulness
+
+- **Ask panel:** worth having: with no key it now answers most single-fact questions in about 10 s in the package's words, though summaries, comparisons and lists still need a key.
+- **Ask the map:** marginal: the rules already handle the clear requests, and the model's extra moves are thin.
+- **Explain:** marginal: the picks are valid but mostly the rules' own first three notes.
+- **Scout:** marginal: a sensible order, but the rules' order is as good and the scan, not the model, sets the wait.
+- **What if:** worth having: it reads spelled-out numbers, units and fractions the rules leave unread, in about a second, and the code holds the values.
+- **Review:** not worth it yet: the rules' pins are the same words, and the model drops the findings a stability question is about.
+
+### Remaining defects
+
+Blocking for 1.0 (an escape, or a role that cannot run because the schema is refused): none.
+
+Not blocking:
+
+1. Ask: open step schema. `aquascope/ai_engine/device_ask.py` `step_schema`: `lat`, `lon` and `near` are free numbers and `arguments` takes any key, so Nano made up search points (Kingston failed 4 of 4 calls), added keys, and once ran a number for 176 s to `QuotaExceededError`. Make the points an enum of the known pairs (or leave them out when there are none) and set `additionalProperties: false`.
+2. Ask: no time limit and no Stop on the device path. `explorer/src/local-model.js` (the Prompt API engine's `open().generate`, which passes no signal, unlike `generateJsonLocally`'s 25 s) and `explorer/src/ask.js` `runLocally` (`ask-stop` stays hidden).
+3. Ask: the second-line lock refuses the package's own connective. `device_ask.py` `_trend_check` (via `lock_answer`) reads `CONNECTIVES["say.trend"]` ("a p-value below 0.05 is called significant") as a significance claim and refuses a right answer.
+4. Ask: wrong reason after refused calls. `explorer/src/ask-local-core.js` `askLoop` says "nothing in the question to look up" when the question named a place and the calls were refused; say which call was refused and why.
+5. Ask: weak fact picks. `device_ask.py` `_step_prompt` / `step_schema`: tie keys to the words ("100-year" to `.100` keys, "become bigger" to `.trend.max`), allow fewer picks for "two sentences", and for a comparison do not offer the answer step until each side has a fact. `_known` also offers search phrases such as "List", "USGS-" and "Potomac USGS-".
+6. Ask: the header "Answered on your device ... AquaScope wrote every sentence" sits above a refusal. `explorer/src/ask.js` `deviceAnswerHtml`.
+7. Ask the map: thin picks. `aquascope/map_commands.py` `reply_schema` / `parse_model_reply`: a tool name ("MODFLOW") is offered as a place; `set_time` passes when the words do not ask for a date; "compared with normal" gives `focus_status` ["normal"].
+8. Review: the flicker findings left out for stability questions. `aquascope/mesh_review.py` `review_schema` / `review_variants`: when the words ask about stability or instabilities, require the wet-dry findings.
+9. What if: "half a cubic metre per second" refused ("the words say fraction, not m3/s"). `aquascope/whatif_map.py` `number_tokens` / `_token_value`: "half a" before a unit is 0.5 in that unit, not a share.
+10. What if: after "Not read" the panel keeps the previous line's slider values (+3 °C) on screen. `explorer/src/whatif-map.js` `readLine` (the not-read branch).
+11. Scout: the forecast pin lists "2-year flow: 6.43" twice, and "at or above the 10-year flow of 4,220 m³/s; the 2-year flow is 3,090 m³/s. All 51 ensemble members reach it." can read as the 10-year flow (the count is for the 2-year). `aquascope/map_scout.py` floods-ahead facts and wording.
+12. Catalogue search: "Thames near Kingston" returns ten US gauges "near Kingston" (Etowah GA, Grand WI, Silver Creek KY, Sevier UT, ...). The `find_stations` ranking, not the device.
+
+Also seen, not counted: Explain on a view centred on England said "covers 100% of the mapped land in view (170,000 km²)", with the largest area in Lower Saxony, next to a gauge note "18 gauges in view are much above normal". The figures match their facts; they come from different sources and dates (September modelled status, 23 October gauges), and the page does not say so side by side.
+
+Not blocking items: #646. Fixed here: items 1 to 6 of the Ask list.
