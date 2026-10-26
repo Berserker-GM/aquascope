@@ -1247,7 +1247,8 @@ json.dumps(_out, default=str)
 // whatif_map. Type "whatif" (the main worker: GR4J needs scipy and pandas): op "run" calibrates the basin's model
 // and carries the scenario downstream; op "llm" reads the reader's line with their own key. Type "whatif_words"
 // (a light worker can): op "parse" is the keyless rules, "prompt" the system prompt and schema for the on-device
-// model, "read" both in one call, "reply" checks a model's reply against the reader's words (the claim lock).
+// model, "read" both in one call, "reply" reads a model's parse against the reader's words (the code takes each
+// number from the words and converts its unit, #590).
 // Op "basin" (the main worker: the routing tables need pandas) says whether the reach's basin is within the size
 // a run takes, before any calibration.
 async function whatIf({ id, type, op, args, text, reply, context, provider, model, api_key, base_url }) {
@@ -1269,12 +1270,13 @@ try:
     elif _a["op"] == "parse":
         _out = _wi.parse_scenario(_a["text"])
     elif _a["op"] == "prompt":
-        _out = _wi.scenario_prompt(_a["context"])
+        _out = _wi.scenario_prompt(_a["context"], _a["text"])
     elif _a["op"] == "read":
-        # The rules' reading and, when they do not read it all, the device's prompt: one call, not two (#590).
+        # The rules' reading and, when they do not read it all, the device's prompt (its number enum is the
+        # line's own number tokens): one call, not two (#590).
         _out = _wi.parse_scenario(_a["text"])
         if not _out["matched"]:
-            _out["prompt"] = _wi.scenario_prompt(_a["context"])
+            _out["prompt"] = _wi.scenario_prompt(_a["context"], _a["text"])
     elif _a["op"] == "basin":
         _x = _a["args"]
         _out = _wi._basin_check(_x.get("river_id"), _x.get("lat"), _x.get("lon"))
