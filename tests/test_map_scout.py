@@ -458,7 +458,7 @@ def test_daily_file_published_and_read_back(offline, tmp_path, monkeypatch):
     # Every finding carries its headline number beside its facts.
     for f in doc["findings"]:
         assert f["value"] == f["facts"][0]["value"] and f["value_label"] == f["facts"][0]["label"]
-    assert next(f for f in doc["findings"] if f["kind"] == "status")["unit"] == "km²"
+    assert next(f for f in doc["findings"] if f["kind"] == "status")["unit"] == "km\u00b2"
 
 
 def test_daily_never_writes_an_empty_file(offline, tmp_path, monkeypatch):
