@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 
 import {
   BEFORE, CLASSES, NEUTRAL, basinRows, beforeSet, classOf, colorOf, lineColorExpr, lineFilterExpr, logLabel, outletLines,
-  paintedIds, pct, rangeWords, reachCard, resultBounds, scenarioWords, sliderValues, heldWords, notReadLine,
+  paintedIds, pct, rangeWords, reachCard, resultBounds, scenarioWords, sigWords, sliderValues, heldWords, notReadLine,
 } from "../src/whatif-core.js";
 import { slotOf } from "../src/map-actions-core.js";
 
@@ -132,4 +132,23 @@ test("a part the rules could not read is named, not dropped", () => {
   const line = notReadLine({ rules: { scenario: { dp_pct: -25, dt_c: 1.5 }, said: "25% less rain, 1.5 °C warmer", unknown: ["drought"] },
     tried: [], hasKey: true });
   assert.equal(line, "The rules read “25% less rain, 1.5 °C warmer” but not “drought”: set on the sliders, not run.");
+});
+
+// ── on the device, round 2 (#590) ──────────────────────────────────────────
+
+test("a small value keeps its figures, as the package writes it", () => {
+  // "the factory takes twenty litres a second": 0.02 m³/s, shown as "0 m³/s taken" before.
+  assert.equal(scenarioWords({ demand_cms: 0.02 }), "0.02 m³/s taken");
+  assert.equal(scenarioWords({ dp_pct: -100 / 3, dt_c: 1.25 }), "33.3% less rain, 1.25 °C warmer");
+  assert.equal(scenarioWords({ dp_pct: 20, demand_cms: 1234.5 }), "20% more rain, 1235 m³/s taken");
+  assert.equal(sigWords(0), "0");
+  assert.equal(sigWords(0.001), "0.001");
+});
+
+test("a season the words name is said not to be applied", () => {
+  const v = sliderValues({ dt_c: 3 });
+  assert.equal(heldWords({ dt_c: 3 }, v, ["summers"]), "“summers” not applied: the change runs over the whole year");
+  assert.equal(heldWords({ dt_c: 3 }, v, []), "");
+  assert.equal(heldWords({ dp_pct: -60 }, sliderValues({ dp_pct: -60 }), ["in July"]),
+    "rain held at the slider's end (−50%); “in July” not applied: the change runs over the whole year");
 });

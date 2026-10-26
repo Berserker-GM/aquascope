@@ -333,33 +333,30 @@ def _three():
     return ms.rank_findings(fs, max_pins=10)
 
 
-def test_apply_wording_keeps_the_models_order_and_refuses_numbers():
+def test_apply_wording_takes_the_models_order_and_variants_and_writes_them():
     fs = _three()
     ids = [f["id"] for f in fs]
-    reply = json.dumps({"order": [ids[2], ids[0], "nonsense"], "notes": [
-        {"id": ids[2], "title": "{place}: a modest rise", "reason": "The forecast puts it at {peak} by {day}."},
-        {"id": ids[0], "title": "{place}: 2,840 cubic metres", "reason": "Big."},
-    ]})
+    reply = json.dumps({"pins": [{"id": ids[2], "variant": "b"}, {"id": ids[0], "variant": "c"}]})
     res = ms.apply_wording(fs, "```json\n" + reply + "\n```", by="key")
     out = res["findings"]
     # The model's order first, then the finding it left out in the rules' order (#590: none is dropped).
-    assert [f["id"] for f in out] == [ids[2], ids[0], ids[1]] and res["ordered"]
-    assert [f["rank"] for f in out] == [1, 2, 3] and out[2]["by"] == "rules"
-    assert out[0]["by"] == "key" and out[0]["reason"] == f"The forecast puts it at {fs[2]['slots']['peak']} by " \
-        f"{fs[2]['slots']['day']}."
-    assert out[1]["by"] == "rules" and out[1]["title"] == fs[0]["title"]      # refused: the template stays
-    assert len(res["refused"]) == 1 and ids[0] in res["refused"][0]
-    # Not JSON: the rules' order and words.
-    res = ms.apply_wording(fs, "I think the Paraná is worst.")
-    assert [f["id"] for f in res["findings"]] == ids and not res["ordered"] and res["refused"]
+    assert [f["id"] for f in out] == [ids[2], ids[0], ids[1]] and res["ordered"] and res["refused"] == []
+    assert [f["rank"] for f in out] == [1, 2, 3] and out[2]["by"] == "rules" and out[2]["title"] == fs[1]["title"]
+    assert out[0]["by"] == "key" and out[0]["variant"] == "b"
+    assert (out[0]["title"], out[0]["reason"]) == ms.variant_text(fs[2], "b")
+    assert out[1]["title"].endswith("severe flow forecast, the 100-year flow")     # the 100-year flow: "severe"
+    # Not JSON, or the old free-text shape: the rules' order and words, refused in one line.
+    for bad in ("I think the Paraná is worst.", {"order": ids, "notes": [{"id": ids[0], "title": "x", "reason": "y"}]}):
+        res = ms.apply_wording(fs, bad)
+        assert [f["id"] for f in res["findings"]] == ids and not res["ordered"] and len(res["refused"]) == 1
+        assert all(f["by"] == "rules" for f in res["findings"])
 
 
 def test_model_wording_uses_the_readers_client_and_the_lock():
     fs = _three()
 
     class Msg:
-        content = json.dumps({"order": [fs[1]["id"]], "notes": [
-            {"id": fs[1]["id"], "title": "{place}: high water ahead", "reason": "Forecast at {peak} on {day}."}]})
+        content = json.dumps({"pins": [{"id": fs[1]["id"], "variant": "a"}]})
 
     class Client:
         class chat:  # noqa: N801 - the OpenAI client's shape
@@ -372,11 +369,14 @@ def test_model_wording_uses_the_readers_client_and_the_lock():
                     return type("R", (), {"choices": [type("C", (), {"message": Msg})]})
 
     res = ms.model_wording(fs, client=Client, model="m", provider="p")
-    assert res["model"] == "m via p" and res["findings"][0]["by"] == "key"
+    assert res["model"] == "m via p" and res["findings"][0]["by"] == "key" and res["findings"][0]["id"] == fs[1]["id"]
     sent = Client.chat.completions.calls[0]["messages"]
-    assert "Never write a number" in sent[0]["content"] and fs[1]["id"] in sent[1]["content"]
+    assert "you never write a word of a pin" in sent[0]["content"] and fs[1]["id"] in sent[0]["content"]
     p = ms.wording_prompt(fs)
-    assert p["schema"]["required"] == ["order", "notes"]
+    item = p["schema"]["properties"]["pins"]["items"]
+    assert p["schema"]["required"] == ["pins"] and item["additionalProperties"] is False
+    assert item["properties"]["id"]["enum"] == [f["id"] for f in fs]
+    assert item["properties"]["variant"]["enum"] == ["a", "b", "c"]
 
 
 # ── one scan, the daily file, the faces ─────────────────────────────────────
@@ -434,7 +434,7 @@ def test_daily_file_published_and_read_back(offline, tmp_path, monkeypatch):
     monkeypatch.setattr(ms, "load_gauges_today", lambda base=None: today)
     monkeypatch.setattr(ms, "load_skill", lambda base=None: [_skill("big", -0.6, 300.0)])
     info = ms.daily(tmp_path, places=False)
-    doc = json.loads((tmp_path / "scout" / "latest.json").read_text())
+    doc = json.loads((tmp_path / "scout" / "latest.json").read_text(encoding="utf-8"))
     assert info["picks"] == len(doc["picks"]) and (tmp_path / "scout" / f"{doc['date']}.json").exists()
     assert doc["inputs"]["status_month"] == "2026-09" and doc["counts"]["status"] == 2
     status = next(f for f in doc["findings"] if f["kind"] == "status" and f.get("side") == "much_above")
@@ -560,17 +560,102 @@ def test_a_slot_value_written_out_is_that_slot():
     assert "against a slot" in ms.check_wording("{place}: -12% of the land", slots, 200)[1]
 
 
-def test_findings_left_out_or_mangled_by_the_model_are_kept():
-    # Europe: four findings, the model wrote two ids as "2026-09-1" for "2026-09:1"; two pins showed, not four.
+def test_a_mangled_id_is_refused_whole_and_none_is_dropped():
+    # Europe, 2026-10-25: the model wrote "2026-09-1" for "2026-09:1". Under the schema an id is an enum; outside
+    # it the reply is refused whole and every finding keeps its rules' place and wording.
     fs = _three()
     ids = [f["id"] for f in fs]
     mangled = ids[1].replace(":", "-")
-    assert mangled != ids[1]
-    reply = {"order": [ids[2], mangled], "notes": [
-        {"id": mangled, "title": "{place}: a big flood", "reason": "It may reach {peak} on {day}."}]}
-    res = ms.apply_wording(fs, reply, by="device")
-    out = res["findings"]
-    assert [f["id"] for f in out] == [ids[2], ids[1], ids[0]]
-    assert out[1]["by"] == "device" and out[1]["title"].endswith(": a big flood")
+    res = ms.apply_wording(fs, {"pins": [{"id": ids[2], "variant": "a"}, {"id": mangled, "variant": "b"}]},
+                           by="device")
+    assert [f["id"] for f in res["findings"]] == ids and all(f["by"] == "rules" for f in res["findings"])
+    assert len(res["refused"]) == 1 and f"'{mangled}' is not one of" in res["refused"][0]
     # max_pins still caps the list.
-    assert len(ms.apply_wording(fs, reply, max_pins=2)["findings"]) == 2
+    ok = {"pins": [{"id": ids[2], "variant": "a"}]}
+    assert len(ms.apply_wording(fs, ok, max_pins=2)["findings"]) == 2
+
+
+# ── round 3 (#590): the model picks, the code writes; severity from the facts ───────────────────────────────
+
+
+def test_every_variant_keeps_its_findings_claim_and_holds_no_number_of_its_own():
+    fs = [*_three(), *ms.models_disagree_findings([_skill("big", -0.6, 300.0, lat=45, lon=0)]),
+          *ms.floods_past_findings([[200, 300, 12, 0], [210, 310, 0, 3000]], "2026-01")]
+    for template, variants in ms.VARIANTS.items():
+        assert set(variants) == {"a", "b", "c"} and variants["a"] == ms.TEMPLATES[template]
+        for v, words in variants.items():
+            # The words as written, slots unfilled, keep the finding's claim (CLAIMS, the second line of defence).
+            assert ms.claim_kept(words["title"], words["reason"], template) is None, (template, v)
+            # No number outside a slot but the class bounds the rules' own words state ("90th", "2-year").
+            rules = re.findall(r"\d+|%", re.sub(r"\{\w+\}", " ", " ".join(variants["a"].values())))
+            bare = re.sub(r"\{\w+\}", " ", words["title"] + " " + words["reason"])
+            assert set(re.findall(r"\d+|%", bare)) <= set(rules), (template, v)
+    for f in fs:
+        for v in "abc":
+            got = ms.variant_text(f, v)
+            assert got and "{" not in got[0] + got[1], (f["id"], v)
+
+
+@pytest.mark.parametrize("rp, share, title, chance", [
+    # Australia, 2026-10-26: Nano wrote "Severe Flooding Forecast ... with a substantial chance" for a 2-year flow
+    # that 13 of 51 members reach. The code's words: no severity below the 10-year flow, a small chance.
+    (2, 13 / 51, "2-year flow forecast", "a small chance of passing the 2-year flow of 5.75 m³/s (13 of 51 "
+                                          "ensemble members)"),
+    (10, 30 / 51, "high flow forecast, the 10-year flow", "a substantial chance of passing"),
+    (25, 40 / 51, "high flow forecast, the 25-year flow", "a high chance of passing"),
+    (50, 1.0, "severe flow forecast, the 50-year flow", "every ensemble member reaches the 2-year flow"),
+    (100, 20 / 51, "severe flow forecast, the 100-year flow", "a small chance of passing"),
+])
+def test_severity_and_likelihood_words_come_from_the_thresholds(rp, share, title, chance):
+    f = ms.floods_ahead_findings([_reach(1, -12.5, 131.0, rp, 6.86, 5.75, share=share)],
+                                 {"issue_date": "2026-10-25"})[0]
+    t, reason = ms.variant_text(f, "c")
+    assert t.endswith(title) and chance in reason
+    words = " ".join(" ".join(ms.variant_text(f, v)) for v in "abc").lower()
+    assert ("severe" in words) == (rp >= 50) and ("substantial" in words) == ("substantial" in chance)
+    assert [w for _, w in ms.SEVERITY_FROM_RP] == ["severe", "high"]
+    assert [x for x, _ in ms.CHANCE_FROM_SHARE] == [0.75, 0.4, 0.0]
+
+
+def test_a_daily_file_without_the_new_slots_still_takes_every_variant():
+    # The published scout file of the day before a release lacks the new slots: they are worked out from the others.
+    f = _three()[0]
+    old = {**f, "slots": {k: v for k, v in f["slots"].items() if k not in ("headline", "chance")}}
+    assert ms.variant_text(old, "c") == ms.variant_text(f, "c")
+    past = ms.floods_past_findings([[200, 300, 12, 0]], "2026-01")[0]
+    past_old = {**past, "slots": {k: v for k, v in past["slots"].items() if k != "events_lower"}}
+    assert ms.variant_text(past_old, "b") == ms.variant_text(past, "b")
+    # A slot that cannot be worked out keeps the rules' variant, and says so.
+    bare = {**f, "slots": {k: v for k, v in f["slots"].items() if k not in ("headline", "chance", "rp")}}
+    assert ms.variant_text(bare, "c") is None
+    res = ms.apply_wording([bare], {"pins": [{"id": bare["id"], "variant": "c"}]}, by="device")
+    out = res["findings"][0]
+    assert out["variant"] == "a" and out["by"] == "device" and "variant c cannot be written for it" in res["refused"][0]
+
+
+def test_a_place_name_filled_later_keeps_the_picked_variant():
+    f = {**_three()[1], "variant": "b"}
+    f["slots"] = {**f["slots"], "place": "Paraná, Brazil"}
+    ms.retitle(f)
+    assert f["title"] == "Paraná, Brazil: forecast at its 25-year flow"
+
+
+# ── the older wording checks, a second line of defence (#590) ─────────────────────────────────────────────
+
+
+def test_the_older_check_still_catches_a_reversed_finding():
+    # Gemini Nano, Europe, 2026-10-26, on a "models miss this river" finding: every slot right, the claim
+    # reversed onto the gauge. No longer on the model path; kept and tested as a second line of defence.
+    reason = ("{model} shows poor agreement with a gauge's water flow, raising questions about the gauge's "
+              "measurement.")
+    assert "models miss this river" in ms.claim_kept("{gauge_short}: model and gauge disagree", reason,
+                                                     "models_disagree")
+
+
+def test_a_wording_on_the_other_side_of_normal_is_refused():
+    assert ms.claim_kept("{place}: rivers run dry", "Rivers across {area} were low in {month}.",
+                         "status_much_below") is None
+    assert "much below normal" in ms.claim_kept("{place}: rivers high", "Rivers across {area} were high.",
+                                                "status_much_below")
+    assert "leaves out" in ms.claim_kept("{place}", "Something about {area} in {month}.", "status_much_above")
+    assert ms.claim_kept("x", "y", None) is None and ms.claim_kept("x", "y", "unknown") is None
