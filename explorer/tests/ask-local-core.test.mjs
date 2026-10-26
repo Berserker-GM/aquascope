@@ -131,6 +131,15 @@ test("a call the words do not hold is not run, and the next step is told why", a
   assert.equal(res.lock.ok, true);
 });
 
+test("a list of gauges the model picked reads as a list", () => {
+  const lock = { ok: true, picked: ["search.count", "E02102A.where", "3400TH.where"], notes: [],
+    sentences: ["The catalogue search for \u201cKingston\u201d returned 2 gauges.", "KINGSTON VALE (uk_ea E02102A), at 51.43, -0.26.",
+      "HOGSMILL AT EWELL (uk_ea 3400TH), at 51.35, -0.25."] };
+  assert.match(deviceAnswerHtml({ lock }), /<ul class="ask-device-facts"><li>The catalogue search/);
+  assert.match(deviceAnswerMarkdown("Q", { lock }), /\n- KINGSTON VALE \(uk_ea E02102A\), at 51\.43, -0\.26\.\n- HOGSMILL/);
+  assert.doesNotMatch(deviceAnswerHtml({ lock: { ...lock, picked: ["E02102A.where"] } }), /<ul/);
+});
+
 test("nothing to look up, the steps used, and a broken writer all end with one line, never a blank", async () => {
   const none = await askLoop("What is a flood?", {
     open: () => { throw new Error("no prompt"); }, plan: async () => ({ mode: "none", budget: 3 }),

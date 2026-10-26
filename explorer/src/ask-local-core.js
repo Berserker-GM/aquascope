@@ -266,13 +266,18 @@ export function deviceAnswerHtml(result) {
     ? `<p class="ask-device-note">${lock.notes.map(esc).join(" ")}</p>` : "";
   if (lock.ok) {
     const lines = Array.isArray(lock.sentences) && lock.sentences.length ? lock.sentences : [lock.text || result.answer];
-    return `${head}<p>${lines.map(esc).join(" ")}</p>${notes}`;
+    const body = isList(lock) ? `<ul class="ask-device-facts">${lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>`
+      : `<p>${lines.map(esc).join(" ")}</p>`;
+    return `${head}${body}${notes}`;
   }
   const facts = Array.isArray(lock.facts) && lock.facts.length
     ? `<ul class="ask-device-facts">${lock.facts.map((f) => `<li>${esc(f)}</li>`).join("")}</ul>`
     : "<p>No tool ran for this question, so there are no results to show. Ask again, naming the gauge or the place.</p>";
   return `${head}<p class="ask-refused">${esc(leadLine(result))}. What the tools returned:</p>` + facts + notes;
 }
+
+// A list of gauges (two or more search rows picked) reads as a list, one gauge a line.
+const isList = (lock) => Array.isArray(lock.picked) && lock.picked.filter((k) => String(k).endsWith(".where")).length >= 2;
 
 function leadLine(result) {
   const lock = result.lock || {};
@@ -286,7 +291,7 @@ export function deviceAnswerMarkdown(question, result) {
   const notes = Array.isArray(lock.notes) && lock.notes.length ? `\n${lock.notes.join(" ")}\n` : "";
   if (lock.ok) {
     const lines = Array.isArray(lock.sentences) && lock.sentences.length ? lock.sentences : [lock.text || result.answer];
-    return `# ${question}\n\n${lines.join(" ")}\n${notes}`;
+    return `# ${question}\n\n${isList(lock) ? lines.map((l) => `- ${l}`).join("\n") : lines.join(" ")}\n${notes}`;
   }
   const facts = (lock.facts || []).map((f) => `- ${f}`).join("\n") || "No tool ran for this question.";
   return `# ${question}\n\n${leadLine(result)}. What the tools returned:\n\n${facts}\n${notes}`;

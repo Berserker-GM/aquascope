@@ -455,7 +455,7 @@ refused before display by a schema check in the package, the refusal is said in 
 wording is shown. The pattern locks stay as a second line of defence. The keyless rules path is unchanged and
 stays the default when no model is ready.
 
-Two pull requests: **F**, this one, on `fix/ask-pick-not-write-590` (the Ask panel and Ask the map), and **E** on
+Two pull requests: **F**, #644 on `fix/ask-pick-not-write-590` (the Ask panel and Ask the map), and **E** on
 `fix/map-roles-pick-not-write-590` (Explain, Scout, the review and What if).
 
 **The Ask panel** (`aquascope.ai_engine.device_ask`, `explorer/src/ask-local-core.js`, `local-model.js`, `ask.js`).
@@ -481,7 +481,7 @@ request's words, and the layers it may switch an enum of those the words ask for
 fields. With the words, `parse_model_reply` refuses a layer switch the words do not ask for and drops a model's own
 titles and notes; the package titles a pin with its place. The same check runs on a reply from the reader's key.
 
-**The check3 items in F**
+**The check3 items in F (#644)**
 
 | Check3 item | Now |
 |---|---|

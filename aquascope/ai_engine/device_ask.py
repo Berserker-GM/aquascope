@@ -908,6 +908,14 @@ def display(x: Any) -> str:
     return out.rstrip("0").rstrip(".") if "." in out else out
 
 
+def coord(x: Any) -> str:
+    """A latitude or longitude as written: up to four decimals, no trailing zeros (121.55, not "122")."""
+    try:
+        return f"{round(float(x), 4):g}"
+    except (TypeError, ValueError):
+        return str(x)
+
+
 def _p_text(p: float) -> str:
     return "p < 0.001" if p < 0.001 else f"p = {display(p)}"
 
@@ -946,7 +954,7 @@ def _analysis_facts(c: dict[str, Any], prefix: str, gauge: str, *, modelled: boo
         return out
     var = str(c.get("variable") or ("modelled discharge" if modelled else "record"))
     if c.get("start") and c.get("end"):
-        years = f", {c['years']} years" if isinstance(c.get("years"), (int, float)) else ""
+        years = f", {display(c['years'])} years" if isinstance(c.get("years"), (int, float)) else ""
         add("record", f"{{who}}: {var} from {c['start']} to {c['end']}{years}.", True)
     daily = c.get("daily_values") or {}
     words = {"mean": "The mean of the daily values", "median": "The median of the daily values",
@@ -1042,7 +1050,7 @@ def _search_facts(c: dict[str, Any], args: dict[str, Any], key: str) -> list[dic
     rows = [r for r in c.get("stations") or [] if isinstance(r, dict)]
     near = args.get("near") if isinstance(args.get("near"), (list, tuple)) and len(args["near"]) == 2 else None
     if near:
-        how = f"near {display(near[0])}, {display(near[1])}, nearest first"
+        how = f"near {coord(near[0])}, {coord(near[1])}, nearest first"
     elif args.get("query"):
         how = f"for “{args['query']}”"
     else:
@@ -1062,7 +1070,7 @@ def _search_facts(c: dict[str, Any], args: dict[str, Any], key: str) -> list[dic
             river = str(r["river"])
             bits.append(f"on {river}" if river.lower().startswith("the ") else f"on the {river}")
         if isinstance(r.get("latitude"), (int, float)) and isinstance(r.get("longitude"), (int, float)):
-            bits.append(f"at {display(r['latitude'])}, {display(r['longitude'])}")
+            bits.append(f"at {coord(r['latitude'])}, {coord(r['longitude'])}")
         if r.get("period_start") and r.get("period_end"):
             bits.append(f"record {r['period_start']} to {r['period_end']}")
         out.append({"key": f"{sid}.where", "gauge": None, "default": True, "text": ", ".join(bits) + "."})
@@ -1093,7 +1101,7 @@ def fact_table(results: list[dict[str, Any]]) -> dict[str, Any]:
             if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))):
                 continue
             pk = _point_key(lat, lon)
-            where = f"{display(lat)}, {display(lon)}"
+            where = f"{coord(lat)}, {coord(lon)}"
             facts_out += _climate_facts(c, f"climate@{pk}", where)
             if isinstance(c.get("glofas"), dict) and not c["glofas"].get("error"):
                 gk = f"glofas@{pk}"
@@ -1104,7 +1112,7 @@ def fact_table(results: list[dict[str, Any]]) -> dict[str, Any]:
             lat, lon = c.get("latitude", args.get("lat")), c.get("longitude", args.get("lon"))
             if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
                 facts_out += _catchment_facts(c, f"catchment@{_point_key(lat, lon)}",
-                                              f"{display(lat)}, {display(lon)}")
+                                              f"{coord(lat)}, {coord(lon)}")
         elif name == "find_stations" and not c.get("error"):
             searches += 1
             facts_out += _search_facts(c, args, "search" if searches == 1 else f"search{searches}")
@@ -1250,7 +1258,7 @@ def check_call(reply: Any, results: list[dict[str, Any]], words: str = "") -> di
             return {"ok": False, "name": name, "refused": f"{name} needs lat and lon"}
         hit = _same_point(pt, known["points"])
         if not hit:
-            return {"ok": False, "name": name, "refused": f"{display(pt[0])}, {display(pt[1])} is in neither your "
+            return {"ok": False, "name": name, "refused": f"{coord(pt[0])}, {coord(pt[1])} is in neither your "
                                                           "words nor a result"}
         args = {"lat": hit[0], "lon": hit[1]}
     else:   # find_stations
@@ -1464,6 +1472,6 @@ def _search_notes(results: list[dict[str, Any]], words: str) -> list[str]:
         near = (r.get("arguments") or {}).get("near") if isinstance(r, dict) else None
         if r.get("name") == "find_stations" and isinstance(near, (list, tuple)) and len(near) == 2:
             if not all(isinstance(v, (int, float)) and _close(float(v), given) for v in near):
-                notes.append(f"The search was near {display(near[0])}, {display(near[1])}, a point from an earlier "
+                notes.append(f"The search was near {coord(near[0])}, {coord(near[1])}, a point from an earlier "
                              "result, not from your words.")
     return notes
