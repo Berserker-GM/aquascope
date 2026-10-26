@@ -1,21 +1,27 @@
-"""Ask on the reader's device (#590): what a small model is shown of a tool result, and the lock on its answer.
+"""Ask on the reader's device (#590): what a small model may choose, and the sentences the package writes.
 
-The Explorer's on-device Ask runs Chrome's built-in model (or WebLLM) through a short loop: the model picks a
-tool, the worker runs it, the model writes two or three sentences. Two things went wrong on the device:
+The Explorer's on-device Ask runs Chrome's built-in model (or WebLLM) through a short loop. Since round 3 of
+#590 the model picks and the package writes:
 
-* the tool result was cut at its first 3,000 characters, which ended inside the annual maxima, so the trend
-  and the flood frequency never reached the model and it guessed them ("an increasing trend" where the test
-  gives Sen's slope +0.059 m3/s per year, p = 0.82);
-* nothing checked the answer, so numbers from an earlier question, a trend never computed and gauge ids
-  swapped between sites reached the page.
+* **The model decides** which tool to run next, with which gauge id, point or search phrase, and then which
+  facts answer the question and in what order, by key, plus a few connecting sentences by id.
+* **The model cannot** write anything the reader sees: no number, date, id, unit, place or claim. Each step's
+  reply is held to a schema of enums built here (:func:`step_schema`): the tools still open, the gauge ids,
+  sources and search phrases the reader's words or an earlier result hold, the keys of :func:`fact_table`.
+  :func:`check_call` refuses a call outside them and does not run a repeat; :func:`render_answer` writes the
+  answer from the keys, each sentence naming its gauge, label, value, unit and method, and refuses anything else
+  before display, so the page shows the facts with one short line saying why.
 
-:func:`compact_result` is what the model is shown instead: the record, the statistics, the flow-duration
-points, the return levels and the trend with its reading in words, and no series. :func:`lock_answer` holds
-the answer to this question's compact results, the way the map roles' locks hold theirs: every number, date
-and gauge id must be in them (rounding allowed), every trend or significance word must agree with the test.
-When it refuses, :func:`facts` is what the page shows instead, with a short line saying why.
+Why: three checks on the device held the model's free text to the results with patterns, and each round the
+model found a new way past them ("significant trend in annual maxima with a p = 0.0689" where the test says
+not significant) while the patterns refused right answers ("100-year" read as a gauge id).
 
-Internal: only the Explorer's worker imports this module.
+:func:`compact_result` is what a tool result is cut down to: the record, the statistics, the flow-duration
+points, the return levels and the trend, and no series. :func:`lock_answer`, the free-text lock of rounds 1
+and 2, stays as a second line of defence on the package's own sentences.
+
+Internal: only the Explorer's worker imports this module. The reader's own key runs the full Analyst
+(:mod:`aquascope.ai_engine.analyst`), not this loop.
 """
 
 from __future__ import annotations
